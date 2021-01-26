@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+      "module": "ESNext",
+      "moduleResolution": "Node",
+      "noImplicitAny": true,
+      "removeComments": true,
+      "preserveConstEnums": true,
+      "sourceMap": true,
+      "allowJs": true,
+      "skipLibCheck": true,
+      "allowSyntheticDefaultImports": true,
+      "lib": ["ESNext", "WebWorker", "DOM"],
+      "baseUrl": "./",
+      "jsx": "react",
+      "paths": {
+        "ir/*": ["./src/ir/*"],
+        "interpreter/*": ["./src/interpreter/*"],
+        "compiler/*": ["./src/compiler/*"],
+        "text-generation/*": ["./src/text-generation/*"],
+        "components/*": ["./src/components/*"],
+        "consts/*": ["./src/consts/*"],
+        "types/*": ["./src/types/*"],
+        "utils/*": ["./src/utils/*"],
+      }
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules"]
+}
