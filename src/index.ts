@@ -1,3 +1,4 @@
+// GIF-87
 const G = 71;
 const I = 73;
 const F = 70;
@@ -32,12 +33,41 @@ function parseScreenDescriptor(buffer: ArrayBuffer) {
   }
 }
 
-function parseColorMap(buffer: ArrayBuffer) {
+function parseColorMap(buffer: ArrayBuffer, bitsPerPixel: number) {
+  const HEAP8 = new Uint8Array(buffer);
+
   return {
+    entriesCount: 2 ** bitsPerPixel,
+
+    getRed(index: number): number {
+      return HEAP8[colorMapStart + (index * 3 + 0)];
+    },
+
+    getGreen(index: number): number {
+      return HEAP8[colorMapStart + (index * 3 + 1)];
+    },
+
+    getBlue(index: number): number {
+      return HEAP8[colorMapStart + (index * 3 + 2)];
+    },
+
+    getColor(index: number) {
+      return {
+        red: this.getRed(index),
+        green: this.getGreen(index),
+        blue: this.getBlue(index),
+      }
+    },
   }
 }
 
 function parseGif(buffer: ArrayBuffer) {
+  if (buffer.byteLength & 1) {
+    const _buffer = new ArrayBuffer(buffer.byteLength + 1);
+    new Uint8Array(_buffer).set(new Uint8Array(buffer));
+    buffer = _buffer;
+  }
+
   const fromCharCode = String.fromCharCode;
   const HEAP8 = new Uint8Array(buffer);
   const HEAP16 = new Uint16Array(buffer);
@@ -50,7 +80,7 @@ function parseGif(buffer: ArrayBuffer) {
     let colorMap = null;
 
     if (screenDescriptor.M) {
-      colorMap = parseColorMap(buffer);
+      colorMap = parseColorMap(buffer, screenDescriptor.pixel);
     }
 
     return {
@@ -64,15 +94,23 @@ function parseGif(buffer: ArrayBuffer) {
 }
 
 const main = document.getElementById('main');
+
 const fileInput = document.createElement('input');
 fileInput.type = 'file';
+
+const colorMapVisualizer = document.createElement('canvas');
+colorMapVisualizer.width = 16;
+colorMapVisualizer.height = 16;
+colorMapVisualizer.style.width = `${256}px`;
+colorMapVisualizer.style.height = `${256}px`;
+const colorMapVisualizerCtx = colorMapVisualizer.getContext('2d');
+const colorMapImageData = new ImageData(16, 16);
 
 function handleFiles() {
   var reader = new FileReader();
   reader.onload = function(e) {
 
     const arrayBuffer = e.target.result as ArrayBuffer;
-    // const array = new Uint8Array(arrayBuffer);
 
     console.log(arrayBuffer);
 
@@ -82,6 +120,16 @@ function handleFiles() {
     console.log('version', gif.version);
 
     console.log('screenDescriptor', gif.screenDescriptor);
+    console.log('colorMap', gif.colorMap);
+
+    for (let i = 0; i < gif.colorMap.entriesCount; i++) {
+      colorMapImageData.data[i * 4 + 0] = gif.colorMap.getRed(i);
+      colorMapImageData.data[i * 4 + 1] = gif.colorMap.getGreen(i);
+      colorMapImageData.data[i * 4 + 2] = gif.colorMap.getBlue(i);
+      colorMapImageData.data[i * 4 + 3] = 255;
+    }
+
+    colorMapVisualizerCtx.putImageData(colorMapImageData, 0, 0);
   }
   reader.readAsArrayBuffer(this.files[0]);
 }
@@ -89,3 +137,4 @@ function handleFiles() {
 fileInput.addEventListener("change", handleFiles, false);
 
 main.append(fileInput);
+main.append(colorMapVisualizer);
