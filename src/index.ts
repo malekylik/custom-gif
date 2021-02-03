@@ -3,6 +3,10 @@ const G = 71;
 const I = 73;
 const F = 70;
 
+// if (i - this.position > 146480 && i - this.position < 146500) {
+//   console.log(i - this.position - 3, code);
+// }
+
 const EXTENSION_BLOCK_LABEL = 33;
 
 const APPLICATION_EXTENSION_LABEL = 255;
@@ -12,6 +16,8 @@ const GIF_TERMINATION = 59; // ';'
 
 const COLORS_IN_ENTRY = 3;
 const IMAGE_DESCRIPTOR_LENGTH = 10;
+
+const GIF_MAX_CODE_SIZE_BITS = 12;
 
 const descriptorsStart = 6;
 const colorMapStart = descriptorsStart + 7;
@@ -141,7 +147,7 @@ function parseImageList(buffer: ArrayBuffer, start: number) {
         start++;
 
         const extensionType = HEAP8[start++];
-        console.log('extensionType', extensionType);
+        // console.log('extensionType', extensionType);
 
         start = findEndOfSubData(buffer, start);
         break;
@@ -171,6 +177,112 @@ function parseImageList(buffer: ArrayBuffer, start: number) {
   }
 
   return images;
+}
+
+const GIF_MAX_TABLE_SIZE = 1 << GIF_MAX_CODE_SIZE_BITS;
+
+function lzw_uncompress(buffer: Uint8Array, outBuffer: Uint8Array | Uint8ClampedArray) {
+  let indx = 0;
+  let outIndx = 0;
+  let code = 0;
+  const codeSize = buffer[indx++];
+  const clearCode = 1 << codeSize;
+  const stopCode = clearCode + 1;
+  const codeTable = new Array(GIF_MAX_TABLE_SIZE).fill(null);
+  let codeBitSize = codeSize + 1;
+  let currentMaxTableSize = 1 << codeBitSize;
+  let codeMask = (1 << codeBitSize) - 1;
+  let prev = -1;
+  let restCode = 0;
+  let readedBits = 0;
+  let currentTableIndex = 1 << codeSize;
+  let blockSize = 0;
+
+  for (let i = 0; i < currentTableIndex; i++) {
+    codeTable[i] = { prev: -1, byte: i, length: 1 };
+  }
+
+  currentTableIndex++; // clear code
+  currentTableIndex++; // stop code
+
+  while (indx < buffer.length && buffer[indx] !== 0) {
+    blockSize = indx + buffer[indx] + 1;
+    indx++;
+
+    while (indx < blockSize) {
+      code = restCode;
+      for (; readedBits < codeBitSize && indx + (readedBits >>> 3) < blockSize; readedBits += 8) {
+        code = (buffer[indx + (readedBits >>> 3)] << readedBits) | code;
+      }
+
+      if (readedBits < codeBitSize && !(indx + (readedBits >>> 3) < blockSize)) {
+        indx++;
+        blockSize = indx + buffer[indx] + 1;
+
+        for (; readedBits < codeBitSize && indx + (readedBits >>> 3) < blockSize; readedBits += 8) {
+          code = (buffer[indx + (readedBits >>> 3)] << readedBits) | code;
+        }
+      }
+
+      restCode = code >>> codeBitSize;
+      indx += readedBits >>> 3;
+      readedBits -= codeBitSize;
+
+      code = code & codeMask;
+
+      if (code === clearCode) {
+        for (let end = currentTableIndex, start = (1 << codeSize) + 2; start < end; start++) {
+          codeTable[start] = null;
+        }
+
+        currentTableIndex = (1 << codeSize) + 2;
+
+        codeBitSize = codeSize + 1;
+        codeMask = (1 << codeBitSize) - 1;
+        currentMaxTableSize = 1 << codeBitSize;
+        prev = -1;
+      } else if (code === stopCode) {
+        return outBuffer;
+      } else {
+        let ptr = code === currentTableIndex ? prev : code;
+
+        if (prev !== -1 && currentTableIndex < GIF_MAX_TABLE_SIZE) {
+          while (codeTable[ptr].prev !== -1) {
+            ptr = codeTable[ptr].prev;
+          }
+
+          codeTable[currentTableIndex] = {
+            prev: prev, byte: codeTable[ptr].byte, length: codeTable[prev].length + 1
+          };
+
+          currentTableIndex++;
+
+          if (currentTableIndex === currentMaxTableSize && currentMaxTableSize !== GIF_MAX_TABLE_SIZE) {
+            codeBitSize++;
+            codeMask = (1 << codeBitSize) - 1;
+            currentMaxTableSize = 1 << codeBitSize;
+          }
+        }
+
+        prev = code;
+
+        ptr = code;
+
+        if (outIndx + codeTable[ptr].length <= outBuffer.length) {
+          while (ptr !== -1) {
+            outBuffer[outIndx + codeTable[ptr].length - 1] = codeTable[ptr].byte;
+            ptr = codeTable[ptr].prev;
+          }
+
+          outIndx += codeTable[code].length;
+        } else {
+          return outBuffer;
+        }
+      }
+    }
+  }
+
+  return outBuffer;
 }
 
 function parseGif(buffer: ArrayBuffer) {
@@ -217,6 +329,15 @@ colorMapVisualizer.style.height = `${256}px`;
 const colorMapVisualizerCtx = colorMapVisualizer.getContext('2d');
 const colorMapImageData = new ImageData(16, 16);
 
+
+const gifVisualizer = document.createElement('canvas');
+gifVisualizer.width = 256;
+gifVisualizer.height = 256;
+gifVisualizer.style.width = `${256}px`;
+gifVisualizer.style.height = `${256}px`;
+const gifVisualizerCtx = gifVisualizer.getContext('2d');
+let gifImageData = new ImageData(16, 16);
+
 function handleFiles() {
   var reader = new FileReader();
   reader.onload = function (e) {
@@ -235,6 +356,18 @@ function handleFiles() {
 
     console.log('images', gif.images);
 
+    gifImageData = new ImageData(gif.images[0].imageWidth, gif.images[0].imageHeight);
+
+    gifVisualizer.width = gif.images[0].imageWidth;
+    gifVisualizer.height = gif.images[0].imageHeight;
+    gifVisualizer.style.width = `${gif.images[0].imageWidth}px`;
+    gifVisualizer.style.height = `${gif.images[0].imageHeight}px`;
+
+    const uncompressed = new Uint8Array(gif.images[0].imageWidth * gif.images[0].imageHeight);
+    lzw_uncompress(gif.images[0].compressedData, uncompressed);
+
+    console.log('uncompressed',);
+
     for (let i = 0; i < gif.colorMap.entriesCount; i++) {
       colorMapImageData.data[i * 4 + 0] = gif.colorMap.getRed(i);
       colorMapImageData.data[i * 4 + 1] = gif.colorMap.getGreen(i);
@@ -242,7 +375,15 @@ function handleFiles() {
       colorMapImageData.data[i * 4 + 3] = 255;
     }
 
+    for (let i = 0; i < gifImageData.data.length; i++) {
+      gifImageData.data[i * 4 + 0] = gif.colorMap.getRed(uncompressed[i]);
+      gifImageData.data[i * 4 + 1] = gif.colorMap.getGreen(uncompressed[i]);
+      gifImageData.data[i * 4 + 2] = gif.colorMap.getBlue(uncompressed[i]);
+      gifImageData.data[i * 4 + 3] = 255;
+    }
+
     colorMapVisualizerCtx.putImageData(colorMapImageData, 0, 0);
+    gifVisualizerCtx.putImageData(gifImageData, 0, 0);
   }
   reader.readAsArrayBuffer(this.files[0]);
 }
@@ -251,3 +392,4 @@ fileInput.addEventListener("change", handleFiles, false);
 
 main.append(fileInput);
 main.append(colorMapVisualizer);
+main.append(gifVisualizer);
