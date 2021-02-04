@@ -1,0 +1,2 @@
+export const GIF_MAX_CODE_SIZE_BITS = 12;
+export const GIF_MAX_TABLE_SIZE = 1 << GIF_MAX_CODE_SIZE_BITS;
