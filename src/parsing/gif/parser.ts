@@ -1,5 +1,5 @@
-import { parseColorMap } from './color_map';
 import { ASCIIByte } from './consts';
+import { parseGlobalColorMap } from './color_map';
 import { parseImageList } from './image_list';
 import { parseScreenDescriptor } from './screen_descriptor';
 import { GIFSpecialSymbol, ColorMapBlock } from './consts';
@@ -17,7 +17,7 @@ export function parseGif(buffer: ArrayBuffer) {
     let colorMap = null;
 
     if (screenDescriptor.M) {
-      colorMap = parseColorMap(buffer, screenDescriptor.pixel);
+      colorMap = parseGlobalColorMap(buffer, screenDescriptor.pixel);
       imagesDescriptorStart += (colorMap.entriesCount * ColorMapBlock.entriesCount);
     }
 
