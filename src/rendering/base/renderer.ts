@@ -29,7 +29,10 @@ export class Rendered {
     canvas.style.height = `${this.gif.screenDescriptor.screenHeight}px`;
 
     if (this.gif.images.length) {
-      this.drawFrame(0);
+      setTimeout(() => {
+        this.updateFrameData();
+        this.drawFrame();
+      });
     }
   }
 
@@ -46,8 +49,9 @@ export class Rendered {
 
         this.loopId = setTimeout(callback, this.gif.images[nextFrame].graphicControl?.delayTime || this.frameRate) as unknown as number;
 
-        this.drawFrame(nextFrame);
         this.currentFrame = nextFrame;
+        this.updateFrameData();
+        this.drawFrame();
       };
 
       this.loopId = setTimeout(callback, this.gif.images[this.currentFrame].graphicControl?.delayTime || this.frameRate) as unknown as number;
@@ -63,10 +67,52 @@ export class Rendered {
   }
 
   update(): void {
-    this.drawFrame(this.currentFrame);
+    this.updateFrameData();
+    this.drawFrame();
   }
 
-  private drawFrame(frame: number): void {
+  private updateFrameData(): void {
+    const frame = this.currentFrame;
+    const image = this.gif.images[frame];
+    const graphicControl = image.graphicControl;
+
+    if (graphicControl?.isTransparent) {
+      this.updateFrameData89();
+    } else {
+      this.updateFrameData87();
+    }
+  }
+
+  private updateFrameData87() {
+    const frame = this.currentFrame;
+    const graphicMemory = this.graphicMemory;
+    const image = this.gif.images[frame];
+    const colorMap = image.M ? image.colorMap : this.gif.colorMap;
+    const imageWidth = this.gif.screenDescriptor.screenWidth;
+    const imageLeft = image.imageLeft;
+    const imageTop = image.imageTop;
+    const localImageHeight = image.imageHeight;
+    const localImageWidth = image.imageWidth;
+    let screenOffset = 0;
+    let offset = 0;
+
+    lzw_uncompress(image.compressedData, this.uncompressedData);
+
+    for (let i = 0; i < localImageHeight; i++) {
+      for (let j = 0; j < localImageWidth; j++) {
+        offset = i * localImageWidth + j;
+        screenOffset = ((i + imageTop) * imageWidth + (j + imageLeft)) * 4;
+
+        graphicMemory.data[screenOffset + 0] = colorMap.getRed(this.uncompressedData[offset]);
+        graphicMemory.data[screenOffset + 1] = colorMap.getGreen(this.uncompressedData[offset]);
+        graphicMemory.data[screenOffset + 2] = colorMap.getBlue(this.uncompressedData[offset]);
+        graphicMemory.data[screenOffset + 3] = 255;
+      }
+    }
+  }
+
+  private updateFrameData89() {
+    const frame = this.currentFrame;
     const graphicMemory = this.graphicMemory;
     const image = this.gif.images[frame];
     const colorMap = image.M ? image.colorMap : this.gif.colorMap;
@@ -84,7 +130,7 @@ export class Rendered {
       for (let j = 0; j < localImageWidth; j++) {
         offset = i * localImageWidth + j;
 
-        if (!(graphicControl?.isTransparent && this.uncompressedData[offset] === graphicControl?.transparentColorIndex)) {
+        if (!(this.uncompressedData[offset] === graphicControl.transparentColorIndex)) {
           const screenOffset = ((i + imageTop) * imageWidth + (j + imageLeft)) * 4;
 
           graphicMemory.data[screenOffset + 0] = colorMap.getRed(this.uncompressedData[offset]);
@@ -94,6 +140,10 @@ export class Rendered {
         }
       }
     }
+  }
+
+  private drawFrame() {
+    const graphicMemory = this.graphicMemory;
 
     this.ctx.putImageData(graphicMemory, 0, 0);
   }
