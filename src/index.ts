@@ -1,3 +1,4 @@
+import { parseGif } from './parsing/gif';
 import { Rendered } from './rendering/base/renderer';
 
 const main = document.getElementById('main');
@@ -18,8 +19,9 @@ function handleFiles() {
   reader.onload = function (e) {
 
     const arrayBuffer = e.target.result as ArrayBuffer;
+    const gif = parseGif(arrayBuffer);
 
-    gifRenderer = new Rendered(arrayBuffer, gifVisualizer);
+    gifRenderer = new Rendered(gif, gifVisualizer);
     gifRenderer.autoplayStart();
   }
   reader.readAsArrayBuffer(this.files[0]);

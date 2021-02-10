@@ -1,27 +1,26 @@
-import { parseGif } from '../../parsing/gif';
+import { GIF } from 'src/parsing/gif/parser';
 import { lzw_uncompress } from '../../parsing/lzw/uncompress';
 import { GrapgicMemory } from './graphic_memory';
+import { Timer } from './timer';
 
 export class Rendered {
-  private gifBuffer: ArrayBuffer;
   private canvas: HTMLCanvasElement;
   private currentFrame: number;
-  private gif;
+  private gif: GIF;
   private ctx: CanvasRenderingContext2D;
   private graphicMemory: GrapgicMemory;
   private uncompressedData: Uint8Array;
-  private loopId: number;
+  private timer: Timer;
   private frameRate: number;
 
-  constructor(gif: ArrayBuffer, canvas: HTMLCanvasElement) {
-    this.gifBuffer = gif;
-    this.gif = parseGif(gif);
+  constructor(gif: GIF, canvas: HTMLCanvasElement) {
+    this.gif = gif;
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.currentFrame = 0;
     this.graphicMemory = new GrapgicMemory(this.gif.screenDescriptor.screenWidth, this.gif.screenDescriptor.screenHeight);
     this.uncompressedData = new Uint8Array(this.gif.screenDescriptor.screenWidth * this.gif.screenDescriptor.screenHeight);
-    this.loopId = 0;
+    this.timer = new Timer();
     this.frameRate = 1 / 25 * 1000;
 
     canvas.width = this.gif.screenDescriptor.screenWidth;
@@ -30,7 +29,7 @@ export class Rendered {
     canvas.style.height = `${this.gif.screenDescriptor.screenHeight}px`;
 
     if (this.gif.images.length) {
-      setTimeout(() => {
+      this.timer.once(() => {
         this.updateFrameData();
         this.drawFrame();
       });
@@ -39,7 +38,19 @@ export class Rendered {
 
   setFrame(frame: number): void {
     if (frame > -1 && frame < this.gif.images.length) {
-      this.currentFrame = frame;
+
+      if (frame !== this.currentFrame) {
+        this.timer.clear();
+
+        this.timer.once(() => {
+          for (let i = 0; i <= frame; i++) {
+            this.updateFrameData(i);
+          }
+
+          this.currentFrame = frame;
+          this.drawFrame();
+        });
+      }
     }
   }
 
@@ -48,14 +59,14 @@ export class Rendered {
       const callback = () => {
         const nextFrame = (this.currentFrame + 1) % this.gif.images.length;
 
-        this.loopId = setTimeout(callback, this.gif.images[nextFrame].graphicControl?.delayTime || this.frameRate) as unknown as number;
+        this.timer.once(callback, this.gif.images[nextFrame].graphicControl?.delayTime || this.frameRate) as unknown as number;
 
         this.currentFrame = nextFrame;
-        this.updateFrameData();
+        this.updateFrameData(13);
         this.drawFrame();
       };
 
-      this.loopId = setTimeout(callback, this.gif.images[this.currentFrame].graphicControl?.delayTime || this.frameRate) as unknown as number;
+      this.timer.once(callback, this.gif.images[this.currentFrame].graphicControl?.delayTime || this.frameRate) as unknown as number;
 
       return true;
     } else {
@@ -64,7 +75,7 @@ export class Rendered {
   }
 
   autoplayEnd(): void {
-    clearTimeout(this.loopId);
+    this.timer.clear();
   }
 
   update(): void {
@@ -72,20 +83,18 @@ export class Rendered {
     this.drawFrame();
   }
 
-  private updateFrameData(): void {
-    const frame = this.currentFrame;
+  private updateFrameData(frame = this.currentFrame): void {
     const image = this.gif.images[frame];
     const graphicControl = image.graphicControl;
 
     if (graphicControl?.isTransparent) {
-      this.updateFrameData89();
+      this.updateFrameData89(frame);
     } else {
-      this.updateFrameData87();
+      this.updateFrameData87(frame);
     }
   }
 
-  private updateFrameData87() {
-    const frame = this.currentFrame;
+  private updateFrameData87(frame = this.currentFrame) {
     const graphicMemory = this.graphicMemory;
     const image = this.gif.images[frame];
     const colorMap = image.M ? image.colorMap : this.gif.colorMap;
@@ -113,8 +122,7 @@ export class Rendered {
     }
   }
 
-  private updateFrameData89() {
-    const frame = this.currentFrame;
+  private updateFrameData89(frame = this.currentFrame) {
     const graphicMemory = this.graphicMemory;
     const image = this.gif.images[frame];
     const colorMap = image.M ? image.colorMap : this.gif.colorMap;

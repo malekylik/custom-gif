@@ -1,6 +1,16 @@
 import { GIFDescriptorBlock } from './consts';
 
-export function parseScreenDescriptor(buffer: ArrayBuffer) {
+export interface ScreenDescriptor {
+  screenWidth: number;
+  screenHeight: number;
+
+  M: number;
+  cr: number;
+  pixel: number;
+  background: number;
+}
+
+export function parseScreenDescriptor(buffer: ArrayBuffer): ScreenDescriptor {
   const HEAP8 = new Uint8Array(buffer);
 
   if (HEAP8[GIFDescriptorBlock.start + GIFDescriptorBlock.size - 1] !== 0) {
