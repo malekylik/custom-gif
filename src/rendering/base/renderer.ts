@@ -1,5 +1,6 @@
 import { parseGif } from '../../parsing/gif';
 import { lzw_uncompress } from '../../parsing/lzw/uncompress';
+import { GrapgicMemory } from './graphic_memory';
 
 export class Rendered {
   private gifBuffer: ArrayBuffer;
@@ -7,7 +8,7 @@ export class Rendered {
   private currentFrame: number;
   private gif;
   private ctx: CanvasRenderingContext2D;
-  private graphicMemory: ImageData;
+  private graphicMemory: GrapgicMemory;
   private uncompressedData: Uint8Array;
   private loopId: number;
   private frameRate: number;
@@ -18,7 +19,7 @@ export class Rendered {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.currentFrame = 0;
-    this.graphicMemory = new ImageData(this.gif.screenDescriptor.screenWidth, this.gif.screenDescriptor.screenHeight);
+    this.graphicMemory = new GrapgicMemory(this.gif.screenDescriptor.screenWidth, this.gif.screenDescriptor.screenHeight);
     this.uncompressedData = new Uint8Array(this.gif.screenDescriptor.screenWidth * this.gif.screenDescriptor.screenHeight);
     this.loopId = 0;
     this.frameRate = 1 / 25 * 1000;
@@ -88,12 +89,12 @@ export class Rendered {
     const graphicMemory = this.graphicMemory;
     const image = this.gif.images[frame];
     const colorMap = image.M ? image.colorMap : this.gif.colorMap;
-    const imageWidth = this.gif.screenDescriptor.screenWidth;
     const imageLeft = image.imageLeft;
     const imageTop = image.imageTop;
     const localImageHeight = image.imageHeight;
     const localImageWidth = image.imageWidth;
-    let screenOffset = 0;
+    let x = 0;
+    let y = 0;
     let offset = 0;
 
     lzw_uncompress(image.compressedData, this.uncompressedData);
@@ -101,12 +102,13 @@ export class Rendered {
     for (let i = 0; i < localImageHeight; i++) {
       for (let j = 0; j < localImageWidth; j++) {
         offset = i * localImageWidth + j;
-        screenOffset = ((i + imageTop) * imageWidth + (j + imageLeft)) * 4;
+        x = j + imageLeft;
+        y = i + imageTop;
 
-        graphicMemory.data[screenOffset + 0] = colorMap.getRed(this.uncompressedData[offset]);
-        graphicMemory.data[screenOffset + 1] = colorMap.getGreen(this.uncompressedData[offset]);
-        graphicMemory.data[screenOffset + 2] = colorMap.getBlue(this.uncompressedData[offset]);
-        graphicMemory.data[screenOffset + 3] = 255;
+        graphicMemory.setRedInPixel(x, y, colorMap.getRed(this.uncompressedData[offset]));
+        graphicMemory.setGreenInPixel(x, y, colorMap.getGreen(this.uncompressedData[offset]));
+        graphicMemory.setBlueInPixel(x, y, colorMap.getBlue(this.uncompressedData[offset]));
+        graphicMemory.setAlphaInPixel(x, y, 255);
       }
     }
   }
@@ -117,11 +119,12 @@ export class Rendered {
     const image = this.gif.images[frame];
     const colorMap = image.M ? image.colorMap : this.gif.colorMap;
     const graphicControl = image.graphicControl;
-    const imageWidth = this.gif.screenDescriptor.screenWidth;
     const imageLeft = image.imageLeft;
     const imageTop = image.imageTop;
     const localImageHeight = image.imageHeight;
     const localImageWidth = image.imageWidth;
+    let x = 0;
+    let y = 0;
     let offset = 0;
 
     lzw_uncompress(image.compressedData, this.uncompressedData);
@@ -131,12 +134,13 @@ export class Rendered {
         offset = i * localImageWidth + j;
 
         if (!(this.uncompressedData[offset] === graphicControl.transparentColorIndex)) {
-          const screenOffset = ((i + imageTop) * imageWidth + (j + imageLeft)) * 4;
+          x = j + imageLeft;
+          y = i + imageTop;
 
-          graphicMemory.data[screenOffset + 0] = colorMap.getRed(this.uncompressedData[offset]);
-          graphicMemory.data[screenOffset + 1] = colorMap.getGreen(this.uncompressedData[offset]);
-          graphicMemory.data[screenOffset + 2] = colorMap.getBlue(this.uncompressedData[offset]);
-          graphicMemory.data[screenOffset + 3] = 255;
+          graphicMemory.setRedInPixel(x, y, colorMap.getRed(this.uncompressedData[offset]));
+          graphicMemory.setGreenInPixel(x, y, colorMap.getGreen(this.uncompressedData[offset]));
+          graphicMemory.setBlueInPixel(x, y, colorMap.getBlue(this.uncompressedData[offset]));
+          graphicMemory.setAlphaInPixel(x, y, 255);
         }
       }
     }
@@ -145,6 +149,6 @@ export class Rendered {
   private drawFrame() {
     const graphicMemory = this.graphicMemory;
 
-    this.ctx.putImageData(graphicMemory, 0, 0);
+    this.ctx.putImageData(graphicMemory.getRawMemory(), 0, 0);
   }
 }
