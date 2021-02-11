@@ -62,7 +62,7 @@ export class Rendered {
         this.timer.once(callback, this.gif.images[nextFrame].graphicControl?.delayTime || this.frameRate) as unknown as number;
 
         this.currentFrame = nextFrame;
-        this.updateFrameData(13);
+        this.updateFrameData();
         this.drawFrame();
       };
 
