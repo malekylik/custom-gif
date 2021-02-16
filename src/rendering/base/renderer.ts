@@ -1,9 +1,10 @@
 import { GIF } from 'src/parsing/gif/parser';
 import { lzw_uncompress } from '../../parsing/lzw/uncompress';
+import { Renderer } from '../renderer';
 import { GrapgicMemory } from './graphic_memory';
 import { Timer } from './timer';
 
-export class Rendered {
+export class BaseRenderer implements Renderer {
   private canvas: HTMLCanvasElement;
   private currentFrame: number;
   private gif: GIF;

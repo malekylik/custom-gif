@@ -12,6 +12,8 @@ export interface ColorMap {
     green: number;
     blue: number;
   };
+
+  getRawData: () => Uint8Array;
 }
 
 export function parseGlobalColorMap(buffer: ArrayBuffer, bitsPerPixel: number) {
@@ -20,9 +22,10 @@ export function parseGlobalColorMap(buffer: ArrayBuffer, bitsPerPixel: number) {
 
 export function parseColorMap(buffer: ArrayBuffer, offset: number, bitsPerPixel: number) {
   const HEAP8 = new Uint8Array(buffer);
+  const entriesCount = 1 << bitsPerPixel;
 
   return {
-    entriesCount: 1 << bitsPerPixel,
+    entriesCount,
 
     getRed(index: number): number {
       return HEAP8[offset + (index * 3 + 0)];
@@ -43,5 +46,9 @@ export function parseColorMap(buffer: ArrayBuffer, offset: number, bitsPerPixel:
         blue: this.getBlue(index),
       }
     },
+
+    getRawData() {
+      return HEAP8.subarray(offset, offset + entriesCount * 3);
+    }
   }
 }
