@@ -27,7 +27,7 @@ function handleFiles() {
     const gifVisualizer = document.createElement('canvas');
     gifVisualizer.addEventListener('click', (e) => {
       const offset = e.offsetY * gifVisualizer.width + e.offsetX;
-      const image = gif.images[76];
+      const image = gif.images[0];
       const colorMap = image.colorMap ?? gif.colorMap;
       console.log(e.offsetX, e.offsetY, offset);
       console.log(image.graphicControl);

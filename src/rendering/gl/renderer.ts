@@ -2,66 +2,9 @@ import { GIF } from 'src/parsing/gif/parser';
 import { lzw_uncompress } from '../../parsing/lzw/uncompress';
 import { Renderer } from '../renderer';
 
-const vert = `\
-#version 300 es
-
-layout(location = 0) in vec4 vPosition;
-layout(location = 1) in vec2 aTexCoord;
-
-out vec2 texCoord;
-
-void main()
-{
-  gl_Position = vPosition;
-  texCoord = aTexCoord;
-}
-`;
-
-const frag = `\
-#version 300 es
-
-precision mediump float;
-
-uniform sampler2D ColorTable;     //256 x 1 pixels
-uniform sampler2D MyIndexTexture;
-uniform float colorTableSize;
-uniform float transperancyIndex;
-
-in vec2 texCoord;
-
-out vec4 fragColor;
-
-void main()
-{
-  vec4 myindex = texture(MyIndexTexture, texCoord);
-  float maxCodeValue = colorTableSize - 1.0;
-  float normilaziedTransperancyIndex = round(transperancyIndex / maxCodeValue);
-
-  float normilaziedX = (myindex.x * 255.0) / colorTableSize;
-  vec4 texel = texture(ColorTable, vec2(normilaziedX, myindex.y));
-
-  // TODO: check for better the best way with performance
-  float alpha = 1.0 - step(transperancyIndex, round(myindex.x * 255.0)) + step(transperancyIndex + 1.0, round(myindex.x * 255.0));
-
-  fragColor = vec4(texel.rgb, alpha);   //Output the color
-}
-`;
-const fragBase = `\
-#version 300 es
-
-precision mediump float;
-
-uniform sampler2D text;
-
-in vec2 texCoord;
-
-out vec4 fragColor;
-
-void main()
-{
-  fragColor = texture(text, texCoord);
-}
-`;
+import MainVertText from './shaders/main.vert';
+import TextureFragText from './shaders/texture.frag';
+import TextureWithPalleteFragText from './shaders/textureWithPallete.frag';
 
 const VERTEX_ATTRIB_LOCATION = 0;
 const TEX_COORD_ATTRIB_LOCATION = 1;
@@ -192,16 +135,15 @@ export class GLRenderer implements Renderer {
     canvas.style.height = `${screenHeight}px`;
     ctx.viewport(0, 0, screenWidth, screenHeight);
 
-    const vertShader = createGLShader(ctx, ctx.VERTEX_SHADER, vert);
-    const fragShader = createGLShader(ctx, ctx.FRAGMENT_SHADER, frag);
-    const fragBaseShader = createGLShader(ctx, ctx.FRAGMENT_SHADER, fragBase);
+    const vertShader = createGLShader(ctx, ctx.VERTEX_SHADER, MainVertText);
+    const fragShader = createGLShader(ctx, ctx.FRAGMENT_SHADER, TextureWithPalleteFragText);
+    const fragBaseShader = createGLShader(ctx, ctx.FRAGMENT_SHADER, TextureFragText);
 
     const program = createGLProgram(ctx, vertShader, fragShader);
     const programBase = createGLProgram(ctx, vertShader, fragBaseShader);
 
     this.program = program;
     this.programBase = programBase;
-
 
     ctx.deleteShader(vertShader);
     ctx.deleteShader(fragShader);
