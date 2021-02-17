@@ -1,10 +1,13 @@
 import { GIF } from 'src/parsing/gif/parser';
 import { lzw_uncompress } from '../../parsing/lzw/uncompress';
+import { Timer } from '../base/timer';
 import { Renderer } from '../renderer';
+import { GLProgram } from './shader/program';
+import { createFragmentGLShader, createVertexGLShader, deleteShader } from './shader/shader';
 
-import MainVertText from './shaders/main.vert';
-import TextureFragText from './shaders/texture.frag';
-import TextureWithPalleteFragText from './shaders/textureWithPallete.frag';
+import MainVertText from './shader_assets/main.vert';
+import TextureFragText from './shader_assets/texture.frag';
+import TextureWithPalleteFragText from './shader_assets/textureWithPallete.frag';
 
 const VERTEX_ATTRIB_LOCATION = 0;
 const TEX_COORD_ATTRIB_LOCATION = 1;
@@ -57,47 +60,7 @@ const triangleFlipped = Float32Array.from([
   0.0, 0.0, // texCoord v2
 ]);
 
-function createGLShader(gl: WebGLRenderingContext | WebGL2RenderingContext, type: number, shaderSrc: string): WebGLShader {
-  const shader = gl.createShader(type);
-
-  if (shader === 0) console.warn('Fail to create shader');
-
-  gl.shaderSource(shader, shaderSrc);
-  gl.compileShader(shader);
-
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const message = gl.getShaderInfoLog(shader);
-
-    console.warn(`Fail to compile shader: ${message}`);
-
-    gl.deleteShader(shader);
-
-    return null;
-  }
-
-  return shader;
-}
-
-export function createGLProgram(gl: WebGLRenderingContext | WebGL2RenderingContext, vertShader: WebGLShader, fragShader: WebGLShader): WebGLProgram {
-  const program = gl.createProgram();
-
-  gl.attachShader(program, vertShader);
-  gl.attachShader(program, fragShader);
-
-  gl.linkProgram(program);
-
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const info = gl.getProgramInfoLog(program);
-
-    console.warn(`Fail to link program: ${info}`);
-
-    gl.deleteProgram(program);
-
-    return null;
-  }
-
-  return program;
-}
+const FPS = 1 / 20 * 1000;
 
 export class GLRenderer implements Renderer {
   private gif: GIF;
@@ -106,60 +69,98 @@ export class GLRenderer implements Renderer {
   private texture: WebGLTexture;
   private colorTableTexture: WebGLTexture;
   private outTexture: WebGLTexture;
-  private transperancyIndexU: WebGLUniformLocation;
-  private colorTableSizeU: WebGLUniformLocation;
-  private program: WebGLProgram;
-  private programBase: WebGLProgram;
+  private gifProgram: GLProgram;
+  private textureProgram: GLProgram;
   private frameBuffer: WebGLFramebuffer;
   private uncompressedData: Uint8Array;
   private offscreenData: Uint8Array;
   private vbo: WebGLBuffer;
+  private timer: Timer;
 
-  constructor(gif: GIF, canvas: HTMLCanvasElement) {
+  constructor (gif: GIF, canvas: HTMLCanvasElement) {
     this.gif = gif;
     this.currentFrame = 0;
-    const ctx = canvas.getContext('webgl2');
-    this.ctx = ctx;
+    this.ctx = canvas.getContext('webgl2');
+    this.timer = new Timer();
     const { screenWidth, screenHeight } = this.gif.screenDescriptor;
     this.uncompressedData = new Uint8Array(screenWidth * screenHeight);
     this.offscreenData = new Uint8Array(screenWidth * screenHeight);
-
-    const image = this.gif.images[0];
-    const colorMap = image.M ? image.colorMap : gif.colorMap;
-
-    ctx.enable(ctx.BLEND);
-    ctx.blendEquation(ctx.FUNC_ADD);
-    ctx.blendFunc(ctx.SRC_ALPHA, ctx.ONE_MINUS_SRC_ALPHA);
 
     canvas.width = screenWidth;
     canvas.height = screenHeight;
     canvas.style.width = `${screenWidth}px`;
     canvas.style.height = `${screenHeight}px`;
+
+    this.initGL();
+
+    if (this.gif.images.length) {
+      this.timer.once(() => {
+        this.drawFrame();
+      });
+    }
+  }
+
+  setFrame(frame: number): void {
+    if (frame > -1 && frame < this.gif.images.length) {
+      this.currentFrame = frame;
+
+      for (let i = 0; i < frame; i++) {
+        this.drawFrame(i);
+      }
+
+      this.drawFrame();
+    }
+  }
+
+  autoplayStart(): boolean {
+    if (this.gif.images.length > 1) {
+      const callback = () => {
+        const nextFrame = (this.currentFrame + 1) % this.gif.images.length;
+
+        this.timer.once(callback, this.gif.images[nextFrame].graphicControl?.delayTime || FPS) as unknown as number;
+
+        this.currentFrame = nextFrame;
+        this.drawFrame();
+      };
+
+      this.timer.once(callback, this.gif.images[this.currentFrame].graphicControl?.delayTime || FPS) as unknown as number;
+
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  autoplayEnd(): void {
+    this.timer.clear();
+  }
+
+  private initGL(): void {
+    const ctx = this.ctx;
+    const image = this.gif.images[0];
+    const colorMap = image.M ? image.colorMap : this.gif.colorMap;
+    const { screenWidth, screenHeight } = this.gif.screenDescriptor;
+
+    ctx.enable(ctx.BLEND);
+    ctx.blendEquation(ctx.FUNC_ADD);
+    ctx.blendFunc(ctx.SRC_ALPHA, ctx.ONE_MINUS_SRC_ALPHA);
+    ctx.pixelStorei(ctx.UNPACK_ALIGNMENT, 1);
+
     ctx.viewport(0, 0, screenWidth, screenHeight);
 
-    const vertShader = createGLShader(ctx, ctx.VERTEX_SHADER, MainVertText);
-    const fragShader = createGLShader(ctx, ctx.FRAGMENT_SHADER, TextureWithPalleteFragText);
-    const fragBaseShader = createGLShader(ctx, ctx.FRAGMENT_SHADER, TextureFragText);
+    const vertShader = createVertexGLShader(ctx, MainVertText);
+    const fragShader = createFragmentGLShader(ctx, TextureWithPalleteFragText);
+    const fragBaseShader = createFragmentGLShader(ctx, TextureFragText);
 
-    const program = createGLProgram(ctx, vertShader, fragShader);
-    const programBase = createGLProgram(ctx, vertShader, fragBaseShader);
+    const gifProgram = new GLProgram(ctx, vertShader, fragShader);
+    const textureProgram = new GLProgram(ctx, vertShader, fragBaseShader);
 
-    this.program = program;
-    this.programBase = programBase;
+    this.gifProgram = gifProgram;
+    this.textureProgram = textureProgram;
 
-    ctx.deleteShader(vertShader);
-    ctx.deleteShader(fragShader);
-    ctx.deleteShader(fragBaseShader);
-
-    const ColorTableUniformLocation = ctx.getUniformLocation(program, 'ColorTable');
-    const MyIndexTextureUniformLocation = ctx.getUniformLocation(program, 'MyIndexTexture');
-
-    const transperancyIndexU = ctx.getUniformLocation(program, 'transperancyIndex');
-    const colorTableSizeU = ctx.getUniformLocation(program, 'colorTableSize');
-    this.transperancyIndexU = transperancyIndexU;
-    this.colorTableSizeU = colorTableSizeU;
-
-    const baseTexture = ctx.getUniformLocation(programBase, 'text');
+    deleteShader(ctx, vertShader);
+    deleteShader(ctx, fragShader);
+    deleteShader(ctx, fragBaseShader);
 
     const frameBuffer = ctx.createFramebuffer();
     ctx.bindFramebuffer(ctx.FRAMEBUFFER, frameBuffer);
@@ -196,8 +197,6 @@ export class GLRenderer implements Renderer {
     ctx.enableVertexAttribArray(VERTEX_ATTRIB_LOCATION);
     ctx.enableVertexAttribArray(TEX_COORD_ATTRIB_LOCATION);
 
-    ctx.pixelStorei(ctx.UNPACK_ALIGNMENT, 1);
-
     const colorTableTexture = ctx.createTexture();
     this.colorTableTexture = colorTableTexture;
     ctx.bindTexture(ctx.TEXTURE_2D, colorTableTexture);
@@ -218,53 +217,21 @@ export class GLRenderer implements Renderer {
 
     ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.R8, image.imageWidth, image.imageHeight, 0, ctx.RED, ctx.UNSIGNED_BYTE, null);
 
-    ctx.useProgram(program);
+    gifProgram.useProgram(ctx);
 
-    ctx.uniform1i(ColorTableUniformLocation, 0);
-    ctx.uniform1i(MyIndexTextureUniformLocation, 1);
+    gifProgram.setUniform1i(ctx, 'ColorTable', 0);
+    gifProgram.setUniform1i(ctx, 'MyIndexTexture', 1);
 
-    ctx.useProgram(programBase);
+    textureProgram.useProgram(ctx);
 
-    ctx.uniform1i(baseTexture, 0);
-
-    this.drawFrame();
-  }
-
-  setFrame(frame: number): void {
-    if (frame > -1 && frame < this.gif.images.length) {
-      this.currentFrame = frame;
-
-      for (let i = 0; i < frame; i++) {
-        this.drawFrame(i);
-      }
-
-      this.drawFrame();
-    }
-  }
-
-  autoplayStart(): boolean {
-    const FPS = 1 / 15 * 1000;
-
-    const callback = () => {
-      setTimeout(callback, FPS);
-
-      this.currentFrame = (this.currentFrame + 1) % this.gif.images.length;
-      this.drawFrame();
-    }
-
-    setTimeout(callback, FPS);
-
-    return false
-  }
-
-  autoplayEnd(): void {
+    textureProgram.setUniform1i(ctx, 'text', 0);
   }
 
   private drawToTexture(frame = this.currentFrame): void {
     const image = this.gif.images[frame];
     const colorMap = image.M ? image.colorMap : this.gif.colorMap;
 
-    this.ctx.useProgram(this.program);
+    this.gifProgram.useProgram(this.ctx);
 
     this.ctx.bindFramebuffer(this.ctx.FRAMEBUFFER, this.frameBuffer);
 
@@ -303,12 +270,12 @@ export class GLRenderer implements Renderer {
     }
 
     if (image.graphicControl?.isTransparent) {
-      this.ctx.uniform1f(this.transperancyIndexU, image.graphicControl.transparentColorIndex);
+      this.gifProgram.setUniform1f(this.ctx, 'transperancyIndex', image.graphicControl.transparentColorIndex);
     } else {
-      this.ctx.uniform1f(this.transperancyIndexU, 512);
+      this.gifProgram.setUniform1f(this.ctx, 'transperancyIndex', 512);
     }
 
-    this.ctx.uniform1f(this.colorTableSizeU, colorMap.entriesCount);
+    this.gifProgram.setUniform1f(this.ctx, 'colorTableSize', colorMap.entriesCount);
 
     this.ctx.bindTexture(this.ctx.TEXTURE_2D, this.colorTableTexture);
     this.ctx.texSubImage2D(this.ctx.TEXTURE_2D, 0, 0, 0, colorMap.entriesCount, 1, this.ctx.RGB, this.ctx.UNSIGNED_BYTE, colorMap.getRawData());
@@ -340,7 +307,7 @@ export class GLRenderer implements Renderer {
     this.ctx.enableVertexAttribArray(VERTEX_ATTRIB_LOCATION);
     this.ctx.enableVertexAttribArray(TEX_COORD_ATTRIB_LOCATION);
 
-    this.ctx.useProgram(this.programBase);
+    this.textureProgram.useProgram(this.ctx);
 
     this.ctx.activeTexture(this.ctx.TEXTURE0);
     this.ctx.bindTexture(this.ctx.TEXTURE_2D, this.outTexture);

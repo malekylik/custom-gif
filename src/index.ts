@@ -13,10 +13,10 @@ fileInput.type = 'file';
 let gifRenderer: Renderer = null;
 
 function handleFiles() {
-  if (gifRenderer) {
-    gifRenderer.autoplayEnd();
-    gifRenderer = null;
-  }
+  // if (gifRenderer) {
+  //   gifRenderer.autoplayEnd();
+  //   gifRenderer = null;
+  // }
 
   const reader = new FileReader();
   reader.onload = function (e) {
