@@ -33,7 +33,7 @@ function handleFiles() {
       console.log(image.graphicControl);
       const buffer = new Uint8Array(image.imageWidth * image.imageHeight);
       lzw_uncompress(image.compressedData, buffer);
-      
+
       const start = Math.max(0, offset - 10)
       console.log(`color`, colorMap.getColor(buffer[offset]));
       console.log(buffer);

@@ -120,8 +120,10 @@ export class GLRenderer implements Renderer {
     this.currentFrame = 0;
     const ctx = canvas.getContext('webgl2');
     this.ctx = ctx;
-
     const { screenWidth, screenHeight } = this.gif.screenDescriptor;
+    this.uncompressedData = new Uint8Array(screenWidth * screenHeight);
+    this.offscreenData = new Uint8Array(screenWidth * screenHeight);
+
     const image = this.gif.images[0];
     const colorMap = image.M ? image.colorMap : gif.colorMap;
 
@@ -151,6 +153,7 @@ export class GLRenderer implements Renderer {
 
     const ColorTableUniformLocation = ctx.getUniformLocation(program, 'ColorTable');
     const MyIndexTextureUniformLocation = ctx.getUniformLocation(program, 'MyIndexTexture');
+
     const transperancyIndexU = ctx.getUniformLocation(program, 'transperancyIndex');
     const colorTableSizeU = ctx.getUniformLocation(program, 'colorTableSize');
     this.transperancyIndexU = transperancyIndexU;
@@ -171,13 +174,13 @@ export class GLRenderer implements Renderer {
     ctx.texParameteri(ctx.TEXTURE_2D, ctx.TEXTURE_MIN_FILTER, ctx.NEAREST);
     ctx.texParameteri(ctx.TEXTURE_2D, ctx.TEXTURE_MAG_FILTER, ctx.NEAREST);
 
-    ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.RGB, image.imageWidth, image.imageHeight, 0, ctx.RGB, ctx.UNSIGNED_BYTE, null);
+    ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.RGB, screenWidth, screenHeight, 0, ctx.RGB, ctx.UNSIGNED_BYTE, null);
 
     ctx.framebufferTexture2D(ctx.FRAMEBUFFER, ctx.COLOR_ATTACHMENT0, ctx.TEXTURE_2D, outTexture, 0);
 
     const rbo = ctx.createRenderbuffer();
     ctx.bindRenderbuffer(ctx.RENDERBUFFER, rbo);
-    ctx.renderbufferStorage(ctx.RENDERBUFFER, ctx.DEPTH24_STENCIL8, image.imageWidth, image.imageHeight);
+    ctx.renderbufferStorage(ctx.RENDERBUFFER, ctx.DEPTH24_STENCIL8, screenWidth, screenHeight);
     ctx.bindRenderbuffer(ctx.RENDERBUFFER, null);
 
     ctx.framebufferRenderbuffer(ctx.FRAMEBUFFER, ctx.DEPTH_STENCIL_ATTACHMENT, ctx.RENDERBUFFER, rbo);
@@ -213,60 +216,18 @@ export class GLRenderer implements Renderer {
     ctx.texParameteri(ctx.TEXTURE_2D, ctx.TEXTURE_MIN_FILTER, ctx.NEAREST);
     ctx.texParameteri(ctx.TEXTURE_2D, ctx.TEXTURE_MAG_FILTER, ctx.NEAREST);
 
-    const outTextureData = new Uint8Array(image.imageWidth * image.imageHeight);
-    this.offscreenData = new Uint8Array(image.imageWidth * image.imageHeight);
-    lzw_uncompress(image.compressedData, outTextureData);
-    this.uncompressedData = outTextureData;
-    ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.R8, image.imageWidth, image.imageHeight, 0, ctx.RED, ctx.UNSIGNED_BYTE, outTextureData);
+    ctx.texImage2D(ctx.TEXTURE_2D, 0, ctx.R8, image.imageWidth, image.imageHeight, 0, ctx.RED, ctx.UNSIGNED_BYTE, null);
 
     ctx.useProgram(program);
 
     ctx.uniform1i(ColorTableUniformLocation, 0);
     ctx.uniform1i(MyIndexTextureUniformLocation, 1);
-    if (image.graphicControl?.isTransparent) {
-      this.ctx.uniform1f(this.transperancyIndexU, image.graphicControl.transparentColorIndex);
-    } else {
-      this.ctx.uniform1f(this.transperancyIndexU, 512);
-    }
-    ctx.uniform1f(colorTableSizeU, colorMap.entriesCount);
-
-    ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer);
-    ctx.bufferData(ctx.ARRAY_BUFFER, triangle, ctx.STATIC_DRAW);
-
-    ctx.vertexAttribPointer(VERTEX_ATTRIB_LOCATION, VERTEX_COMPONENTS_COUNT, ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, 0);
-    ctx.vertexAttribPointer(TEX_COORD_ATTRIB_LOCATION, TEX_CORD_COMPONENTS_COUNT, ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, VERTEX_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT);
-    ctx.enableVertexAttribArray(VERTEX_ATTRIB_LOCATION);
-    ctx.enableVertexAttribArray(TEX_COORD_ATTRIB_LOCATION);
-
-    ctx.activeTexture(ctx.TEXTURE0);
-    ctx.bindTexture(ctx.TEXTURE_2D, colorTableTexture);
-    ctx.activeTexture(ctx.TEXTURE1);
-    ctx.bindTexture(ctx.TEXTURE_2D, texture);
-
-    ctx.clearColor(0, 0, 0, 1);
-    ctx.clear(ctx.COLOR_BUFFER_BIT);
-
-    ctx.drawArrays(ctx.TRIANGLES, 0, triangle.length);
-
-    ctx.bindFramebuffer(ctx.FRAMEBUFFER, null);
-
-    ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer);
-    ctx.bufferData(ctx.ARRAY_BUFFER, triangleFlipped, ctx.STATIC_DRAW);
-
-    ctx.vertexAttribPointer(VERTEX_ATTRIB_LOCATION, VERTEX_COMPONENTS_COUNT, ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, 0);
-    ctx.vertexAttribPointer(TEX_COORD_ATTRIB_LOCATION, TEX_CORD_COMPONENTS_COUNT, ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, VERTEX_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT);
-    ctx.enableVertexAttribArray(VERTEX_ATTRIB_LOCATION);
-    ctx.enableVertexAttribArray(TEX_COORD_ATTRIB_LOCATION);
 
     ctx.useProgram(programBase);
 
     ctx.uniform1i(baseTexture, 0);
 
-    ctx.activeTexture(ctx.TEXTURE0);
-    ctx.bindTexture(ctx.TEXTURE_2D, outTexture);
-
-    ctx.clear(ctx.COLOR_BUFFER_BIT);
-    ctx.drawArrays(ctx.TRIANGLES, 0, triangle.length);
+    this.drawFrame();
   }
 
   setFrame(frame: number): void {
@@ -299,7 +260,7 @@ export class GLRenderer implements Renderer {
   autoplayEnd(): void {
   }
 
-  private drawFrame(frame = this.currentFrame): void {
+  private drawToTexture(frame = this.currentFrame): void {
     const image = this.gif.images[frame];
     const colorMap = image.M ? image.colorMap : this.gif.colorMap;
 
@@ -348,7 +309,6 @@ export class GLRenderer implements Renderer {
     }
 
     this.ctx.uniform1f(this.colorTableSizeU, colorMap.entriesCount);
-    // console.log('new size', colorMap.entriesCount);
 
     this.ctx.bindTexture(this.ctx.TEXTURE_2D, this.colorTableTexture);
     this.ctx.texSubImage2D(this.ctx.TEXTURE_2D, 0, 0, 0, colorMap.entriesCount, 1, this.ctx.RGB, this.ctx.UNSIGNED_BYTE, colorMap.getRawData());
@@ -367,7 +327,9 @@ export class GLRenderer implements Renderer {
     this.ctx.bindTexture(this.ctx.TEXTURE_2D, this.texture);
 
     this.ctx.drawArrays(this.ctx.TRIANGLES, 0, triangle.length);
+  }
 
+  private drawToScreen(): void {
     this.ctx.bindFramebuffer(this.ctx.FRAMEBUFFER, null);
 
     this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, this.vbo);
@@ -383,6 +345,11 @@ export class GLRenderer implements Renderer {
     this.ctx.activeTexture(this.ctx.TEXTURE0);
     this.ctx.bindTexture(this.ctx.TEXTURE_2D, this.outTexture);
 
-    this.ctx.drawArrays(this.ctx.TRIANGLES, 0, triangle.length);
+    this.ctx.drawArrays(this.ctx.TRIANGLES, 0, triangleFlipped.length);
+  }
+
+  private drawFrame(frame = this.currentFrame): void {
+    this.drawToTexture(frame);
+    this.drawToScreen();
   }
 }
