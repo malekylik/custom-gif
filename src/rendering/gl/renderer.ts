@@ -219,12 +219,12 @@ export class GLRenderer implements Renderer {
 
     gifProgram.useProgram(ctx);
 
-    gifProgram.setUniform1i(ctx, 'ColorTable', 0);
-    gifProgram.setUniform1i(ctx, 'MyIndexTexture', 1);
+    gifProgram.setUniform1i(ctx, 'ColorTableTexture', 0);
+    gifProgram.setUniform1i(ctx, 'IndexTexture', 1);
 
     textureProgram.useProgram(ctx);
 
-    textureProgram.setUniform1i(ctx, 'text', 0);
+    textureProgram.setUniform1i(ctx, 'outTexture', 0);
   }
 
   private drawToTexture(frame = this.currentFrame): void {
@@ -270,12 +270,12 @@ export class GLRenderer implements Renderer {
     }
 
     if (image.graphicControl?.isTransparent) {
-      this.gifProgram.setUniform1f(this.ctx, 'transperancyIndex', image.graphicControl.transparentColorIndex);
+      this.gifProgram.setUniform1f(this.ctx, 'TransperancyIndex', image.graphicControl.transparentColorIndex);
     } else {
-      this.gifProgram.setUniform1f(this.ctx, 'transperancyIndex', 512);
+      this.gifProgram.setUniform1f(this.ctx, 'TransperancyIndex', 512);
     }
 
-    this.gifProgram.setUniform1f(this.ctx, 'colorTableSize', colorMap.entriesCount);
+    this.gifProgram.setUniform1f(this.ctx, 'ColorTableSize', colorMap.entriesCount);
 
     this.ctx.bindTexture(this.ctx.TEXTURE_2D, this.colorTableTexture);
     this.ctx.texSubImage2D(this.ctx.TEXTURE_2D, 0, 0, 0, colorMap.entriesCount, 1, this.ctx.RGB, this.ctx.UNSIGNED_BYTE, colorMap.getRawData());
