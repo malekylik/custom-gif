@@ -4,17 +4,14 @@ import { Timer } from '../base/timer';
 import { Renderer } from '../renderer';
 import { GLProgram } from './shader/program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from './shader/shader';
+import { AttribType, GLVBO } from './shader/vbo';
 
 import MainVertText from './shader_assets/main.vert';
 import TextureFragText from './shader_assets/texture.frag';
 import TextureWithPalleteFragText from './shader_assets/textureWithPallete.frag';
 
-const VERTEX_ATTRIB_LOCATION = 0;
-const TEX_COORD_ATTRIB_LOCATION = 1;
-
 const VERTEX_COMPONENTS_COUNT = 3;
 const TEX_CORD_COMPONENTS_COUNT = 2;
-const TOTAL_COMPONENTS_COUNT = VERTEX_COMPONENTS_COUNT + TEX_CORD_COMPONENTS_COUNT;
 
 const triangle = Float32Array.from([
   // first triangle
@@ -60,6 +57,11 @@ const triangleFlipped = Float32Array.from([
   0.0, 0.0, // texCoord v2
 ]);
 
+const VBO_LAYOUT = [
+  { type: AttribType.FLOAT, componentsCount: VERTEX_COMPONENTS_COUNT },
+  { type: AttribType.FLOAT, componentsCount: TEX_CORD_COMPONENTS_COUNT },
+];
+
 const FPS = 1 / 20 * 1000;
 
 export class GLRenderer implements Renderer {
@@ -74,11 +76,11 @@ export class GLRenderer implements Renderer {
   private frameBuffer: WebGLFramebuffer;
   private uncompressedData: Uint8Array;
   private offscreenData: Uint8Array;
-  private vboToTexture: WebGLBuffer;
-  private vboToScreen: WebGLBuffer;
+  private vboToTexture: GLVBO;
+  private vboToScreen: GLVBO;
   private timer: Timer;
 
-  constructor (gif: GIF, canvas: HTMLCanvasElement) {
+  constructor(gif: GIF, canvas: HTMLCanvasElement) {
     this.gif = gif;
     this.currentFrame = 0;
     this.ctx = canvas.getContext('webgl2');
@@ -187,16 +189,10 @@ export class GLRenderer implements Renderer {
 
     ctx.framebufferRenderbuffer(ctx.FRAMEBUFFER, ctx.DEPTH_STENCIL_ATTACHMENT, ctx.RENDERBUFFER, rbo);
 
-    const buffer = ctx.createBuffer();
-    this.vboToTexture = buffer;
+    this.vboToTexture = new GLVBO(ctx, VBO_LAYOUT);
 
-    ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer);
-    ctx.bufferData(ctx.ARRAY_BUFFER, triangle, ctx.STATIC_DRAW);
-
-    ctx.vertexAttribPointer(VERTEX_ATTRIB_LOCATION, VERTEX_COMPONENTS_COUNT, ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, 0);
-    ctx.vertexAttribPointer(TEX_COORD_ATTRIB_LOCATION, TEX_CORD_COMPONENTS_COUNT, ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, VERTEX_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT);
-    ctx.enableVertexAttribArray(VERTEX_ATTRIB_LOCATION);
-    ctx.enableVertexAttribArray(TEX_COORD_ATTRIB_LOCATION);
+    this.vboToTexture.bind(ctx);
+    this.vboToTexture.setData(ctx, triangle);
 
     const colorTableTexture = ctx.createTexture();
     this.colorTableTexture = colorTableTexture;
@@ -227,10 +223,10 @@ export class GLRenderer implements Renderer {
 
     textureProgram.setUniform1i(ctx, 'outTexture', 0);
 
-    this.vboToScreen = ctx.createBuffer();
+    this.vboToScreen = new GLVBO(this.ctx, VBO_LAYOUT);
 
-    ctx.bindBuffer(ctx.ARRAY_BUFFER, this.vboToScreen);
-    ctx.bufferData(ctx.ARRAY_BUFFER, triangleFlipped, ctx.STATIC_DRAW);
+    this.vboToScreen.bind(ctx);
+    this.vboToScreen.setData(ctx, triangleFlipped);
   }
 
   private drawToTexture(frame = this.currentFrame): void {
@@ -255,12 +251,8 @@ export class GLRenderer implements Renderer {
 
     this.ctx.bindFramebuffer(this.ctx.FRAMEBUFFER, this.frameBuffer);
 
-    this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, this.vboToTexture);
-
-    this.ctx.vertexAttribPointer(VERTEX_ATTRIB_LOCATION, VERTEX_COMPONENTS_COUNT, this.ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, 0);
-    this.ctx.vertexAttribPointer(TEX_COORD_ATTRIB_LOCATION, TEX_CORD_COMPONENTS_COUNT, this.ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, VERTEX_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT);
-    this.ctx.enableVertexAttribArray(VERTEX_ATTRIB_LOCATION);
-    this.ctx.enableVertexAttribArray(TEX_COORD_ATTRIB_LOCATION);
+    this.vboToTexture.bind(this.ctx);
+    this.vboToTexture.activateAllAttribPointers(this.ctx);
 
     lzw_uncompress(image.compressedData, this.offscreenData);
     const localImageHeight = image.imageHeight;
@@ -318,14 +310,10 @@ export class GLRenderer implements Renderer {
   private drawToScreen(): void {
     this.ctx.bindFramebuffer(this.ctx.FRAMEBUFFER, null);
 
-    this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, this.vboToScreen);
-
-    this.ctx.vertexAttribPointer(VERTEX_ATTRIB_LOCATION, VERTEX_COMPONENTS_COUNT, this.ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, 0);
-    this.ctx.vertexAttribPointer(TEX_COORD_ATTRIB_LOCATION, TEX_CORD_COMPONENTS_COUNT, this.ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, VERTEX_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT);
-    this.ctx.enableVertexAttribArray(VERTEX_ATTRIB_LOCATION);
-    this.ctx.enableVertexAttribArray(TEX_COORD_ATTRIB_LOCATION);
-
     this.textureProgram.useProgram(this.ctx);
+
+    this.vboToScreen.bind(this.ctx);
+    this.vboToScreen.activateAllAttribPointers(this.ctx);
 
     this.ctx.activeTexture(this.ctx.TEXTURE0);
     this.ctx.bindTexture(this.ctx.TEXTURE_2D, this.outTexture);
