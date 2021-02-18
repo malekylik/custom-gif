@@ -14,7 +14,7 @@ export interface ImageDecriptor {
 
   compressedData: Uint8Array;
 
-  graphicControl: GraphicControl;
+  graphicControl: GraphicControl | null;
 
   colorMap: ColorMap;
 }

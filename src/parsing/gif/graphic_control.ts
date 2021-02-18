@@ -1,7 +1,14 @@
+export enum DisposalMethod {
+  noAction = 0,
+  noDispose = 1,
+  clear = 2,
+  prev = 3,
+}
+
 export interface GraphicControl {
   isTransparent: number;
   isUserInputRequired: number;
-  disposalMethod: number;
+  disposalMethod: DisposalMethod;
   delayTime: number;
   transparentColorIndex: number;
 }

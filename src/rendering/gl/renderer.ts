@@ -74,7 +74,8 @@ export class GLRenderer implements Renderer {
   private frameBuffer: WebGLFramebuffer;
   private uncompressedData: Uint8Array;
   private offscreenData: Uint8Array;
-  private vbo: WebGLBuffer;
+  private vboToTexture: WebGLBuffer;
+  private vboToScreen: WebGLBuffer;
   private timer: Timer;
 
   constructor (gif: GIF, canvas: HTMLCanvasElement) {
@@ -187,7 +188,7 @@ export class GLRenderer implements Renderer {
     ctx.framebufferRenderbuffer(ctx.FRAMEBUFFER, ctx.DEPTH_STENCIL_ATTACHMENT, ctx.RENDERBUFFER, rbo);
 
     const buffer = ctx.createBuffer();
-    this.vbo = buffer;
+    this.vboToTexture = buffer;
 
     ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer);
     ctx.bufferData(ctx.ARRAY_BUFFER, triangle, ctx.STATIC_DRAW);
@@ -225,18 +226,36 @@ export class GLRenderer implements Renderer {
     textureProgram.useProgram(ctx);
 
     textureProgram.setUniform1i(ctx, 'outTexture', 0);
+
+    this.vboToScreen = ctx.createBuffer();
+
+    ctx.bindBuffer(ctx.ARRAY_BUFFER, this.vboToScreen);
+    ctx.bufferData(ctx.ARRAY_BUFFER, triangleFlipped, ctx.STATIC_DRAW);
   }
 
   private drawToTexture(frame = this.currentFrame): void {
     const image = this.gif.images[frame];
     const colorMap = image.M ? image.colorMap : this.gif.colorMap;
 
+    // console.log('frame = ', this.currentFrame);
+
+    // if (image.graphicControl) {
+    //   if (image.graphicControl.disposalMethod === DisposalMethod.noAction) {
+    //     console.log('dispose no action');
+    //   }
+    //   if (image.graphicControl.disposalMethod === DisposalMethod.noDispose) {
+    //     console.log('dispose no dispose');
+    //   }
+    //   if (image.graphicControl.disposalMethod === DisposalMethod.prev) {
+    //     console.log('dispose prev');
+    //   }
+    // }
+
     this.gifProgram.useProgram(this.ctx);
 
     this.ctx.bindFramebuffer(this.ctx.FRAMEBUFFER, this.frameBuffer);
 
-    this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, this.vbo);
-    this.ctx.bufferData(this.ctx.ARRAY_BUFFER, triangle, this.ctx.STATIC_DRAW);
+    this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, this.vboToTexture);
 
     this.ctx.vertexAttribPointer(VERTEX_ATTRIB_LOCATION, VERTEX_COMPONENTS_COUNT, this.ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, 0);
     this.ctx.vertexAttribPointer(TEX_COORD_ATTRIB_LOCATION, TEX_CORD_COMPONENTS_COUNT, this.ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, VERTEX_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT);
@@ -299,8 +318,7 @@ export class GLRenderer implements Renderer {
   private drawToScreen(): void {
     this.ctx.bindFramebuffer(this.ctx.FRAMEBUFFER, null);
 
-    this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, this.vbo);
-    this.ctx.bufferData(this.ctx.ARRAY_BUFFER, triangleFlipped, this.ctx.STATIC_DRAW);
+    this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, this.vboToScreen);
 
     this.ctx.vertexAttribPointer(VERTEX_ATTRIB_LOCATION, VERTEX_COMPONENTS_COUNT, this.ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, 0);
     this.ctx.vertexAttribPointer(TEX_COORD_ATTRIB_LOCATION, TEX_CORD_COMPONENTS_COUNT, this.ctx.FLOAT, false, TOTAL_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT, VERTEX_COMPONENTS_COUNT * Float32Array.BYTES_PER_ELEMENT);
