@@ -1,4 +1,4 @@
-import { AttribType } from '../gl/shader/vbo';
+import { AttribType } from '../gl/gl_api/vbo';
 
 export const VERTEX_COMPONENTS_COUNT = 3;
 export const TEX_CORD_COMPONENTS_COUNT = 2;
@@ -8,7 +8,7 @@ export const VBO_LAYOUT = [
   { type: AttribType.FLOAT, componentsCount: TEX_CORD_COMPONENTS_COUNT },
 ];
 
-export const triangle = Float32Array.from([
+export const QUAD_WITH_TEXTURE_COORD_DATA = Float32Array.from([
   // first triangle
   -1.0, 1.0, 0.0, // top-left v0
   0.0, 0.0, // texCoord v0

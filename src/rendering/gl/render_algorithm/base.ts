@@ -2,21 +2,22 @@ import { ColorMap } from 'src/parsing/gif/color_map';
 import { ImageDecriptor } from 'src/parsing/gif/image_descriptor';
 import { ScreenDescriptor } from 'src/parsing/gif/screen_descriptor';
 import { lzw_uncompress } from '../../../parsing/lzw/uncompress';
-import { triangle, VBO_LAYOUT } from '../../consts/consts';
-import { GLProgram } from '../shader/program';
-import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../shader/shader';
-import { GLVBO } from '../shader/vbo';
+import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../../consts/consts';
+import { GLProgram } from '../gl_api/program';
+import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
+import { GLVBO } from '../gl_api/vbo';
 import { RenderAlgorithm } from './render_algorithm';
 
 import MainVertText from '../shader_assets/main.vert';
 import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
 import TextureFragText from '../shader_assets/texture.frag';
 import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
+import { GLTexture, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
 
 export class GLBaseRenderAlgorithm implements RenderAlgorithm {
-  private texture: WebGLTexture;
-  private colorTableTexture: WebGLTexture;
-  private outTexture: WebGLTexture;
+  private texture: GLTexture;
+  private colorTableTexture: GLTexture;
+  private outTexture: GLTexture;
   private gifProgram: GLProgram;
   private textureProgram: GLProgram;
   private frameBuffer: WebGLFramebuffer;
@@ -59,17 +60,10 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
 
     this.frameBuffer = frameBuffer;
 
-    const outTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, outTexture);
+    this.outTexture = new GLTexture(gl, screenWidth, screenHeight, null);
+    this.outTexture.setTextureUnit(TextureUnit.TEXTURE0);
 
-    this.outTexture = outTexture;
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, screenWidth, screenHeight, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
-
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outTexture, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.outTexture.getGLTexture(), 0);
 
     const rbo = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, rbo);
@@ -81,34 +75,22 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
     this.vboToTexture = new GLVBO(gl, VBO_LAYOUT);
 
     this.vboToTexture.bind(gl);
-    this.vboToTexture.setData(gl, triangle);
+    this.vboToTexture.setData(gl, QUAD_WITH_TEXTURE_COORD_DATA);
 
-    const colorTableTexture = gl.createTexture();
-    this.colorTableTexture = colorTableTexture;
-    gl.bindTexture(gl.TEXTURE_2D, colorTableTexture);
+    this.colorTableTexture = new GLTexture(gl, colorMap.entriesCount, 1, colorMap.getRawData());
+    this.texture = new GLTexture(gl, firstFrame.imageWidth, firstFrame.imageHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
 
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, colorMap.entriesCount, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, colorMap.getRawData());
-
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    this.texture = texture;
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, firstFrame.imageWidth, firstFrame.imageHeight, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+    this.colorTableTexture.setTextureUnit(TextureUnit.TEXTURE0);
+    this.texture.setTextureUnit(TextureUnit.TEXTURE1);
 
     gifProgram.useProgram(gl);
 
-    gifProgram.setUniform1i(gl, 'ColorTableTexture', 0);
-    gifProgram.setUniform1i(gl, 'IndexTexture', 1);
+    gifProgram.setTextureUniform(gl, 'ColorTableTexture', this.colorTableTexture);
+    gifProgram.setTextureUniform(gl, 'IndexTexture', this.texture);
 
     textureProgram.useProgram(gl);
 
-    textureProgram.setUniform1i(gl, 'outTexture', 0);
+    textureProgram.setTextureUniform(gl, 'outTexture', this.outTexture);
   }
 
   drawToTexture(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, image: ImageDecriptor, globalColorMap: ColorMap): void {
@@ -169,23 +151,23 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
 
     this.gifProgram.setUniform1f(gl, 'ColorTableSize', colorMap.entriesCount);
 
-    gl.bindTexture(gl.TEXTURE_2D, this.colorTableTexture);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, colorMap.entriesCount, 1, gl.RGB, gl.UNSIGNED_BYTE, colorMap.getRawData());
+    this.colorTableTexture.bind(gl);
+    this.colorTableTexture.setData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
 
     // TODO: for debug, check 1a8.gif frame = 76, it has some copurapted pixels
     // const b = new Uint8Array(this.gif.screenDescriptor.screenWidth * this.gif.screenDescriptor.screenHeight * 4);
     // gl.readPixels(0, 0, this.gif.screenDescriptor.screenWidth, this.gif.screenDescriptor.screenHeight, gl.RGBA, gl.UNSIGNED_BYTE, b);
     // console.log('out', b);
 
-    gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, screenDescriptor.screenWidth, screenDescriptor.screenHeight, gl.RED, gl.UNSIGNED_BYTE, this.uncompressedData);
+    this.texture.bind(gl);
+    this.texture.setData(gl, 0, 0, screenDescriptor.screenWidth, screenDescriptor.screenHeight, this.uncompressedData);
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.colorTableTexture);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    this.colorTableTexture.activeTexture(gl);
+    this.colorTableTexture.bind(gl);
+    this.texture.activeTexture(gl);
+    this.texture.bind(gl);
 
-    gl.drawArrays(gl.TRIANGLES, 0, triangle.length);
+    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
   }
 
   drawToScreen(gl: WebGL2RenderingContext): void {
@@ -193,9 +175,9 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
 
     this.textureProgram.useProgram(gl);
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.outTexture);
+    this.outTexture.activeTexture(gl);
+    this.outTexture.bind(gl);
 
-    gl.drawArrays(gl.TRIANGLES, 0, triangle.length);
+    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
   }
 }

@@ -1,3 +1,5 @@
+import { GLTexture } from "./texture";
+
 export function createGLProgram(gl: WebGLRenderingContext | WebGL2RenderingContext, vertShader: WebGLShader, fragShader: WebGLShader): WebGLProgram {
   const program = gl.createProgram();
 
@@ -35,6 +37,10 @@ export class GLProgram {
 
   useProgram(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
     gl.useProgram(this.program);
+  }
+
+  setTextureUniform(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, texture: GLTexture): void {
+    this.setUniform1i(gl, location, texture.getTextureUnit())
   }
 
   setUniform1i(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, value: number): void {
