@@ -13,6 +13,7 @@ import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
 import TextureFragText from '../shader_assets/texture.frag';
 import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
 import { GLTexture, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
+import { GLFramebuffer } from '../gl_api/framebuffer';
 
 export class GLBaseRenderAlgorithm implements RenderAlgorithm {
   private texture: GLTexture;
@@ -20,7 +21,7 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
   private outTexture: GLTexture;
   private gifProgram: GLProgram;
   private textureProgram: GLProgram;
-  private frameBuffer: WebGLFramebuffer;
+  private frameBuffer: GLFramebuffer;
   private uncompressedData: Uint8Array;
   private offscreenData: Uint8Array;
   private vboToTexture: GLVBO;
@@ -55,22 +56,14 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
     deleteShader(gl, fragShader);
     deleteShader(gl, fragBaseShader);
 
-    const frameBuffer = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer);
-
-    this.frameBuffer = frameBuffer;
+    this.frameBuffer = new GLFramebuffer(gl, screenWidth, screenHeight);
 
     this.outTexture = new GLTexture(gl, screenWidth, screenHeight, null);
     this.outTexture.setTextureUnit(TextureUnit.TEXTURE0);
 
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.outTexture.getGLTexture(), 0);
-
-    const rbo = gl.createRenderbuffer();
-    gl.bindRenderbuffer(gl.RENDERBUFFER, rbo);
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, screenWidth, screenHeight);
-    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, rbo);
+    this.frameBuffer.bind(gl);
+    this.frameBuffer.setTexture(gl, this.outTexture);
+    this.frameBuffer.unbind(gl);
 
     this.vboToTexture = new GLVBO(gl, VBO_LAYOUT);
 
@@ -112,7 +105,7 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
 
     this.gifProgram.useProgram(gl);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+    this.frameBuffer.bind(gl);
 
     this.vboToTexture.bind(gl);
     this.vboToTexture.activateAllAttribPointers(gl);
@@ -171,7 +164,7 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
   }
 
   drawToScreen(gl: WebGL2RenderingContext): void {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.frameBuffer.unbind(gl);
 
     this.textureProgram.useProgram(gl);
 
