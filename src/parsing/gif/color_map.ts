@@ -23,6 +23,7 @@ export function parseGlobalColorMap(buffer: ArrayBuffer, bitsPerPixel: number) {
 export function parseColorMap(buffer: ArrayBuffer, offset: number, bitsPerPixel: number) {
   const HEAP8 = new Uint8Array(buffer);
   const entriesCount = 1 << bitsPerPixel;
+  let rawPointer = HEAP8.subarray(offset, offset + entriesCount * 3);
 
   return {
     entriesCount,
@@ -48,7 +49,7 @@ export function parseColorMap(buffer: ArrayBuffer, offset: number, bitsPerPixel:
     },
 
     getRawData() {
-      return HEAP8.subarray(offset, offset + entriesCount * 3);
+      return rawPointer;
     }
   }
 }

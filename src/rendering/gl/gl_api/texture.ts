@@ -74,9 +74,10 @@ const DefaultOptions: TextureConfig = {
 export class GLTexture {
   private config: TextureConfig;
   private texture: WebGLTexture;
-  private textureUnit: TextureUnit; 
+  private textureUnit: TextureUnit;
+  private prevDataPointer: ArrayBufferView;
 
-  constructor (gl: WebGL2RenderingContext, width: number, height: number, data: ArrayBufferView | null, config = DefaultOptions) {
+  constructor(gl: WebGL2RenderingContext, width: number, height: number, data: ArrayBufferView | null, config = DefaultOptions) {
     this.texture = gl.createTexture();
     this.textureUnit = TextureUnit.TEXTURE0;
     const filtering = config?.filtering ?? DefaultFiltering;
@@ -87,7 +88,7 @@ export class GLTexture {
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, convertToGLTextureFiltering(gl, filtering.min));
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, convertToGLTextureFiltering(gl, filtering.mag));
-    
+
     gl.texImage2D(gl.TEXTURE_2D, 0, convertToGLTextureFormat(gl, imageFormat.internalFormat), width, height, 0, convertToGLTextureFormat(gl, imageFormat.format), convertToGLTextureType(gl, imageFormat.type), data);
 
     gl.bindTexture(gl.TEXTURE_2D, null);
@@ -107,8 +108,20 @@ export class GLTexture {
 
   setData(gl: WebGL2RenderingContext, x: number, y: number, width: number, height: number, data: ArrayBufferView | null): void {
     const imageFormat = this.config.imageFormat;
-    
+
     gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, convertToGLTextureFormat(gl, imageFormat.format), convertToGLTextureType(gl, imageFormat.type), data);
+
+    this.prevDataPointer = data;
+  }
+
+  putData(gl: WebGL2RenderingContext, x: number, y: number, width: number, height: number, data: ArrayBufferView | null): void {
+    if (this.prevDataPointer !== data) {
+      const imageFormat = this.config.imageFormat;
+
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, convertToGLTextureFormat(gl, imageFormat.format), convertToGLTextureType(gl, imageFormat.type), data);
+
+      this.prevDataPointer = data;
+    }
   }
 
   getGLTexture(): WebGLTexture {

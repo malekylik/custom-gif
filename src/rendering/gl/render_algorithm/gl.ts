@@ -141,7 +141,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.gifProgram.setUniform1f(gl, 'ColorTableSize', colorMap.entriesCount);
 
     this.colorTableTexture.bind(gl);
-    this.colorTableTexture.setData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
+    this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
 
     this.texture.bind(gl);
     this.texture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
