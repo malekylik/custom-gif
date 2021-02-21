@@ -16,6 +16,7 @@ export enum TextureType {
 export enum TextureUnit {
   TEXTURE0 = 0,
   TEXTURE1,
+  TEXTURE2,
 }
 
 function convertToGLTextureFiltering(gl: WebGLRenderingContext | WebGL2RenderingContext, filering: TextureFiltering): number {

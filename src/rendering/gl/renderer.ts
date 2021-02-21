@@ -1,10 +1,10 @@
 import { GIF } from 'src/parsing/gif/parser';
 import { Timer } from '../base/timer';
 import { Renderer } from '../renderer';
-import { GLBaseRenderAlgorithm } from './render_algorithm/base';
+import { GLRenderAlgorithm } from './render_algorithm/gl';
 import { RenderAlgorithm } from './render_algorithm/render_algorithm';
 
-const FPS = 1 / 20 * 1000;
+const FPS = 1 / 25 * 1000;
 
 export class GLRenderer implements Renderer {
   private gif: GIF;
@@ -18,7 +18,7 @@ export class GLRenderer implements Renderer {
     this.currentFrame = 0;
     this.ctx = canvas.getContext('webgl2');
     this.timer = new Timer();
-    this.algorithm = new GLBaseRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images[0], this.gif.colorMap);
+    this.algorithm = new GLRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images[0], this.gif.colorMap);
     const { screenWidth, screenHeight } = this.gif.screenDescriptor;
 
     canvas.width = screenWidth;

@@ -1,8 +1,6 @@
 import { parseGif } from './parsing/gif';
 import { Renderer } from './rendering/renderer';
 import { GLRenderer } from './rendering/gl/renderer';
-import { BaseRenderer } from './rendering/base/renderer';
-import { renderColorMap } from './rendering/color_map/color_map';
 import { lzw_uncompress } from './parsing/lzw/uncompress';
 
 const main = document.getElementById('main');
@@ -27,7 +25,7 @@ function handleFiles() {
     const gifVisualizer = document.createElement('canvas');
     gifVisualizer.addEventListener('click', (e) => {
       const offset = e.offsetY * gifVisualizer.width + e.offsetX;
-      const image = gif.images[0];
+      const image = gif.images[13];
       const colorMap = image.colorMap ?? gif.colorMap;
       console.log(e.offsetX, e.offsetY, offset);
       console.log(image.graphicControl);
@@ -41,7 +39,6 @@ function handleFiles() {
     });
     main.append(gifVisualizer);
 
-    // gifRenderer = new BaseRenderer(gif, gifVisualizer);
     gifRenderer = new GLRenderer(gif, gifVisualizer);
     // gifRenderer.setFrame(67);
     gifRenderer.autoplayStart();
