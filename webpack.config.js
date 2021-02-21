@@ -41,7 +41,15 @@ const config = {
             '@babel/plugin-transform-runtime'
           ],
         }
-      }
+      },
+      {
+        test: /\.vert$/i,
+        use: 'raw-loader',
+      },
+      {
+        test: /\.frag$/i,
+        use: 'raw-loader',
+      },
     ]
   },
   optimization: {

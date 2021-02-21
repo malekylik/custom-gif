@@ -92,9 +92,7 @@ export function lzw_uncompress(buffer: Uint8Array, outBuffer: Uint8Array | Uint8
 
         ptr = code;
 
-        (currentTableIndex * 8) + 0
-
-        if (outIndx + codeTable32[((ptr * 8) + 4) >> 2] <= outBuffer.length) {
+        if (outIndx + codeTable32[((ptr * 8) + 4) >> 2] < outBuffer.length) {
           while (ptr !== -1) {
             outBuffer[outIndx + codeTable32[((ptr * 8) + 4) >> 2] - 1] = codeTable16[((ptr * 8) + 2) >> 1];
             ptr = codeTable16[((ptr * 8) + 0) >> 1];

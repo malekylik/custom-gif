@@ -1,6 +1,25 @@
+import { ColorMap } from './color_map';
 import { GIFSpecialSymbol } from './consts';
+import { GraphicControl } from './graphic_control';
 
-export function parseImageDescriptor(buffer: ArrayBuffer, imagesDescriptorOffset: number) {
+export interface ImageDecriptor {
+  imageLeft: number;
+  imageTop: number;
+  imageWidth: number;
+  imageHeight: number;
+
+  M: number;
+  I: number;
+  pixel: number;
+
+  compressedData: Uint8Array;
+
+  graphicControl: GraphicControl | null;
+
+  colorMap: ColorMap;
+}
+
+export function parseImageDescriptor(buffer: ArrayBuffer, imagesDescriptorOffset: number): ImageDecriptor {
   const HEAP8 = new Uint8Array(buffer);
 
   if (HEAP8[imagesDescriptorOffset] !== GIFSpecialSymbol.imageSeparator) {
@@ -26,6 +45,10 @@ export function parseImageDescriptor(buffer: ArrayBuffer, imagesDescriptorOffset
     I,
     pixel,
 
-    compressedData: (null as Uint8Array),
+    compressedData: null,
+
+    graphicControl: null,
+
+    colorMap: null,
   }
 }

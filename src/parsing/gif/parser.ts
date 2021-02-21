@@ -1,10 +1,21 @@
-import { parseColorMap } from './color_map';
 import { ASCIIByte } from './consts';
+import { ColorMap, parseGlobalColorMap } from './color_map';
 import { parseImageList } from './image_list';
-import { parseScreenDescriptor } from './screen_descriptor';
+import { parseScreenDescriptor, ScreenDescriptor } from './screen_descriptor';
 import { GIFSpecialSymbol, ColorMapBlock } from './consts';
+import { ImageDecriptor } from './image_descriptor';
 
-export function parseGif(buffer: ArrayBuffer) {
+export interface GIF {
+  signature: string;
+  version: number;
+
+  screenDescriptor: ScreenDescriptor;
+  colorMap: ColorMap;
+
+  images: Array<ImageDecriptor>;
+}
+
+export function parseGif(buffer: ArrayBuffer): GIF {
   const fromCharCode = String.fromCharCode;
   const HEAP8 = new Uint8Array(buffer);
 
@@ -17,7 +28,7 @@ export function parseGif(buffer: ArrayBuffer) {
     let colorMap = null;
 
     if (screenDescriptor.M) {
-      colorMap = parseColorMap(buffer, screenDescriptor.pixel);
+      colorMap = parseGlobalColorMap(buffer, screenDescriptor.pixel);
       imagesDescriptorStart += (colorMap.entriesCount * ColorMapBlock.entriesCount);
     }
 

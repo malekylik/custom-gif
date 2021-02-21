@@ -8,6 +8,7 @@ export enum ASCIIByte {
 
 export enum Extension {
   blockLabel = 33,
+  graphicControl = 249,
   applicationLabel = 255,
 }
 
