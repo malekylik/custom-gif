@@ -13,6 +13,8 @@ export interface GIF {
   colorMap: ColorMap;
 
   images: Array<ImageDecriptor>;
+
+  buffer: Uint8Array,
 }
 
 export function parseGif(buffer: ArrayBuffer): GIF {
@@ -48,6 +50,8 @@ export function parseGif(buffer: ArrayBuffer): GIF {
       colorMap,
 
       images,
+
+      buffer: HEAP8,
     }
   }
 }

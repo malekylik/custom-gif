@@ -50,6 +50,10 @@ const config = {
         test: /\.frag$/i,
         use: 'raw-loader',
       },
+      {
+        test: /\.wasm$/i,
+        use: 'file-loader',
+      },
     ]
   },
   optimization: {

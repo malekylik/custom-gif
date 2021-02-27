@@ -1,7 +1,9 @@
 import { parseGif } from './parsing/gif';
 import { Renderer } from './rendering/renderer';
 import { GLRenderer } from './rendering/gl/renderer';
-import { lzw_uncompress } from './parsing/lzw/uncompress';
+import { lzw_uncompress } from './parsing/lzw/uncompress/uncompress_debug';
+import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js';
+import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
 
 const main = document.getElementById('main');
 
@@ -22,6 +24,27 @@ function handleFiles() {
     const arrayBuffer = e.target.result as ArrayBuffer;
     const gif = parseGif(arrayBuffer);
 
+    console.log(gif);
+
+    // createModule(gif.buffer, gif.screenDescriptor.screenWidth * gif.screenDescriptor.screenHeight)
+    // .then((m) => {
+    //   let currentIndx = 0;
+    //   // let start = 0;
+
+    //   const un = () => {
+    //     // start = performance.now();
+    //     m.lzw_uncompress(gif.images[currentIndx].startPointer + m.gifStartPointer, gif.images[currentIndx].compressedData.length, m.outStartPointer, m.outBuffer.length);
+    //     // console.log('module unc', performance.now() - start);
+
+    //     currentIndx = (currentIndx + 1) % gif.images.length;
+
+    //     setTimeout(un, gif.images[currentIndx].graphicControl?.delayTime);
+    //   }
+
+
+    //   setTimeout(un, gif.images[0].graphicControl?.delayTime);
+    // });
+
     const gifVisualizer = document.createElement('canvas');
     gifVisualizer.addEventListener('click', (e) => {
       const offset = e.offsetY * gifVisualizer.width + e.offsetX;
@@ -39,9 +62,12 @@ function handleFiles() {
     });
     main.append(gifVisualizer);
 
-    gifRenderer = new GLRenderer(gif, gifVisualizer);
-    // gifRenderer.setFrame(67);
-    gifRenderer.autoplayStart();
+    createLZWFuncFromWasm(gif)
+      .then((lzw_uncompress) => {
+        gifRenderer = new GLRenderer(gif, gifVisualizer, { uncompress: lzw_uncompress });
+        // gifRenderer.setFrame(67);
+        gifRenderer.autoplayStart();
+      });
   }
   reader.readAsArrayBuffer(this.files[0]);
 }

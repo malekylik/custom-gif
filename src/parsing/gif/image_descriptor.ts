@@ -17,6 +17,8 @@ export interface ImageDecriptor {
   graphicControl: GraphicControl | null;
 
   colorMap: ColorMap;
+
+  startPointer: number;
 }
 
 export function parseImageDescriptor(buffer: ArrayBuffer, imagesDescriptorOffset: number): ImageDecriptor {
@@ -50,5 +52,7 @@ export function parseImageDescriptor(buffer: ArrayBuffer, imagesDescriptorOffset
     graphicControl: null,
 
     colorMap: null,
+
+    startPointer: 0,
   }
 }

@@ -1,13 +1,20 @@
-import { GIF_MAX_TABLE_SIZE } from './consts';
+import { GIF_MAX_TABLE_SIZE } from '../consts';
 
-export function lzw_uncompress_debug(buffer: Uint8Array, outBuffer: Uint8Array | Uint8ClampedArray) {
+// codeTable
+// prev - 2 Byte
+// byte - 2 byte
+// length - 4 byte
+
+export function lzw_uncompress(buffer: Uint8Array, outBuffer: Uint8Array | Uint8ClampedArray) {
   let indx = 0;
   let outIndx = 0;
   let code = 0;
   const codeSize = buffer[indx++];
   const clearCode = 1 << codeSize;
   const stopCode = clearCode + 1;
-  const codeTable = new Array(GIF_MAX_TABLE_SIZE).fill(null);
+  const codeTable = new ArrayBuffer(GIF_MAX_TABLE_SIZE * 8);
+  const codeTable16 = new Int16Array(codeTable);
+  const codeTable32 = new Uint32Array(codeTable);
   let codeBitSize = codeSize + 1;
   let currentMaxTableSize = 1 << codeBitSize;
   let codeMask = (1 << codeBitSize) - 1;
@@ -18,7 +25,9 @@ export function lzw_uncompress_debug(buffer: Uint8Array, outBuffer: Uint8Array |
   let blockSize = 0;
 
   for (let i = 0; i < currentTableIndex; i++) {
-    codeTable[i] = { prev: -1, byte: i, length: 1 };
+    codeTable16[((i * 8) + 0) >> 1] = -1; // prev
+    codeTable16[((i * 8) + 2) >> 1] = i; // byte
+    codeTable32[((i * 8) + 4) >> 2] = 1; // length
   }
 
   currentTableIndex++; // clear code
@@ -50,10 +59,6 @@ export function lzw_uncompress_debug(buffer: Uint8Array, outBuffer: Uint8Array |
       code = code & codeMask;
 
       if (code === clearCode) {
-        for (let end = currentTableIndex, start = (1 << codeSize) + 2; start < end; start++) {
-          codeTable[start] = null;
-        }
-
         currentTableIndex = (1 << codeSize) + 2;
 
         codeBitSize = codeSize + 1;
@@ -66,17 +71,13 @@ export function lzw_uncompress_debug(buffer: Uint8Array, outBuffer: Uint8Array |
         let ptr = code === currentTableIndex ? prev : code;
 
         if (prev !== -1 && currentTableIndex < GIF_MAX_TABLE_SIZE) {
-          if (ptr > currentTableIndex) {
-            console.warn('Invalid table code');
+          while (codeTable16[((ptr * 8) + 0) >> 1] !== -1) {
+            ptr = codeTable16[((ptr * 8) + 0) >> 1];
           }
 
-          while (codeTable[ptr].prev !== -1) {
-            ptr = codeTable[ptr].prev;
-          }
-
-          codeTable[currentTableIndex] = {
-            prev: prev, byte: codeTable[ptr].byte, length: codeTable[prev].length + 1
-          };
+          codeTable16[((currentTableIndex * 8) + 0) >> 1] = prev; // prev
+          codeTable16[((currentTableIndex * 8) + 2) >> 1] = codeTable16[((ptr * 8) + 2) >> 1]; // byte
+          codeTable32[((currentTableIndex * 8) + 4) >> 2] = codeTable32[((prev * 8) + 4) >> 2] + 1; // length
 
           currentTableIndex++;
 
@@ -91,13 +92,13 @@ export function lzw_uncompress_debug(buffer: Uint8Array, outBuffer: Uint8Array |
 
         ptr = code;
 
-        if (outIndx + codeTable[ptr].length <= outBuffer.length) {
+        if (outIndx + codeTable32[((ptr * 8) + 4) >> 2] < outBuffer.length) {
           while (ptr !== -1) {
-            outBuffer[outIndx + codeTable[ptr].length - 1] = codeTable[ptr].byte;
-            ptr = codeTable[ptr].prev;
+            outBuffer[outIndx + codeTable32[((ptr * 8) + 4) >> 2] - 1] = codeTable16[((ptr * 8) + 2) >> 1];
+            ptr = codeTable16[((ptr * 8) + 0) >> 1];
           }
 
-          outIndx += codeTable[code].length;
+          outIndx += codeTable32[((code * 8) + 4) >> 2];
         } else {
           return;
         }

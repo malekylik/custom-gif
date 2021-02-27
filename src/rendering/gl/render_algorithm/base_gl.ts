@@ -13,29 +13,27 @@ import { FactoryOut, FactoryResult } from 'src/parsing/lzw/factory/uncompress_fa
 import MainVertText from '../shader_assets/main.vert';
 import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
 import TextureFragText from '../shader_assets/texture.frag';
-import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
-import TextureAlpha from '../shader_assets/textureAlpha.frag';
+import TextureWithPalleteFragText from '../shader_assets/textureWithPalleteBase.frag';
 
-export class GLRenderAlgorithm implements RenderAlgorithm {
+export class GLBaseRenderAlgorithm implements RenderAlgorithm {
   private texture: GLTexture;
-  private alphaTexture: GLTexture;
   private colorTableTexture: GLTexture;
   private outTexture: GLTexture;
   private gifProgram: GLProgram;
   private textureProgram: GLProgram;
-  private alphaProgram: GLProgram;
-  private alphaFrameBuffer: GLFramebuffer;
   private frameBuffer: GLFramebuffer;
   private uncompressedData: Uint8Array;
+  private offscreenData: Uint8Array;
   private vboToTexture: GLVBO;
   private lzw_uncompress: FactoryOut;
 
-  constructor(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, firstFrame: ImageDecriptor, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor (gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, firstFrame: ImageDecriptor, globalColorMap: ColorMap, uncompressed: FactoryResult) {
     const colorMap = firstFrame.M ? firstFrame.colorMap : globalColorMap;
     const { screenWidth, screenHeight } = screenDescriptor;
 
-    this.uncompressedData = uncompressed.out;
     this.lzw_uncompress = uncompressed.lzw_uncompress;
+    this.uncompressedData = new Uint8Array(screenWidth * screenHeight);
+    this.offscreenData = uncompressed.out;
 
     gl.enable(gl.BLEND);
     gl.blendEquation(gl.FUNC_ADD);
@@ -44,36 +42,21 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     gl.viewport(0, 0, screenWidth, screenHeight);
 
-    gl.clearColor(0.0, 0.0, 0.0, 1.0)
-
     const vertShader = createVertexGLShader(gl, MainVertText);
     const vertFlippedShader = createVertexGLShader(gl, MainFlippedVertText);
     const fragShader = createFragmentGLShader(gl, TextureWithPalleteFragText);
     const fragBaseShader = createFragmentGLShader(gl, TextureFragText);
-    const fragAlphaShader = createFragmentGLShader(gl, TextureAlpha);
 
     const gifProgram = new GLProgram(gl, vertShader, fragShader);
     const textureProgram = new GLProgram(gl, vertFlippedShader, fragBaseShader);
-    const alphaProgram = new GLProgram(gl, vertShader, fragAlphaShader);
 
     this.gifProgram = gifProgram;
     this.textureProgram = textureProgram;
-    this.alphaProgram = alphaProgram;
 
     deleteShader(gl, vertShader);
     deleteShader(gl, vertFlippedShader);
     deleteShader(gl, fragShader);
     deleteShader(gl, fragBaseShader);
-    deleteShader(gl, fragAlphaShader);
-
-    this.alphaFrameBuffer = new GLFramebuffer(gl, screenWidth, screenHeight);
-
-    this.alphaTexture = new GLTexture(gl, screenWidth, screenHeight, null);
-    this.alphaTexture.setTextureUnit(TextureUnit.TEXTURE2);
-
-    this.alphaFrameBuffer.bind(gl);
-    this.alphaFrameBuffer.setTexture(gl, this.alphaTexture);
-    this.alphaFrameBuffer.unbind(gl);
 
     this.frameBuffer = new GLFramebuffer(gl, screenWidth, screenHeight);
 
@@ -100,26 +83,13 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     gifProgram.setTextureUniform(gl, 'ColorTableTexture', this.colorTableTexture);
     gifProgram.setTextureUniform(gl, 'IndexTexture', this.texture);
-    gifProgram.setTextureUniform(gl, 'alphaTexture', this.alphaTexture);
 
     textureProgram.useProgram(gl);
 
     textureProgram.setTextureUniform(gl, 'outTexture', this.outTexture);
-
-    alphaProgram.useProgram(gl);
-
-    alphaProgram.setTextureUniform(gl, 'IndexTexture', this.texture);
-    alphaProgram.setUniform1f(gl, 'ScreenHeight', screenHeight);
-    alphaProgram.setUniform1fv(gl, 'Rect', 0, 0, firstFrame.imageWidth, firstFrame.imageHeight);
   }
 
   drawToTexture(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, image: ImageDecriptor, globalColorMap: ColorMap): void {
-    this.lzw_uncompress(image);
-
-    this.texture.bind(gl);
-    this.texture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
-
-    this.drawToAlphaTexture(gl, image);
     const colorMap = image.M ? image.colorMap : globalColorMap;
 
     // console.log('frame = ', this.currentFrame);
@@ -140,20 +110,50 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     this.frameBuffer.bind(gl);
 
+    this.lzw_uncompress(image);
+    const localImageHeight = image.imageHeight;
+    const localImageWidth = image.imageWidth;
+    const transparentColorIndex = image.graphicControl?.transparentColorIndex ?? -1;
+    let localOffset = 0;
+
+    // TODO: find a way to get rid of this loop
+    // Its only needed to not polute texture with indecies with transparent color index.
+    // It leads to problem when each next frame transparent color index changes.
+    // In such case we render prev transparent color as an opaque color.
+    for (let i = 0; i < localImageHeight; i++) {
+      for (let j = 0; j < localImageWidth; j++) {
+        localOffset = i * localImageWidth + j;
+
+        if (!(this.offscreenData[localOffset] === transparentColorIndex)) {
+          let x = j + image.imageLeft;
+          let y = i + image.imageTop;
+          let offset = y * screenDescriptor.screenWidth + x;
+
+          image.imageTop * screenDescriptor.screenWidth + (j + image.imageLeft)
+
+          this.uncompressedData[offset] = this.offscreenData[localOffset];
+        }
+      }
+    }
+
+    if (image.graphicControl?.isTransparent) {
+      this.gifProgram.setUniform1f(gl, 'TransperancyIndex', image.graphicControl.transparentColorIndex);
+    } else {
+      this.gifProgram.setUniform1f(gl, 'TransperancyIndex', 512);
+    }
+
     this.gifProgram.setUniform1f(gl, 'ColorTableSize', colorMap.entriesCount);
 
     this.colorTableTexture.bind(gl);
     this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
 
     this.texture.bind(gl);
-    this.texture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
+    this.texture.setData(gl, 0, 0, screenDescriptor.screenWidth, screenDescriptor.screenHeight, this.uncompressedData);
 
     this.colorTableTexture.activeTexture(gl);
     this.colorTableTexture.bind(gl);
     this.texture.activeTexture(gl);
     this.texture.bind(gl);
-    this.alphaTexture.activeTexture(gl);
-    this.alphaTexture.bind(gl);
 
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
   }
@@ -165,24 +165,6 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     this.outTexture.activeTexture(gl);
     this.outTexture.bind(gl);
-
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
-  }
-
-  private drawToAlphaTexture(gl: WebGL2RenderingContext, image: ImageDecriptor): void {
-    this.alphaFrameBuffer.bind(gl);
-    this.alphaProgram.useProgram(gl);
-    
-    if (image.graphicControl?.isTransparent) {
-      this.alphaProgram.setUniform1f(gl, 'TransperancyIndex', image.graphicControl.transparentColorIndex);
-    } else {
-      this.alphaProgram.setUniform1f(gl, 'TransperancyIndex', 512);
-    }
-
-    this.texture.activeTexture(gl);
-    this.texture.bind(gl);
-
-    this.alphaProgram.setUniform1fv(gl, 'Rect', image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight);
 
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
   }
