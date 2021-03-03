@@ -17,7 +17,7 @@ export function parseGraphicControl(buffer: ArrayBuffer, offset: number): Graphi
   const HEAP8 = new Uint8Array(buffer);
 
   const isTransparent = HEAP8[offset] & 0b1;
-  const isUserInputRequired = HEAP8[offset] >>> 1;
+  const isUserInputRequired = (HEAP8[offset] >>> 1) & 0b1;
   const disposalMethod = (HEAP8[offset] >>> 2) & 0b111;
   const delayTime = (HEAP8[offset + 1] | (HEAP8[offset + 2] << 8)) * 10;
   const transparentColorIndex = HEAP8[offset + 3];

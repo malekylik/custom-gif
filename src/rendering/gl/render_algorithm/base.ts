@@ -16,7 +16,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     this.graphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
   }
 
-  drawToTexture(ctx: CanvasRenderingContext2D, screenDescriptor: ScreenDescriptor, image: ImageDecriptor, globalColorMap: ColorMap): void {
+  drawToTexture(ctx: CanvasRenderingContext2D, image: ImageDecriptor, globalColorMap: ColorMap): void {
     const graphicControl = image.graphicControl;
 
     if (graphicControl?.isTransparent) {

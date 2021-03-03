@@ -13,9 +13,9 @@ export interface LZWUncompressModule {
 
 const PAGE_SIZE = 65536;
 
-const LZW_THREAD_COUNT = 24;
+const LZW_THREAD_COUNT = 2;
 
-const additionalHeapSize = GIF_MAX_TABLE_SIZE * 8 * LZW_THREAD_COUNT + (PAGE_SIZE / 2);
+const additionalHeapSize = GIF_MAX_TABLE_SIZE * 12 * LZW_THREAD_COUNT + (PAGE_SIZE / 2);
 
 function createModule(gifBuffer: Uint8Array, maxFrameBufferSize: number) {
   const pageSize = Math.floor((gifBuffer.byteLength + maxFrameBufferSize + additionalHeapSize) / PAGE_SIZE) + 1;

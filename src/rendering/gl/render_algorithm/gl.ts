@@ -113,7 +113,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     alphaProgram.setUniform1fv(gl, 'Rect', 0, 0, firstFrame.imageWidth, firstFrame.imageHeight);
   }
 
-  drawToTexture(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, image: ImageDecriptor, globalColorMap: ColorMap): void {
+  drawToTexture(gl: WebGL2RenderingContext, image: ImageDecriptor, globalColorMap: ColorMap): void {
     this.lzw_uncompress(image);
 
     this.texture.bind(gl);

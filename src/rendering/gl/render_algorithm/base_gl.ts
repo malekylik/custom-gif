@@ -25,11 +25,13 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
   private uncompressedData: Uint8Array;
   private offscreenData: Uint8Array;
   private vboToTexture: GLVBO;
+  private screenDescriptor: ScreenDescriptor;
   private lzw_uncompress: FactoryOut;
 
   constructor (gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, firstFrame: ImageDecriptor, globalColorMap: ColorMap, uncompressed: FactoryResult) {
     const colorMap = firstFrame.M ? firstFrame.colorMap : globalColorMap;
     const { screenWidth, screenHeight } = screenDescriptor;
+    this.screenDescriptor = screenDescriptor;
 
     this.lzw_uncompress = uncompressed.lzw_uncompress;
     this.uncompressedData = new Uint8Array(screenWidth * screenHeight);
@@ -89,7 +91,7 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
     textureProgram.setTextureUniform(gl, 'outTexture', this.outTexture);
   }
 
-  drawToTexture(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, image: ImageDecriptor, globalColorMap: ColorMap): void {
+  drawToTexture(gl: WebGL2RenderingContext, image: ImageDecriptor, globalColorMap: ColorMap): void {
     const colorMap = image.M ? image.colorMap : globalColorMap;
 
     // console.log('frame = ', this.currentFrame);
@@ -127,9 +129,9 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
         if (!(this.offscreenData[localOffset] === transparentColorIndex)) {
           let x = j + image.imageLeft;
           let y = i + image.imageTop;
-          let offset = y * screenDescriptor.screenWidth + x;
+          let offset = y * this.screenDescriptor.screenWidth + x;
 
-          image.imageTop * screenDescriptor.screenWidth + (j + image.imageLeft)
+          image.imageTop * this.screenDescriptor.screenWidth + (j + image.imageLeft)
 
           this.uncompressedData[offset] = this.offscreenData[localOffset];
         }
@@ -148,7 +150,7 @@ export class GLBaseRenderAlgorithm implements RenderAlgorithm {
     this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
 
     this.texture.bind(gl);
-    this.texture.setData(gl, 0, 0, screenDescriptor.screenWidth, screenDescriptor.screenHeight, this.uncompressedData);
+    this.texture.setData(gl, 0, 0, this.screenDescriptor.screenWidth, this.screenDescriptor.screenHeight, this.uncompressedData);
 
     this.colorTableTexture.activeTexture(gl);
     this.colorTableTexture.bind(gl);

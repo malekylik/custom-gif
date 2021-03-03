@@ -85,7 +85,7 @@ export class GLRenderer implements Renderer {
 
   private drawToTexture(frame = this.currentFrame): void {
     const image = this.gif.images[frame];
-    this.algorithm.drawToTexture(this.ctx, this.gif.screenDescriptor, image, this.gif.colorMap);
+    this.algorithm.drawToTexture(this.ctx, image, this.gif.colorMap);
   }
 
   private drawToScreen(): void {

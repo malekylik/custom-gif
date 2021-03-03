@@ -11,6 +11,7 @@ struct CodeTable {
 	int16_t prev;
 	int16_t byte;
 	int32_t length;
+	int32_t first;
 };
 
 extern "C" {
@@ -36,6 +37,7 @@ extern "C" {
 			codeTable[i].prev = -1;
 			codeTable[i].byte = i;
 			codeTable[i].length = 1;
+			codeTable[i].first = i;
 		}
 
 		currentTableIndex++; // clear code
@@ -83,13 +85,12 @@ extern "C" {
 					int32_t ptr = code == currentTableIndex ? prev : code;
 
 					if (prev != -1 && currentTableIndex < GIF_MAX_TABLE_SIZE) {
-						while (codeTable[ptr].prev != -1) {
-							ptr = codeTable[ptr].prev;
-						}
+						ptr = codeTable[ptr].first;
 
 						codeTable[currentTableIndex].prev = prev; // prev
 						codeTable[currentTableIndex].byte = codeTable[ptr].byte; // byte
 						codeTable[currentTableIndex].length = codeTable[prev].length + 1; // length
+						codeTable[currentTableIndex].first = codeTable[prev].first; // length
 
 						currentTableIndex++;
 
