@@ -26,8 +26,8 @@ export class GLRenderer implements Renderer {
     this.ctx = canvas.getContext('webgl2');
     // this.ctx = canvas.getContext('2d');
     this.timer = new Timer();
-    this.algorithm = new GLRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images[0], this.gif.colorMap, options.uncompress);
-    // this.algorithm = new BaseRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images[0], this.gif.colorMap, options.uncompress);
+    this.algorithm = new GLRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images, this.gif.colorMap, options.uncompress);
+    // this.algorithm = new BaseRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images, this.gif.colorMap, options.uncompress);
     const { screenWidth, screenHeight } = this.gif.screenDescriptor;
 
     canvas.width = screenWidth;

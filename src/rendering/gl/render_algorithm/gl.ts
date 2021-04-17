@@ -32,7 +32,8 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   private vboToTexture: GLVBO;
   private lzw_uncompress: FactoryOut;
 
-  constructor(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, firstFrame: ImageDecriptor, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+    const firstFrame = images[0];
     const colorMap = firstFrame.M ? firstFrame.colorMap : globalColorMap;
     const { screenWidth, screenHeight } = screenDescriptor;
 
@@ -101,7 +102,15 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.vboToTexture.setData(gl, QUAD_WITH_TEXTURE_COORD_DATA);
     this.vboToTexture.activateAllAttribPointers(gl);
 
-    this.colorTableTexture = new GLTexture(gl, colorMap.entriesCount, 1, colorMap.getRawData());
+    const maxColorMapSize = images.reduce((currentColorMapSize, image) => {
+      if (image.M && image.colorMap.entriesCount > currentColorMapSize) {
+        return image.colorMap.entriesCount;
+      }
+
+      return currentColorMapSize;
+    }, colorMap.entriesCount);
+
+    this.colorTableTexture = new GLTexture(gl, maxColorMapSize, 1, null);
     this.texture = new GLTexture(gl, firstFrame.imageWidth, firstFrame.imageHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
 
     this.colorTableTexture.setTextureUnit(TextureUnit.TEXTURE0);
@@ -112,6 +121,8 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     gifProgram.setTextureUniform(gl, 'ColorTableTexture', this.colorTableTexture);
     gifProgram.setTextureUniform(gl, 'IndexTexture', this.texture);
     gifProgram.setTextureUniform(gl, 'alphaTexture', this.alphaTexture);
+
+    this.gifProgram.setUniform1f(gl, 'ColorTableSize', maxColorMapSize);
 
     textureProgram.useProgram(gl);
 
@@ -136,8 +147,6 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.gifProgram.useProgram(gl);
 
     this.frameBuffer.bind(gl);
-
-    this.gifProgram.setUniform1f(gl, 'ColorTableSize', colorMap.entriesCount);
 
     this.colorTableTexture.bind(gl);
     this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());

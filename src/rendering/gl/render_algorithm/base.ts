@@ -11,7 +11,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
   private graphicMemory: GrapgicMemory;
   private prevGraphicMemory: GrapgicMemory;
 
-  constructor (ctx: CanvasRenderingContext2D, screenDescriptor: ScreenDescriptor, firstFrame: ImageDecriptor, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor (ctx: CanvasRenderingContext2D, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
     this.uncompressedData = uncompressed.out;
     this.lzw_uncompress = uncompressed.lzw_uncompress;
     this.graphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
