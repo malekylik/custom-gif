@@ -21,11 +21,13 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   private alphaTexture: GLTexture;
   private colorTableTexture: GLTexture;
   private outTexture: GLTexture;
+  private prevOutTexture: GLTexture;
   private gifProgram: GLProgram;
   private textureProgram: GLProgram;
   private alphaProgram: GLProgram;
   private alphaFrameBuffer: GLFramebuffer;
   private frameBuffer: GLFramebuffer;
+  private prevFrameBuffer: GLFramebuffer;
   private uncompressedData: Uint8Array;
   private vboToTexture: GLVBO;
   private lzw_uncompress: FactoryOut;
@@ -52,8 +54,8 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     const fragBaseShader = createFragmentGLShader(gl, TextureFragText);
     const fragAlphaShader = createFragmentGLShader(gl, TextureAlpha);
 
-    const gifProgram = new GLProgram(gl, vertShader, fragShader);
-    const textureProgram = new GLProgram(gl, vertFlippedShader, fragBaseShader);
+    const gifProgram = new GLProgram(gl, vertFlippedShader, fragShader);
+    const textureProgram = new GLProgram(gl, vertShader, fragBaseShader);
     const alphaProgram = new GLProgram(gl, vertShader, fragAlphaShader);
 
     this.gifProgram = gifProgram;
@@ -83,6 +85,15 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.frameBuffer.bind(gl);
     this.frameBuffer.setTexture(gl, this.outTexture);
     this.frameBuffer.unbind(gl);
+
+    this.prevFrameBuffer = new GLFramebuffer(gl, screenWidth, screenHeight);
+
+    this.prevOutTexture = new GLTexture(gl, screenWidth, screenHeight, null);
+    this.prevOutTexture.setTextureUnit(TextureUnit.TEXTURE0);
+
+    this.prevFrameBuffer.bind(gl);
+    this.prevFrameBuffer.setTexture(gl, this.prevOutTexture);
+    this.prevFrameBuffer.unbind(gl);
 
     this.vboToTexture = new GLVBO(gl, VBO_LAYOUT);
 
@@ -122,20 +133,6 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.drawToAlphaTexture(gl, image);
     const colorMap = image.M ? image.colorMap : globalColorMap;
 
-    // console.log('frame = ', this.currentFrame);
-
-    // if (image.graphicControl) {
-    //   if (image.graphicControl.disposalMethod === DisposalMethod.noAction) {
-    //     console.log('dispose no action');
-    //   }
-    //   if (image.graphicControl.disposalMethod === DisposalMethod.noDispose) {
-    //     console.log('dispose no dispose');
-    //   }
-    //   if (image.graphicControl.disposalMethod === DisposalMethod.prev) {
-    //     console.log('dispose prev');
-    //   }
-    // }
-
     this.gifProgram.useProgram(gl);
 
     this.frameBuffer.bind(gl);
@@ -154,6 +151,17 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.texture.bind(gl);
     this.alphaTexture.activeTexture(gl);
     this.alphaTexture.bind(gl);
+
+    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+  }
+
+  drawPrevToTexture(gl: WebGL2RenderingContext): void {
+    this.frameBuffer.bind(gl);
+
+    this.textureProgram.useProgram(gl);
+
+    this.prevOutTexture.activeTexture(gl);
+    this.prevOutTexture.bind(gl);
 
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
   }
@@ -185,5 +193,28 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.alphaProgram.setUniform1fv(gl, 'Rect', image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight);
 
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+  }
+
+  savePrevFrame(gl: WebGL2RenderingContext): void {
+    this.prevFrameBuffer.bind(gl);
+
+    this.textureProgram.useProgram(gl);
+
+    this.outTexture.activeTexture(gl);
+    this.outTexture.bind(gl);
+
+    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+  }
+
+  getCanvasPixels(gl: WebGL2RenderingContext, screen: ScreenDescriptor, buffer: ArrayBufferView) {
+    this.frameBuffer.bind(gl);
+    gl.readPixels(0, 0, screen.screenWidth, screen.screenHeight, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
+    this.frameBuffer.unbind(gl);
+  }
+
+  getPrevCanvasPixels(gl: WebGL2RenderingContext, screen: ScreenDescriptor, buffer: ArrayBufferView) {
+    this.prevFrameBuffer.bind(gl);
+    gl.readPixels(0, 0, screen.screenWidth, screen.screenHeight, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
+    this.prevFrameBuffer.unbind(gl);
   }
 }

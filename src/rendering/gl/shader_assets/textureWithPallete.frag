@@ -19,5 +19,6 @@ void main()
   vec4 texel = texture(ColorTableTexture, vec2(normilaziedX, myindex.y));
   float alpha = texture(alphaTexture, vec2(texCoord.x, 1.0 - texCoord.y)).r;
 
+  // fragColor = vec4(alpha, 0.0, 0.0, 1.0);   //Output the color
   fragColor = vec4(texel.rgb, alpha);   //Output the color
 }

@@ -3,9 +3,9 @@ import { FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 import { Timer } from '../timer';
 import { Renderer } from '../renderer';
 import { BaseRenderAlgorithm } from './render_algorithm/base';
-import { GLBaseRenderAlgorithm } from './render_algorithm/base_gl';
 import { GLRenderAlgorithm } from './render_algorithm/gl';
 import { RenderAlgorithm } from './render_algorithm/render_algorithm';
+import { DisposalMethod } from '../../parsing/gif/graphic_control';
 
 const FPS = 1 / 25 * 1000;
 
@@ -42,22 +42,29 @@ export class GLRenderer implements Renderer {
     }
   }
 
-  setFrame(frame: number): void {
-    if (frame > -1 && frame < this.gif.images.length) {
+  setFrame(frame: number): Promise<void> {
+    return new Promise((resolve) => {
+      if (frame > -1 && frame < this.gif.images.length) {
+        if (frame !== this.currentFrame) {
+          this.timer.clear();
 
-      if (frame !== this.currentFrame) {
-        this.timer.clear();
+          this.timer.once(() => {
+            for (let i = 0; i < frame; i++) {
+              this.drawToTexture(i);
+              this.performeDisposalMethod(i);
+            }
 
-        this.timer.once(() => {
-          for (let i = 0; i <= frame; i++) {
-            this.drawToTexture(i);
-          }
-
-          this.currentFrame = frame;
-          this.drawFrame();
-        });
+            this.currentFrame = frame;
+            this.drawFrame();
+            resolve();
+          });
+        } else {
+          resolve();
+        }
+      } else {
+        resolve();
       }
-    }
+    });
   }
 
   autoplayStart(): boolean {
@@ -85,7 +92,42 @@ export class GLRenderer implements Renderer {
 
   private drawToTexture(frame = this.currentFrame): void {
     const image = this.gif.images[frame];
+
+    console.log('frame = ', frame );
+
     this.algorithm.drawToTexture(this.ctx, image, this.gif.colorMap);
+
+    if (image.graphicControl) {
+      if (image.graphicControl.disposalMethod === DisposalMethod.noAction) {
+        console.log('dispose no action');
+      }
+
+      if (image.graphicControl.disposalMethod === DisposalMethod.noDispose) {
+        console.log('dispose no dispose');
+      }
+
+      if (image.graphicControl.disposalMethod === DisposalMethod.clear) {
+        console.log('dispose clear to bacground');
+      }
+
+      if (image.graphicControl.disposalMethod === DisposalMethod.prev) {
+        console.log('dispose prev draw frame', frame);
+      }
+
+      if (image.graphicControl.disposalMethod !== DisposalMethod.prev) {
+        this.algorithm.savePrevFrame(this.ctx);
+      }
+
+      console.log('transpacent', image.graphicControl.isTransparent, image.graphicControl.transparentColorIndex);
+    }
+  }
+
+  getCanvasPixel(buffer: ArrayBufferView) {
+   return this.algorithm.getCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
+  }
+
+  getPrevCanvasPixel(buffer: ArrayBufferView) {
+   return this.algorithm.getPrevCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
   }
 
   private drawToScreen(): void {
@@ -94,6 +136,18 @@ export class GLRenderer implements Renderer {
 
   private drawFrame(frame = this.currentFrame): void {
     this.drawToTexture(frame);
+
     this.drawToScreen();
+
+    this.performeDisposalMethod(frame);
+  }
+
+  private performeDisposalMethod(frame = this.currentFrame): void {
+    const image = this.gif.images[frame];
+
+    if (image.graphicControl?.disposalMethod === DisposalMethod.prev) {
+      console.log('dispose prev draw frame', frame);
+      this.algorithm.drawPrevToTexture(this.ctx);
+    }
   }
 }

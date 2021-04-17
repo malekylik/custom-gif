@@ -9,11 +9,13 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
   private uncompressedData: Uint8Array;
   private lzw_uncompress: FactoryOut;
   private graphicMemory: GrapgicMemory;
+  private prevGraphicMemory: GrapgicMemory;
 
   constructor (ctx: CanvasRenderingContext2D, screenDescriptor: ScreenDescriptor, firstFrame: ImageDecriptor, globalColorMap: ColorMap, uncompressed: FactoryResult) {
     this.uncompressedData = uncompressed.out;
     this.lzw_uncompress = uncompressed.lzw_uncompress;
     this.graphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
+    this.prevGraphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
   }
 
   drawToTexture(ctx: CanvasRenderingContext2D, image: ImageDecriptor, globalColorMap: ColorMap): void {
@@ -30,6 +32,22 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     const graphicMemory = this.graphicMemory;
 
     ctx.putImageData(graphicMemory.getRawMemory(), 0, 0);
+  }
+
+  drawPrevToTexture(ctx: CanvasRenderingContext2D): void {
+    this.graphicMemory.set(this.prevGraphicMemory);
+  }
+
+  savePrevFrame(ctx: CanvasRenderingContext2D): void {
+    this.prevGraphicMemory.set(this.graphicMemory);
+  }
+
+  getCanvasPixels(ctx: CanvasRenderingContext2D, screen: ScreenDescriptor, buffer: ArrayBufferView): void {
+    new Uint8ClampedArray(buffer.buffer).set(this.graphicMemory.getRawMemory().data);
+  }
+
+  getPrevCanvasPixels(ctx: CanvasRenderingContext2D, screen: ScreenDescriptor, buffer: ArrayBufferView): void {
+    new Uint8ClampedArray(buffer.buffer).set(this.prevGraphicMemory.getRawMemory().data);
   }
 
   private updateFrameData87(image: ImageDecriptor, globalColorMap: ColorMap) {
