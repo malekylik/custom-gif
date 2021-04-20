@@ -52,6 +52,7 @@ export function parseImageList(buffer: ArrayBuffer, start: number) {
         }
 
         image.compressedData = HEAP8.subarray(start, findEndOfImageCompressedData(buffer, start));
+        image.startPointer = start;
         start += image.compressedData.byteLength;
 
         break;

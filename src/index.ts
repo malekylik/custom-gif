@@ -1,47 +1,50 @@
 import { parseGif } from './parsing/gif';
 import { Renderer } from './rendering/renderer';
 import { GLRenderer } from './rendering/gl/renderer';
-import { lzw_uncompress } from './parsing/lzw/uncompress';
+import { lzw_uncompress } from './parsing/lzw/uncompress/uncompress_debug';
+import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js';
+import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
+import { ColorMapVisualizer, renderColorMap } from './rendering/color_map/color_map';
+import { ColorMap } from './parsing/gif/color_map';
 
 const main = document.getElementById('main');
 
 const fileInput = document.createElement('input');
 fileInput.type = 'file';
 
-let gifRenderer: Renderer = null;
-
 function handleFiles() {
-  // if (gifRenderer) {
-  //   gifRenderer.autoplayEnd();
-  //   gifRenderer = null;
-  // }
-
   const reader = new FileReader();
   reader.onload = function (e) {
-
     const arrayBuffer = e.target.result as ArrayBuffer;
     const gif = parseGif(arrayBuffer);
 
+    console.log(gif);
+
+    const container = document.createElement('div');
     const gifVisualizer = document.createElement('canvas');
-    gifVisualizer.addEventListener('click', (e) => {
-      const offset = e.offsetY * gifVisualizer.width + e.offsetX;
-      const image = gif.images[13];
-      const colorMap = image.colorMap ?? gif.colorMap;
-      console.log(e.offsetX, e.offsetY, offset);
-      console.log(image.graphicControl);
-      const buffer = new Uint8Array(image.imageWidth * image.imageHeight);
-      lzw_uncompress(image.compressedData, buffer);
 
-      const start = Math.max(0, offset - 10)
-      console.log(`color`, colorMap.getColor(buffer[offset]));
-      console.log(buffer);
-      console.log('indexes', offset - start, buffer.subarray(start, start + 20));
-    });
-    main.append(gifVisualizer);
+    const changeInput = document.createElement('input');
+    changeInput.type = 'text';
+    changeInput.value = '0';
 
-    gifRenderer = new GLRenderer(gif, gifVisualizer);
-    // gifRenderer.setFrame(67);
-    gifRenderer.autoplayStart();
+    container.append(gifVisualizer);
+    container.append(changeInput);
+
+    main.append(container);
+
+    createLZWFuncFromWasm(gif)
+      .then((lzw_uncompress) => {
+        let gifRenderer = new GLRenderer(gif, gifVisualizer, { uncompress: lzw_uncompress });
+        gifRenderer.autoplayStart();
+
+        changeInput.addEventListener('change', (e: InputEvent) => {
+          const value = parseInt((e.target as any).value);
+
+          if (!isNaN(value) && (value < gif.images.length && value >= 0)) {
+            const setFramePromise = gifRenderer.setFrame(value);
+          }
+        });
+      });
   }
   reader.readAsArrayBuffer(this.files[0]);
 }

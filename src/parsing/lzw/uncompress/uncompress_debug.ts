@@ -1,6 +1,6 @@
-import { GIF_MAX_TABLE_SIZE } from './consts';
+import { GIF_MAX_TABLE_SIZE } from '../consts';
 
-export function lzw_uncompress_debug(buffer: Uint8Array, outBuffer: Uint8Array | Uint8ClampedArray) {
+export function lzw_uncompress(buffer: Uint8Array, outBuffer: Uint8Array | Uint8ClampedArray) {
   let indx = 0;
   let outIndx = 0;
   let code = 0;

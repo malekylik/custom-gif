@@ -37,4 +37,8 @@ export class GrapgicMemory {
 
     this.memory.data[offset + 3] = alpha;
   }
+
+  set(graphic: GrapgicMemory) {
+    this.memory.data.set(graphic.getRawMemory().data);
+  }
 }
