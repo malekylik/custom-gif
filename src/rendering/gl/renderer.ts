@@ -93,41 +93,22 @@ export class GLRenderer implements Renderer {
   private drawToTexture(frame = this.currentFrame): void {
     const image = this.gif.images[frame];
 
-    console.log('frame = ', frame );
+    console.log('frame = ', frame);
 
     this.algorithm.drawToTexture(this.ctx, image, this.gif.colorMap);
 
-    if (image.graphicControl) {
-      if (image.graphicControl.disposalMethod === DisposalMethod.noAction) {
-        console.log('dispose no action');
-      }
-
-      if (image.graphicControl.disposalMethod === DisposalMethod.noDispose) {
-        console.log('dispose no dispose');
-      }
-
-      if (image.graphicControl.disposalMethod === DisposalMethod.clear) {
-        console.log('dispose clear to bacground');
-      }
-
-      if (image.graphicControl.disposalMethod === DisposalMethod.prev) {
-        console.log('dispose prev draw frame', frame);
-      }
-
-      if (image.graphicControl.disposalMethod !== DisposalMethod.prev) {
-        this.algorithm.savePrevFrame(this.ctx);
-      }
-
-      console.log('transpacent', image.graphicControl.isTransparent, image.graphicControl.transparentColorIndex);
+    // TODO: add support of DisposalMethod.clear
+    if (image.graphicControl?.disposalMethod !== DisposalMethod.prev) {
+      this.algorithm.savePrevFrame(this.ctx);
     }
   }
 
   getCanvasPixel(buffer: ArrayBufferView) {
-   return this.algorithm.getCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
+    return this.algorithm.getCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
   }
 
   getPrevCanvasPixel(buffer: ArrayBufferView) {
-   return this.algorithm.getPrevCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
+    return this.algorithm.getPrevCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
   }
 
   private drawToScreen(): void {
@@ -146,7 +127,6 @@ export class GLRenderer implements Renderer {
     const image = this.gif.images[frame];
 
     if (image.graphicControl?.disposalMethod === DisposalMethod.prev) {
-      console.log('dispose prev draw frame', frame);
       this.algorithm.drawPrevToTexture(this.ctx);
     }
   }
