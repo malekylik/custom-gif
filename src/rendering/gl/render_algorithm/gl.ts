@@ -8,13 +8,14 @@ import { GLVBO } from '../gl_api/vbo';
 import { RenderAlgorithm } from './render_algorithm';
 import { GLTexture, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
 import { GLFramebuffer } from '../gl_api/framebuffer';
-import { FactoryOut, FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 
 import MainVertText from '../shader_assets/main.vert';
 import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
 import TextureFragText from '../shader_assets/texture.frag';
 import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
 import TextureAlpha from '../shader_assets/textureAlpha.frag';
+
+import { WorkingPool } from 'utils/thread-pool/thread-pool';
 
 export class GLRenderAlgorithm implements RenderAlgorithm {
   private texture: GLTexture;
@@ -28,17 +29,12 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   private alphaFrameBuffer: GLFramebuffer;
   private frameBuffer: GLFramebuffer;
   private prevFrameBuffer: GLFramebuffer;
-  private uncompressedData: Uint8Array;
   private vboToTexture: GLVBO;
-  private lzw_uncompress: FactoryOut;
 
-  constructor(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap) {
     const firstFrame = images[0];
     const colorMap = firstFrame.M ? firstFrame.colorMap : globalColorMap;
     const { screenWidth, screenHeight } = screenDescriptor;
-
-    this.uncompressedData = uncompressed.out;
-    this.lzw_uncompress = uncompressed.lzw_uncompress;
 
     gl.enable(gl.BLEND);
     gl.blendEquation(gl.FUNC_ADD);
@@ -111,7 +107,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     }, colorMap.entriesCount);
 
     this.colorTableTexture = new GLTexture(gl, maxColorMapSize, 1, null);
-    this.texture = new GLTexture(gl, firstFrame.imageWidth, firstFrame.imageHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
+    this.texture = new GLTexture(gl, screenWidth, screenHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
 
     this.colorTableTexture.setTextureUnit(TextureUnit.TEXTURE0);
     this.texture.setTextureUnit(TextureUnit.TEXTURE1);
@@ -135,24 +131,24 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     alphaProgram.setUniform1fv(gl, 'Rect', 0, 0, firstFrame.imageWidth, firstFrame.imageHeight);
   }
 
-  drawToTexture(gl: WebGL2RenderingContext, image: ImageDecriptor, globalColorMap: ColorMap): void {
-    this.lzw_uncompress(image);
+  async drawToTexture(gl: WebGL2RenderingContext, image: ImageDecriptor, globalColorMap: ColorMap, gifId: string): Promise<void> {
+    const workDone = WorkingPool.doWork(gifId, image.startPointer, image.compressedData.length);
 
-    this.texture.bind(gl);
-    this.texture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
-
-    this.drawToAlphaTexture(gl, image);
     const colorMap = image.M ? image.colorMap : globalColorMap;
-
-    this.gifProgram.useProgram(gl);
-
-    this.frameBuffer.bind(gl);
 
     this.colorTableTexture.bind(gl);
     this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
 
+    const out = await workDone;
+
     this.texture.bind(gl);
-    this.texture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
+    this.texture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, new Uint8Array(out));
+
+    this.drawToAlphaTexture(gl, image);
+
+    this.gifProgram.useProgram(gl);
+
+    this.frameBuffer.bind(gl);
 
     this.colorTableTexture.activeTexture(gl);
     this.colorTableTexture.bind(gl);
@@ -161,7 +157,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.alphaTexture.activeTexture(gl);
     this.alphaTexture.bind(gl);
 
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
   drawPrevToTexture(gl: WebGL2RenderingContext): void {
@@ -172,7 +168,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.prevOutTexture.activeTexture(gl);
     this.prevOutTexture.bind(gl);
 
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
   drawToScreen(gl: WebGL2RenderingContext): void {
@@ -183,7 +179,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.outTexture.activeTexture(gl);
     this.outTexture.bind(gl);
 
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
   private drawToAlphaTexture(gl: WebGL2RenderingContext, image: ImageDecriptor): void {
@@ -201,7 +197,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     this.alphaProgram.setUniform1fv(gl, 'Rect', image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight);
 
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
   savePrevFrame(gl: WebGL2RenderingContext): void {
@@ -212,7 +208,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.outTexture.activeTexture(gl);
     this.outTexture.bind(gl);
 
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
   getCanvasPixels(gl: WebGL2RenderingContext, screen: ScreenDescriptor, buffer: ArrayBufferView) {

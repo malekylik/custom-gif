@@ -6,6 +6,7 @@ import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js
 import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
 import { ColorMapVisualizer, renderColorMap } from './rendering/color_map/color_map';
 import { ColorMap } from './parsing/gif/color_map';
+import { ThreadPoolSingle, WorkingPool } from 'utils/thread-pool/thread-pool';
 
 const main = document.getElementById('main');
 
@@ -13,10 +14,13 @@ const fileInput = document.createElement('input');
 fileInput.type = 'file';
 
 function handleFiles() {
+  const files = this.files;
+
   const reader = new FileReader();
   reader.onload = function (e) {
     const arrayBuffer = e.target.result as ArrayBuffer;
-    const gif = parseGif(arrayBuffer);
+    console.log(files);
+    const gif = parseGif(arrayBuffer, files[0].name);
 
     console.log(gif);
 
@@ -32,10 +36,13 @@ function handleFiles() {
 
     main.append(container);
 
-    createLZWFuncFromWasm(gif)
+    WorkingPool.passGifBuffer(gif._originBuffer, gif.id)
+      .then(() => createLZWFuncFromJS(gif))
       .then((lzw_uncompress) => {
         let gifRenderer = new GLRenderer(gif, gifVisualizer, { uncompress: lzw_uncompress });
         gifRenderer.autoplayStart();
+        // gifRenderer.setFrame(0);
+        // setTimeout(() => gifRenderer.autoplayEnd(), 3000);
 
         changeInput.addEventListener('change', (e: InputEvent) => {
           const value = parseInt((e.target as any).value);
@@ -49,6 +56,10 @@ function handleFiles() {
   reader.readAsArrayBuffer(this.files[0]);
 }
 
-fileInput.addEventListener('change', handleFiles, false);
 
 main.append(fileInput);
+
+WorkingPool.isReady()
+  .then(() => {
+    fileInput.addEventListener('change', handleFiles, false);
+  });

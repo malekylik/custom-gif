@@ -22,12 +22,12 @@ export class GLRenderer implements Renderer {
 
   constructor(gif: GIF, canvas: HTMLCanvasElement, options: RendererOptions) {
     this.gif = gif;
-    this.currentFrame = 0;
-    this.ctx = canvas.getContext('webgl2');
-    // this.ctx = canvas.getContext('2d');
+    this.currentFrame = -1;
+    // this.ctx = canvas.getContext('webgl2');
+    this.ctx = canvas.getContext('2d');
     this.timer = new Timer();
-    this.algorithm = new GLRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images, this.gif.colorMap, options.uncompress);
-    // this.algorithm = new BaseRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images, this.gif.colorMap, options.uncompress);
+    // this.algorithm = new GLRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images, this.gif.colorMap);
+    this.algorithm = new BaseRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images, this.gif.colorMap);
     const { screenWidth, screenHeight } = this.gif.screenDescriptor;
 
     canvas.width = screenWidth;
@@ -35,11 +35,11 @@ export class GLRenderer implements Renderer {
     canvas.style.width = `${screenWidth}px`;
     canvas.style.height = `${screenHeight}px`;
 
-    if (this.gif.images.length) {
-      this.timer.once(() => {
-        this.drawFrame();
-      });
-    }
+    // if (this.gif.images.length) {
+    //   this.timer.once(() => {
+    //     this.drawFrame();
+    //   });
+    // }
   }
 
   setFrame(frame: number): Promise<void> {
@@ -69,16 +69,22 @@ export class GLRenderer implements Renderer {
 
   autoplayStart(): boolean {
     if (this.gif.images.length > 1) {
-      const callback = () => {
+      const callback = async () => {
         const nextFrame = (this.currentFrame + 1) % this.gif.images.length;
 
-        this.timer.once(callback, this.gif.images[nextFrame].graphicControl?.delayTime || FPS) as unknown as number;
+        const now = Date.now();
 
         this.currentFrame = nextFrame;
-        this.drawFrame();
+        await this.drawFrame();
+
+        const elapsedTime = Date.now() - now;
+
+        // console.log('elapsedTime', elapsedTime, this.gif.images[nextFrame].graphicControl?.delayTime);
+
+        this.timer.once(callback, Math.max((this.gif.images[nextFrame].graphicControl?.delayTime || FPS) - elapsedTime, 0)) as unknown as number;
       };
 
-      this.timer.once(callback, this.gif.images[this.currentFrame].graphicControl?.delayTime || FPS) as unknown as number;
+      this.timer.once(callback, this.gif.images[this.currentFrame]?.graphicControl?.delayTime || FPS) as unknown as number;
 
       return true;
     } else {
@@ -90,12 +96,10 @@ export class GLRenderer implements Renderer {
     this.timer.clear();
   }
 
-  private drawToTexture(frame = this.currentFrame): void {
+  private async drawToTexture(frame = this.currentFrame) {
     const image = this.gif.images[frame];
 
-    console.log('frame = ', frame);
-
-    this.algorithm.drawToTexture(this.ctx, image, this.gif.colorMap);
+    await this.algorithm.drawToTexture(this.ctx, image, this.gif.colorMap, this.gif.id);
 
     // TODO: add support of DisposalMethod.clear
     if (image.graphicControl?.disposalMethod !== DisposalMethod.prev) {
@@ -115,8 +119,8 @@ export class GLRenderer implements Renderer {
     this.algorithm.drawToScreen(this.ctx);
   }
 
-  private drawFrame(frame = this.currentFrame): void {
-    this.drawToTexture(frame);
+  private async drawFrame(frame = this.currentFrame) {
+    await this.drawToTexture(frame);
 
     this.drawToScreen();
 

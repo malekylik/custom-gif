@@ -6,6 +6,7 @@ import { GIFSpecialSymbol, ColorMapBlock } from './consts';
 import { ImageDecriptor } from './image_descriptor';
 
 export interface GIF {
+  id: string,
   signature: string;
   version: number;
 
@@ -15,9 +16,11 @@ export interface GIF {
   images: Array<ImageDecriptor>;
 
   buffer: Uint8Array,
+
+  _originBuffer: ArrayBuffer,
 }
 
-export function parseGif(buffer: ArrayBuffer): GIF {
+export function parseGif(buffer: ArrayBuffer, id: string): GIF {
   const fromCharCode = String.fromCharCode;
   const HEAP8 = new Uint8Array(buffer);
 
@@ -43,6 +46,8 @@ export function parseGif(buffer: ArrayBuffer): GIF {
     }
 
     return {
+      id,
+
       signature,
       version,
 
@@ -52,6 +57,8 @@ export function parseGif(buffer: ArrayBuffer): GIF {
       images,
 
       buffer: HEAP8,
+
+      _originBuffer: buffer,
     }
   }
 }
