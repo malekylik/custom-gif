@@ -111,7 +111,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     }, colorMap.entriesCount);
 
     this.colorTableTexture = new GLTexture(gl, maxColorMapSize, 1, null);
-    this.texture = new GLTexture(gl, firstFrame.imageWidth, firstFrame.imageHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
+    this.texture = new GLTexture(gl, screenWidth, screenHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
 
     this.colorTableTexture.setTextureUnit(TextureUnit.TEXTURE0);
     this.texture.setTextureUnit(TextureUnit.TEXTURE1);
