@@ -91,13 +91,15 @@ export function lzw_uncompress(buffer: Uint8Array, outBuffer: Uint8Array | Uint8
 
         ptr = code;
 
-        if (outIndx + codeTable[ptr].length <= outBuffer.length) {
-          while (ptr !== -1) {
-            outBuffer[outIndx + codeTable[ptr].length - 1] = codeTable[ptr].byte;
+        const length = codeTable[code].length;
+
+        if (outIndx + length <= outBuffer.length) {
+          for (let i = length - 1; i >= 0; i--) {
+            outBuffer[outIndx + i] = codeTable[ptr].byte;
             ptr = codeTable[ptr].prev;
           }
 
-          outIndx += codeTable[code].length;
+          outIndx += length;
         } else {
           return;
         }

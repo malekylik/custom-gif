@@ -86,7 +86,7 @@ const config = {
 module.exports = (env, argv) => {
   if (argv.mode === 'production') {
     config.mode = 'production';
-    config.devtool = 'none';
+    config.devtool = undefined;
     config.plugins.push(
       new DefinePlugin({
         __DEV__: false

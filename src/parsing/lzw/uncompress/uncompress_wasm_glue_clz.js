@@ -578,12 +578,12 @@ var ___wasm_call_ctors = Module["___wasm_call_ctors"] = function() {
  return (___wasm_call_ctors = Module["___wasm_call_ctors"] = Module["asm"]["c"]).apply(null, arguments);
 };
 
-var _lzw_uncompress = Module["_lzw_uncompress"] = function() {
- return (_lzw_uncompress = Module["_lzw_uncompress"] = Module["asm"]["d"]).apply(null, arguments);
+var _malloc = Module["_malloc"] = function() {
+ return (_malloc = Module["_malloc"] = Module["asm"]["d"]).apply(null, arguments);
 };
 
-var _malloc = Module["_malloc"] = function() {
- return (_malloc = Module["_malloc"] = Module["asm"]["e"]).apply(null, arguments);
+var _lzw_uncompress = Module["_lzw_uncompress"] = function() {
+ return (_lzw_uncompress = Module["_lzw_uncompress"] = Module["asm"]["e"]).apply(null, arguments);
 };
 
 var stackSave = Module["stackSave"] = function() {

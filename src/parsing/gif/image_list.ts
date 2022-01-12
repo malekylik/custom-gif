@@ -5,7 +5,7 @@ import { findEndOfSubData } from './utils';
 import { GraphicControl, parseGraphicControl } from './graphic_control';
 
 function findEndOfImageCompressedData(buffer: ArrayBuffer, start: number) {
-  start += 1; // LZW Minimum Code Size byte
+  start += 1; // LZW Minimum Code length byte
 
   return findEndOfSubData(buffer, start);
 }

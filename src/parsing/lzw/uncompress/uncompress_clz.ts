@@ -21,8 +21,7 @@ export function lzw_uncompress(buffer: Uint8Array, outBuffer: Uint8Array | Uint8
   let currentMaxTableSize = 1 << codeBitSize;
   let codeMask = (1 << codeBitSize) - 1;
   let prev = -1;
-  let restCode = 0;
-  let readedBits = 0;
+  let restCode = 1 << 31;
   let currentTableIndex = 1 << codeSize;
   let blockSize = indx;
 
@@ -37,32 +36,42 @@ export function lzw_uncompress(buffer: Uint8Array, outBuffer: Uint8Array | Uint8
   currentTableIndex++; // stop code
 
   while (indx < buffer.length && indx < outBuffer.length) {
-    blockSize += buffer[blockSize] + 1;
+    blockSize = blockSize + buffer[blockSize] + 1;
     indx++;
 
-    while (indx < blockSize) {
-      // Variant 4 (Reading bits in far too many ways (part 2))
-      // https://fgiesen.wordpress.com/2018/02/20/reading-bits-in-far-too-many-ways-part-2/
-      if (indx + 2 >= blockSize) { // codeBitSize has max size of 12 bit, which is 2 byte, need to check this 2 byte to not overflow 
-        restCode |= buffer[indx] << readedBits;
-    
-        indx += 1;
-    
-        readedBits += 8;
-      } else {
-        const word = (buffer[indx + 3] << 24) | (buffer[indx + 2] << 16) | (buffer[indx + 1] << 8) | (buffer[indx]);
-        
-        restCode |= word << readedBits;
-    
-        indx += (31 - readedBits) >> 3;
-    
-        readedBits |= 24; // now readedBits is in [24,31]
+    while (true) {
+      // Variant 5 (Reading bits in far too many ways (part 3))
+      // https://fgiesen.wordpress.com/2018/09/27/reading-bits-in-far-too-many-ways-part-3/
+      // clz32 - slow, compiled to lzcntl
+      const bits_consumed = Math.clz32(restCode);
+
+      if (indx + (bits_consumed >>> 3) >= blockSize) {
+        break;
       }
 
-      code = restCode & codeMask;
+      // Advance the pointer
+      indx += bits_consumed >>> 3; // div by 8
+  
+      if (indx + 3 >= blockSize) {
+        const diff = (blockSize - indx) * 8;
+        const word1 = (buffer[indx + 3] << 24) | (buffer[indx + 2] << 16) | (buffer[indx + 1] << 8) | (buffer[indx]);
+        const word2 = (buffer[blockSize + 4] << 24) | (buffer[blockSize + 3] << 16) | (buffer[blockSize + 2] << 8) | (buffer[blockSize + 1]);
+        const word = (word1 & ((1 << diff) - 1)) | (word2 << diff);
+  
+        restCode = word | (1 << 31);
+      } else {
+        const word = (buffer[indx + 3] << 24) | (buffer[indx + 2] << 16) | (buffer[indx + 1] << 8) | (buffer[indx]);
 
+        // put the marker
+        restCode = word | (1 << 31);
+      }
+  
+      // after dev bits_consumed by 8, reminder should be also considered
+      restCode >>>= bits_consumed & 7;
+
+
+      code = restCode & codeMask;
       restCode >>>= codeBitSize;
-      readedBits -= codeBitSize;
 
       if (code === clearCode) {
         currentTableIndex = (1 << codeSize) + 2;
