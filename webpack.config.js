@@ -1,6 +1,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { DefinePlugin } = require('webpack');
+const { createTransformer } = require('./src/binaryts/dist/transformer');
 
 const config = {
   entry: {
@@ -34,13 +35,25 @@ const config = {
       {
         test: /(\.ts?$|\.tsx?$)/,
         exclude: /(node_modules|bower_components)/,
-        loader: 'babel-loader',
-        options: {
-          presets: ['@babel/preset-env', '@babel/preset-typescript'],
-          plugins: [
-            '@babel/plugin-transform-runtime'
-          ],
-        }
+        use: [
+          {
+            loader: 'babel-loader',
+            options: {
+              presets: ['@babel/preset-env'],
+              plugins: [
+                '@babel/plugin-transform-runtime'
+              ],
+            }
+          },
+          {
+            loader: 'ts-loader',
+            options: {
+              getCustomTransformers: (program) => ({
+                  before: [createTransformer(program)]
+              })
+            }
+          }
+        ],
       },
       {
         test: /\.vert$/i,

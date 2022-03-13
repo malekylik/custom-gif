@@ -1,0 +1,3 @@
+[submodule "src/binaryts"]
+	path = src/binaryts
+	url = https://github.com/malekylik/binaryts.git

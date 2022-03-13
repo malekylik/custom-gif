@@ -6,6 +6,14 @@ import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js
 import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
 import { ColorMapVisualizer, renderColorMap } from './rendering/color_map/color_map';
 import { ColorMap } from './parsing/gif/color_map';
+import { Int16, Int32, sizeof } from './binaryts/dist/binaryts.types';
+
+type SomeType = {
+  x: Int32;
+  y: Int16;
+}
+
+console.log(sizeof<SomeType>());
 
 const main = document.getElementById('main');
 
@@ -32,7 +40,7 @@ function handleFiles() {
 
     main.append(container);
 
-    createLZWFuncFromWasm(gif)
+    createLZWFuncFromJS(gif)
       .then((lzw_uncompress) => {
         let gifRenderer = new GLRenderer(gif, gifVisualizer, { uncompress: lzw_uncompress });
         gifRenderer.autoplayStart();
