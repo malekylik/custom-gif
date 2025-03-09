@@ -6,45 +6,60 @@ import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js
 import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
 import { ColorMapVisualizer, renderColorMap } from './rendering/color_map/color_map';
 import { ColorMap } from './parsing/gif/color_map';
+import { createGifEntity, GifEntity } from './parsing/new_gif/gif_entity';
 
 const main = document.getElementById('main');
 
 const fileInput = document.createElement('input');
 fileInput.type = 'file';
 
+const gifs: GifEntity[] = [];
+
 function handleFiles() {
   const reader = new FileReader();
-  reader.onload = function (e) {
+  reader.onload = function (e: ProgressEvent<FileReader>): void {
     const arrayBuffer = e.target.result as ArrayBuffer;
-    const gif = parseGif(arrayBuffer);
 
-    console.log(gif);
+    const parsedGifData = parseGif(arrayBuffer);
 
-    const container = document.createElement('div');
-    const gifVisualizer = document.createElement('canvas');
+    if (parsedGifData) {
+      const gif = createGifEntity(parsedGifData);
+  
+      console.log('new gif: ', gif);
+  
+      gifs.push(gif);
+    }
 
-    const changeInput = document.createElement('input');
-    changeInput.type = 'text';
-    changeInput.value = '0';
+    // const arrayBuffer = e.target.result as ArrayBuffer;
+    // const gif = parseGif(arrayBuffer);
 
-    container.append(gifVisualizer);
-    container.append(changeInput);
+    // console.log(gif);
 
-    main.append(container);
+    // const container = document.createElement('div');
+    // const gifVisualizer = document.createElement('canvas');
 
-    createLZWFuncFromWasm(gif)
-      .then((lzw_uncompress) => {
-        let gifRenderer = new GLRenderer(gif, gifVisualizer, { uncompress: lzw_uncompress });
-        gifRenderer.autoplayStart();
+    // const changeInput = document.createElement('input');
+    // changeInput.type = 'text';
+    // changeInput.value = '0';
 
-        changeInput.addEventListener('change', (e: InputEvent) => {
-          const value = parseInt((e.target as any).value);
+    // container.append(gifVisualizer);
+    // container.append(changeInput);
 
-          if (!isNaN(value) && (value < gif.images.length && value >= 0)) {
-            const setFramePromise = gifRenderer.setFrame(value);
-          }
-        });
-      });
+    // main.append(container);
+
+    // createLZWFuncFromWasm(gif)
+    //   .then((lzw_uncompress) => {
+    //     let gifRenderer = new GLRenderer(gif, gifVisualizer, { uncompress: lzw_uncompress });
+    //     gifRenderer.autoplayStart();
+
+    //     changeInput.addEventListener('change', (e: InputEvent) => {
+    //       const value = parseInt((e.target as any).value);
+
+    //       if (!isNaN(value) && (value < gif.images.length && value >= 0)) {
+    //         const setFramePromise = gifRenderer.setFrame(value);
+    //       }
+    //     });
+    //   });
   }
   reader.readAsArrayBuffer(this.files[0]);
 }
@@ -52,3 +67,7 @@ function handleFiles() {
 fileInput.addEventListener('change', handleFiles, false);
 
 main.append(fileInput);
+
+setInterval(() => {
+  console.log('gifs:' ,gifs);
+}, 1000);

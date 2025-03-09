@@ -17,7 +17,7 @@ export interface GIF {
   buffer: Uint8Array,
 }
 
-export function parseGif(buffer: ArrayBuffer): GIF {
+export function parseGif(buffer: ArrayBuffer): GIF | undefined {
   const fromCharCode = String.fromCharCode;
   const HEAP8 = new Uint8Array(buffer);
 
