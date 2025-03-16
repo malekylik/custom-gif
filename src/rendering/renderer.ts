@@ -1,7 +1,11 @@
+export type RendererGifDescriptor = {
+  id: number;
+};
+
 export interface Renderer {
-  setFrame(frame: number): void;
+  setFrame(descriptor: RendererGifDescriptor, frame: number): void;
 
-  autoplayStart(): boolean;
+  autoplayStart(descriptor: RendererGifDescriptor): boolean;
 
-  autoplayEnd(): void;
+  autoplayEnd(descriptor: RendererGifDescriptor): void;
 }

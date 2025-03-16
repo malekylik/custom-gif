@@ -1,11 +1,8 @@
 import { parseGif } from './parsing/gif';
-import { Renderer } from './rendering/renderer';
-import { GLRenderer } from './rendering/gl/renderer';
+import { BasicRenderer } from './rendering/gl/renderer';
 import { lzw_uncompress } from './parsing/lzw/uncompress/uncompress_debug';
 import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js';
 import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
-import { ColorMapVisualizer, renderColorMap } from './rendering/color_map/color_map';
-import { ColorMap } from './parsing/gif/color_map';
 import { createGifEntity, GifEntity } from './parsing/new_gif/gif_entity';
 
 const main = document.getElementById('main');
@@ -14,6 +11,7 @@ const fileInput = document.createElement('input');
 fileInput.type = 'file';
 
 const gifs: GifEntity[] = [];
+const renderer = new BasicRenderer();
 
 function handleFiles() {
   const reader = new FileReader();
@@ -24,10 +22,34 @@ function handleFiles() {
 
     if (parsedGifData) {
       const gif = createGifEntity(parsedGifData);
-  
-      console.log('new gif: ', gif);
-  
-      gifs.push(gif);
+
+      createLZWFuncFromWasm(gif.gif)
+        .then((lzw_uncompress) => {
+          const container = document.createElement('div');
+          const gifVisualizer = document.createElement('canvas');
+
+          container.append(gifVisualizer);
+
+          main.append(container);
+
+          renderer.addGifToRender(gif, gifVisualizer, { uncompress: lzw_uncompress, algorithm: 'Software' })
+            .then((descriptor) => {
+              renderer.autoplayStart(descriptor);
+            });
+
+
+          // changeInput.addEventListener('change', (e: InputEvent) => {
+          //   const value = parseInt((e.target as any).value);
+
+          //   if (!isNaN(value) && (value < gif.images.length && value >= 0)) {
+          //     const setFramePromise = gifRenderer.setFrame(value);
+          //   }
+          // });
+
+          console.log('new gif: ', gif);
+
+          gifs.push(gif);
+        });
     }
 
     // const arrayBuffer = e.target.result as ArrayBuffer;
@@ -67,7 +89,3 @@ function handleFiles() {
 fileInput.addEventListener('change', handleFiles, false);
 
 main.append(fileInput);
-
-setInterval(() => {
-  console.log('gifs:' ,gifs);
-}, 1000);

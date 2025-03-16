@@ -31,8 +31,11 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   private uncompressedData: Uint8Array;
   private vboToTexture: GLVBO;
   private lzw_uncompress: FactoryOut;
+  private gl: WebGL2RenderingContext;
 
-  constructor(gl: WebGL2RenderingContext, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+    const gl = canvas.getContext('webgl2');
+
     const firstFrame = images[0];
     const colorMap = firstFrame.M ? firstFrame.colorMap : globalColorMap;
     const { screenWidth, screenHeight } = screenDescriptor;
@@ -133,9 +136,13 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     alphaProgram.setTextureUniform(gl, 'IndexTexture', this.texture);
     alphaProgram.setUniform1f(gl, 'ScreenHeight', screenHeight);
     alphaProgram.setUniform1fv(gl, 'Rect', 0, 0, firstFrame.imageWidth, firstFrame.imageHeight);
+
+    this.gl = gl;
   }
 
-  drawToTexture(gl: WebGL2RenderingContext, image: ImageDecriptor, globalColorMap: ColorMap): void {
+  drawToTexture(image: ImageDecriptor, globalColorMap: ColorMap): void {
+    const gl = this.gl;
+
     this.lzw_uncompress(image);
 
     this.texture.bind(gl);
@@ -164,7 +171,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
   }
 
-  drawPrevToTexture(gl: WebGL2RenderingContext): void {
+  drawPrevToTexture(): void {
+    const gl = this.gl;
+
     this.frameBuffer.bind(gl);
 
     this.textureProgram.useProgram(gl);
@@ -175,7 +184,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
   }
 
-  drawToScreen(gl: WebGL2RenderingContext): void {
+  drawToScreen(): void {
+    const gl = this.gl;
+
     this.frameBuffer.unbind(gl);
 
     this.textureProgram.useProgram(gl);
@@ -204,7 +215,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
   }
 
-  savePrevFrame(gl: WebGL2RenderingContext): void {
+  savePrevFrame(): void {
+    const gl = this.gl;
+
     this.prevFrameBuffer.bind(gl);
 
     this.textureProgram.useProgram(gl);
@@ -215,13 +228,17 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
   }
 
-  getCanvasPixels(gl: WebGL2RenderingContext, screen: ScreenDescriptor, buffer: ArrayBufferView) {
+  getCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView) {
+    const gl = this.gl;
+
     this.frameBuffer.bind(gl);
     gl.readPixels(0, 0, screen.screenWidth, screen.screenHeight, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
     this.frameBuffer.unbind(gl);
   }
 
-  getPrevCanvasPixels(gl: WebGL2RenderingContext, screen: ScreenDescriptor, buffer: ArrayBufferView) {
+  getPrevCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView) {
+    const gl = this.gl;
+
     this.prevFrameBuffer.bind(gl);
     gl.readPixels(0, 0, screen.screenWidth, screen.screenHeight, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
     this.prevFrameBuffer.unbind(gl);
