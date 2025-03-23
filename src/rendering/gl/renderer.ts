@@ -122,6 +122,7 @@ export class BasicRenderer implements Renderer {
 
     console.log('frame = ', frame);
 
+    // render current
     gif.algorithm.drawToTexture(image, gif.gifEntity.gif.colorMap);
 
     // TODO: add support of DisposalMethod.clear

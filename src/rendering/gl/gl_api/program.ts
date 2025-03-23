@@ -29,18 +29,28 @@ interface BufferCache {
 export class GLProgram {
   private program: WebGLProgram;
   private uniformBuffer: Map<string, BufferCache>;
+  private currentTextureUnit: number;
 
   constructor (gl: WebGLRenderingContext | WebGL2RenderingContext, vertShader: WebGLShader, fragShader: WebGLShader) {
     this.program = createGLProgram(gl, vertShader, fragShader);
     this.uniformBuffer = new Map();
+
+    this.currentTextureUnit = -1;
   }
 
   useProgram(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
+    this.currentTextureUnit = -1;
     gl.useProgram(this.program);
   }
 
   setTextureUniform(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, texture: GLTexture): void {
-    this.setUniform1i(gl, location, texture.getTextureUnit())
+    this.currentTextureUnit += 1;
+
+    this.setUniform1i(gl, location, this.currentTextureUnit);
+
+    // TODO: think if we need to bind and active texture here
+    texture.activeTexture(gl, this.currentTextureUnit);
+    texture.bind(gl);
   }
 
   setUniform1i(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, value: number): void {

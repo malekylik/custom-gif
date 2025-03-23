@@ -128,7 +128,7 @@ export class GLTexture {
     return this.texture;
   }
 
-  activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
-    gl.activeTexture(convertToGLTextureUnit(gl, this.textureUnit));
+  activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext, texture?: number): void {
+    gl.activeTexture(convertToGLTextureUnit(gl, texture !== undefined ? texture : this.textureUnit));
   }
 }

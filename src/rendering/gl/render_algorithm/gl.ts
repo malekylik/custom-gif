@@ -9,6 +9,7 @@ import { RenderAlgorithm } from './render_algorithm';
 import { GLTexture, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
 import { GLFramebuffer } from '../gl_api/framebuffer';
 import { FactoryOut, FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
+import { DrawingToScreenRenderPass } from '../../render-pass';
 
 import MainVertText from '../shader_assets/main.vert';
 import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
@@ -172,29 +173,13 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   }
 
   drawPrevToTexture(): void {
-    const gl = this.gl;
-
-    this.frameBuffer.bind(gl);
-
-    this.textureProgram.useProgram(gl);
-
-    this.prevOutTexture.activeTexture(gl);
-    this.prevOutTexture.bind(gl);
-
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+    new DrawingToScreenRenderPass(this.gl)
+      .execute({}, {}, { outputTexture: this.prevOutTexture });
   }
 
   drawToScreen(): void {
-    const gl = this.gl;
-
-    this.frameBuffer.unbind(gl);
-
-    this.textureProgram.useProgram(gl);
-
-    this.outTexture.activeTexture(gl);
-    this.outTexture.bind(gl);
-
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+    new DrawingToScreenRenderPass(this.gl)
+      .execute({}, {}, { outputTexture: this.outTexture });
   }
 
   private drawToAlphaTexture(gl: WebGL2RenderingContext, image: ImageDecriptor): void {

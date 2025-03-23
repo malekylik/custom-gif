@@ -26,16 +26,41 @@ function handleFiles() {
       createLZWFuncFromWasm(gif.gif)
         .then((lzw_uncompress) => {
           const container = document.createElement('div');
-          const gifVisualizer = document.createElement('canvas');
 
-          container.append(gifVisualizer);
+          const glGifVisualizerContainer = document.createElement('div');
+          const glGifVisualizer = document.createElement('canvas');
+          const glGifVisualizerContainerTitle = document.createElement('span');
 
-          main.append(container);
+          glGifVisualizerContainerTitle.innerText = 'Render Type - GL';
 
-          renderer.addGifToRender(gif, gifVisualizer, { uncompress: lzw_uncompress, algorithm: 'Software' })
+          glGifVisualizerContainer.append(glGifVisualizer);
+          glGifVisualizerContainer.append(glGifVisualizerContainerTitle);
+
+          container.append(glGifVisualizerContainer);
+
+          renderer.addGifToRender(gif, glGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'GL' })
+            .then((descriptor) => {
+              renderer.autoplayStart(descriptor);
+          });
+
+
+          const sotwareGifVisualizerContainer = document.createElement('div');
+          const sotwareGifVisualizer = document.createElement('canvas');
+          const sotwareGifVisualizerContainerTitle = document.createElement('span');
+
+          sotwareGifVisualizerContainerTitle.innerText = 'Render Type - SoftWare';
+
+          sotwareGifVisualizerContainer.append(sotwareGifVisualizer);
+          sotwareGifVisualizerContainer.append(sotwareGifVisualizerContainerTitle);
+  
+          container.append(sotwareGifVisualizerContainer);
+
+          renderer.addGifToRender(gif, sotwareGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'Software' })
             .then((descriptor) => {
               renderer.autoplayStart(descriptor);
             });
+
+          main.append(container);
 
 
           // changeInput.addEventListener('change', (e: InputEvent) => {
