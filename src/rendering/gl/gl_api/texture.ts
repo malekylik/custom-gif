@@ -71,7 +71,13 @@ const DefaultOptions: TextureConfig = {
   imageFormat: DefaultImageFormat,
 }
 
-export class GLTexture {
+export interface IGLTexture {
+  bind(gl: WebGLRenderingContext | WebGL2RenderingContext): void;
+  // TODO: should be part of gl program ?
+  activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext, textureUnit?: number): void;
+}
+
+export class GLTexture implements IGLTexture {
   private config: TextureConfig;
   private texture: WebGLTexture;
   private textureUnit: TextureUnit;

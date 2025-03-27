@@ -127,7 +127,7 @@ export class BasicRenderer implements Renderer {
 
     // TODO: add support of DisposalMethod.clear
     if (image.graphicControl?.disposalMethod !== DisposalMethod.prev) {
-      gif.algorithm.savePrevFrame();
+      gif.algorithm.saveDisposalPrev();
     }
   }
 
@@ -156,7 +156,7 @@ export class BasicRenderer implements Renderer {
     const image = gif.gifEntity.gif.images[frame];
 
     if (image.graphicControl?.disposalMethod === DisposalMethod.prev) {
-      gif.algorithm.drawPrevToTexture();
+      gif.algorithm.restorePrevDisposal();
     }
   }
 }

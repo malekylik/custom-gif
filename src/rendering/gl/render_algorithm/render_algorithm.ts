@@ -5,8 +5,8 @@ import { ScreenDescriptor } from 'src/parsing/gif/screen_descriptor';
 export interface RenderAlgorithm {
   drawToTexture(image: ImageDecriptor, globalColorMap: ColorMap): void;
   drawToScreen(): void;
-  drawPrevToTexture(): void;
-  savePrevFrame(): void;
+  restorePrevDisposal(): void;
+  saveDisposalPrev(): void;
   getCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView): void;
   getPrevCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView): void;
 }

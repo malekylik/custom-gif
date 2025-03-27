@@ -1,4 +1,4 @@
-import { GLTexture } from "./texture";
+import { IGLTexture } from "./texture";
 
 export function createGLProgram(gl: WebGLRenderingContext | WebGL2RenderingContext, vertShader: WebGLShader, fragShader: WebGLShader): WebGLProgram {
   const program = gl.createProgram();
@@ -43,14 +43,14 @@ export class GLProgram {
     gl.useProgram(this.program);
   }
 
-  setTextureUniform(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, texture: GLTexture): void {
+  setTextureUniform(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, texture: IGLTexture): void {
     this.currentTextureUnit += 1;
 
-    this.setUniform1i(gl, location, this.currentTextureUnit);
-
-    // TODO: think if we need to bind and active texture here
     texture.activeTexture(gl, this.currentTextureUnit);
+    // TODO: think if we need to bind and active texture here
     texture.bind(gl);
+
+    this.setUniform1i(gl, location, this.currentTextureUnit);
   }
 
   setUniform1i(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, value: number): void {

@@ -2,37 +2,36 @@ import { ColorMap } from 'src/parsing/gif/color_map';
 import { ImageDecriptor } from 'src/parsing/gif/image_descriptor';
 import { ScreenDescriptor } from 'src/parsing/gif/screen_descriptor';
 import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../../consts/consts';
-import { GLProgram } from '../gl_api/program';
-import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { GLVBO } from '../gl_api/vbo';
 import { RenderAlgorithm } from './render_algorithm';
 import { GLTexture, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
-import { GLFramebuffer } from '../gl_api/framebuffer';
 import { FactoryOut, FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
-import { DrawingToScreenRenderPass } from '../../render-pass';
-
-import MainVertText from '../shader_assets/main.vert';
-import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
-import TextureFragText from '../shader_assets/texture.frag';
-import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
-import TextureAlpha from '../shader_assets/textureAlpha.frag';
+import { RenderResult } from '../../render-pass/render-pass';
+import { FlipRenderResultsRenderPass } from '../../render-pass/flip-render-pass';
+import { DrawingToScreenRenderPass } from '../../render-pass/drawing-to-screen-pass';
+import { GifAlphaRenderPass } from '../../render-pass/gif-alpha-pass';
+import { GifRenderPass } from '../../render-pass/gif-frame-pass';
+import { CopyRenderResultRenderPass } from '../../render-pass/copy-render-result-pass';
 
 export class GLRenderAlgorithm implements RenderAlgorithm {
-  private texture: GLTexture;
-  private alphaTexture: GLTexture;
+  private gifFrametexture: GLTexture;
   private colorTableTexture: GLTexture;
-  private outTexture: GLTexture;
-  private prevOutTexture: GLTexture;
-  private gifProgram: GLProgram;
-  private textureProgram: GLProgram;
-  private alphaProgram: GLProgram;
-  private alphaFrameBuffer: GLFramebuffer;
-  private frameBuffer: GLFramebuffer;
-  private prevFrameBuffer: GLFramebuffer;
+
+  private currentFrame: RenderResult;
+  private disposalPrev: RenderResult;
+  private prevFrame: RenderResult;
+
   private uncompressedData: Uint8Array;
   private vboToTexture: GLVBO;
   private lzw_uncompress: FactoryOut;
   private gl: WebGL2RenderingContext;
+
+  // TODO: remove
+  private screenWidth: number;
+  private screenHeight: number;
+
+  // TODO: remove
+  private maxColorMapSize: number;
 
   constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
     const gl = canvas.getContext('webgl2');
@@ -40,6 +39,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     const firstFrame = images[0];
     const colorMap = firstFrame.M ? firstFrame.colorMap : globalColorMap;
     const { screenWidth, screenHeight } = screenDescriptor;
+
+    this.screenWidth = screenWidth;
+    this.screenHeight = screenHeight;
 
     this.uncompressedData = uncompressed.out;
     this.lzw_uncompress = uncompressed.lzw_uncompress;
@@ -52,53 +54,6 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     gl.viewport(0, 0, screenWidth, screenHeight);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0)
-
-    const vertShader = createVertexGLShader(gl, MainVertText);
-    const vertFlippedShader = createVertexGLShader(gl, MainFlippedVertText);
-    const fragShader = createFragmentGLShader(gl, TextureWithPalleteFragText);
-    const fragBaseShader = createFragmentGLShader(gl, TextureFragText);
-    const fragAlphaShader = createFragmentGLShader(gl, TextureAlpha);
-
-    const gifProgram = new GLProgram(gl, vertFlippedShader, fragShader);
-    const textureProgram = new GLProgram(gl, vertShader, fragBaseShader);
-    const alphaProgram = new GLProgram(gl, vertShader, fragAlphaShader);
-
-    this.gifProgram = gifProgram;
-    this.textureProgram = textureProgram;
-    this.alphaProgram = alphaProgram;
-
-    deleteShader(gl, vertShader);
-    deleteShader(gl, vertFlippedShader);
-    deleteShader(gl, fragShader);
-    deleteShader(gl, fragBaseShader);
-    deleteShader(gl, fragAlphaShader);
-
-    this.alphaFrameBuffer = new GLFramebuffer(gl, screenWidth, screenHeight);
-
-    this.alphaTexture = new GLTexture(gl, screenWidth, screenHeight, null);
-    this.alphaTexture.setTextureUnit(TextureUnit.TEXTURE2);
-
-    this.alphaFrameBuffer.bind(gl);
-    this.alphaFrameBuffer.setTexture(gl, this.alphaTexture);
-    this.alphaFrameBuffer.unbind(gl);
-
-    this.frameBuffer = new GLFramebuffer(gl, screenWidth, screenHeight);
-
-    this.outTexture = new GLTexture(gl, screenWidth, screenHeight, null);
-    this.outTexture.setTextureUnit(TextureUnit.TEXTURE0);
-
-    this.frameBuffer.bind(gl);
-    this.frameBuffer.setTexture(gl, this.outTexture);
-    this.frameBuffer.unbind(gl);
-
-    this.prevFrameBuffer = new GLFramebuffer(gl, screenWidth, screenHeight);
-
-    this.prevOutTexture = new GLTexture(gl, screenWidth, screenHeight, null);
-    this.prevOutTexture.setTextureUnit(TextureUnit.TEXTURE0);
-
-    this.prevFrameBuffer.bind(gl);
-    this.prevFrameBuffer.setTexture(gl, this.prevOutTexture);
-    this.prevFrameBuffer.unbind(gl);
 
     this.vboToTexture = new GLVBO(gl, VBO_LAYOUT);
 
@@ -114,29 +69,13 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       return currentColorMapSize;
     }, colorMap.entriesCount);
 
+    this.maxColorMapSize = maxColorMapSize;
+
     this.colorTableTexture = new GLTexture(gl, maxColorMapSize, 1, null);
-    this.texture = new GLTexture(gl, screenWidth, screenHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
+    this.gifFrametexture = new GLTexture(gl, screenWidth, screenHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
 
     this.colorTableTexture.setTextureUnit(TextureUnit.TEXTURE0);
-    this.texture.setTextureUnit(TextureUnit.TEXTURE1);
-
-    gifProgram.useProgram(gl);
-
-    gifProgram.setTextureUniform(gl, 'ColorTableTexture', this.colorTableTexture);
-    gifProgram.setTextureUniform(gl, 'IndexTexture', this.texture);
-    gifProgram.setTextureUniform(gl, 'alphaTexture', this.alphaTexture);
-
-    this.gifProgram.setUniform1f(gl, 'ColorTableSize', maxColorMapSize);
-
-    textureProgram.useProgram(gl);
-
-    textureProgram.setTextureUniform(gl, 'outTexture', this.outTexture);
-
-    alphaProgram.useProgram(gl);
-
-    alphaProgram.setTextureUniform(gl, 'IndexTexture', this.texture);
-    alphaProgram.setUniform1f(gl, 'ScreenHeight', screenHeight);
-    alphaProgram.setUniform1fv(gl, 'Rect', 0, 0, firstFrame.imageWidth, firstFrame.imageHeight);
+    this.gifFrametexture.setTextureUnit(TextureUnit.TEXTURE1);
 
     this.gl = gl;
   }
@@ -146,86 +85,69 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     this.lzw_uncompress(image);
 
-    this.texture.bind(gl);
-    this.texture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
+    this.gifFrametexture.bind(gl);
+    this.gifFrametexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
 
-    this.drawToAlphaTexture(gl, image);
+    const alphaRenderPassResult: RenderResult = this.drawToAlphaTexture(gl, image);
     const colorMap = image.M ? image.colorMap : globalColorMap;
-
-    this.gifProgram.useProgram(gl);
-
-    this.frameBuffer.bind(gl);
 
     this.colorTableTexture.bind(gl);
     this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
 
-    this.texture.bind(gl);
-    this.texture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
+    this.gifFrametexture.bind(gl);
+    this.gifFrametexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
 
-    this.colorTableTexture.activeTexture(gl);
-    this.colorTableTexture.bind(gl);
-    this.texture.activeTexture(gl);
-    this.texture.bind(gl);
-    this.alphaTexture.activeTexture(gl);
-    this.alphaTexture.bind(gl);
+    this.currentFrame = new GifRenderPass(gl, this.screenWidth, this.screenHeight)
+      .execute({}, { colorTableSize: this.maxColorMapSize }, {
+        colorTableTexture: this.colorTableTexture,
+        indexTexture: this.gifFrametexture,
+        alphaTexture: alphaRenderPassResult.texture,
+        prevFrameTexture: this.prevFrame ? this.prevFrame.texture : null
+      });
 
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+      this.prevFrame = new CopyRenderResultRenderPass(this.gl, this.screenWidth, this.screenHeight)
+      .execute({}, {}, { targetTexture: this.currentFrame.texture });
   }
 
-  drawPrevToTexture(): void {
-    new DrawingToScreenRenderPass(this.gl)
-      .execute({}, {}, { outputTexture: this.prevOutTexture });
+  restorePrevDisposal(): void {
+      this.currentFrame = this.disposalPrev;
+      this.prevFrame = this.disposalPrev;
   }
 
   drawToScreen(): void {
+    let flipedResult = new FlipRenderResultsRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: this.currentFrame.texture });
+
     new DrawingToScreenRenderPass(this.gl)
-      .execute({}, {}, { outputTexture: this.outTexture });
+      .execute({}, {}, { targetTexture: flipedResult.texture } );
   }
 
-  private drawToAlphaTexture(gl: WebGL2RenderingContext, image: ImageDecriptor): void {
-    this.alphaFrameBuffer.bind(gl);
-    this.alphaProgram.useProgram(gl);
-    
-    if (image.graphicControl?.isTransparent) {
-      this.alphaProgram.setUniform1f(gl, 'TransperancyIndex', image.graphicControl.transparentColorIndex);
-    } else {
-      this.alphaProgram.setUniform1f(gl, 'TransperancyIndex', 512);
-    }
+  private drawToAlphaTexture(gl: WebGL2RenderingContext, image: ImageDecriptor): RenderResult {
+    const globals = {
+      screenHeight: this.screenHeight,
+      transperancyIndex: image.graphicControl?.isTransparent ? image.graphicControl.transparentColorIndex : 512,
+      alphaSquarCoord: [image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight] as [number, number, number, number],
+    };
 
-    this.texture.activeTexture(gl);
-    this.texture.bind(gl);
-
-    this.alphaProgram.setUniform1fv(gl, 'Rect', image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight);
-
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+    return new GifAlphaRenderPass(gl, this.screenWidth, this.screenHeight)
+      .execute({}, globals, {gifFrame: this.gifFrametexture});
   }
 
-  savePrevFrame(): void {
-    const gl = this.gl;
-
-    this.prevFrameBuffer.bind(gl);
-
-    this.textureProgram.useProgram(gl);
-
-    this.outTexture.activeTexture(gl);
-    this.outTexture.bind(gl);
-
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+  saveDisposalPrev(): void {
+    this.disposalPrev = new CopyRenderResultRenderPass(this.gl, this.screenWidth, this.screenHeight)
+      .execute({}, {}, { targetTexture: this.currentFrame.texture });
   }
 
   getCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView) {
-    const gl = this.gl;
-
-    this.frameBuffer.bind(gl);
-    gl.readPixels(0, 0, screen.screenWidth, screen.screenHeight, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
-    this.frameBuffer.unbind(gl);
+    // TODO: think how to improve
+    if (this.currentFrame) {
+      this.currentFrame.frameBuffer.getPixels(screen.screenWidth, screen.screenHeight, buffer);
+    }
   }
 
   getPrevCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView) {
-    const gl = this.gl;
-
-    this.prevFrameBuffer.bind(gl);
-    gl.readPixels(0, 0, screen.screenWidth, screen.screenHeight, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
-    this.prevFrameBuffer.unbind(gl);
+    // TODO: think how to improve
+    if (this.prevFrame) {
+      this.prevFrame.frameBuffer.getPixels(screen.screenWidth, screen.screenHeight, buffer);
+    }
   }
 }

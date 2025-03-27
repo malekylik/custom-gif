@@ -37,11 +37,11 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     this.ctx.putImageData(graphicMemory.getRawMemory(), 0, 0);
   }
 
-  drawPrevToTexture(): void {
+  restorePrevDisposal(): void {
     this.graphicMemory.set(this.prevGraphicMemory);
   }
 
-  savePrevFrame(): void {
+  saveDisposalPrev(): void {
     this.prevGraphicMemory.set(this.graphicMemory);
   }
 

@@ -5,6 +5,7 @@ precision mediump float;
 uniform sampler2D ColorTableTexture;     //256 x 1 pixels
 uniform sampler2D IndexTexture;
 uniform sampler2D alphaTexture;
+uniform sampler2D prevFrameTexture;
 uniform float ColorTableSize;
 
 in vec2 texCoord;
@@ -19,5 +20,5 @@ void main()
   vec4 texel = texture(ColorTableTexture, vec2(normilaziedX, myindex.y));
   float alpha = texture(alphaTexture, vec2(texCoord.x, 1.0 - texCoord.y)).r;
 
-  fragColor = vec4(texel.rgb, alpha);   //Output the color
+  fragColor = mix(texture(prevFrameTexture, texCoord), vec4(texel.rgb, 1.0), alpha);
 }
