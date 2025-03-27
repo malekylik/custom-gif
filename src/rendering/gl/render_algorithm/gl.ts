@@ -12,6 +12,7 @@ import { DrawingToScreenRenderPass } from '../../render-pass/drawing-to-screen-p
 import { GifAlphaRenderPass } from '../../render-pass/gif-alpha-pass';
 import { GifRenderPass } from '../../render-pass/gif-frame-pass';
 import { CopyRenderResultRenderPass } from '../../render-pass/copy-render-result-pass';
+import { BackAndWhiteRenderPass } from '../../render-pass/black-and-white-pass';
 
 export class GLRenderAlgorithm implements RenderAlgorithm {
   private gifFrametexture: GLTexture;
@@ -115,10 +116,12 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   }
 
   drawToScreen(): void {
-    let flipedResult = new FlipRenderResultsRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: this.currentFrame.texture });
+    let newResult = this.currentFrame;
+    // newResult = new BackAndWhiteRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
+    newResult = new FlipRenderResultsRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
 
     new DrawingToScreenRenderPass(this.gl)
-      .execute({}, {}, { targetTexture: flipedResult.texture } );
+      .execute({}, {}, { targetTexture: newResult.texture } );
   }
 
   private drawToAlphaTexture(gl: WebGL2RenderingContext, image: ImageDecriptor): RenderResult {
