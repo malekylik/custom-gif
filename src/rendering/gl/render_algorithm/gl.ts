@@ -13,6 +13,8 @@ import { GifAlphaRenderPass } from '../../render-pass/gif-alpha-pass';
 import { GifRenderPass } from '../../render-pass/gif-frame-pass';
 import { CopyRenderResultRenderPass } from '../../render-pass/copy-render-result-pass';
 import { BackAndWhiteRenderPass } from '../../render-pass/black-and-white-pass';
+import { MandessPass } from '../../render-pass/madness-pass';
+import { MixRenderResultsRenderPass } from '../../render-pass/mix-render-result-pass';
 
 export class GLRenderAlgorithm implements RenderAlgorithm {
   private gifFrametexture: GLTexture;
@@ -117,9 +119,11 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   drawToScreen(): void {
     let newResult = this.currentFrame;
-    // newResult = new BackAndWhiteRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
+    const newResult1 = new BackAndWhiteRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
+    const newResult2 = new MandessPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {                                                                                                                          }, { targetTexture: newResult.texture });
+    newResult = new MixRenderResultsRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, { alpha: 0.7 }, { background: newResult1.texture, foreground: newResult2.texture });
     newResult = new FlipRenderResultsRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
-
+                                                                                                                          
     new DrawingToScreenRenderPass(this.gl)
       .execute({}, {}, { targetTexture: newResult.texture } );
   }

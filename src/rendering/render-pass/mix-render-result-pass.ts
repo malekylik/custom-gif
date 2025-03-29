@@ -7,12 +7,17 @@ import { BufferDrawingTarget, createBufferDrawingTarget, GPUGlobals, GPUMemory, 
 import MainVertText from '../gl/shader_assets/main.vert';
 import MixTextureFragText from '../gl/shader_assets/mixTextures.frag';
 
+
+export type MixRenderResultsPassGlobals = {
+    alpha: number;
+};
+
 export type MixRenderResultsPassTextures = {
     foreground: IGLTexture;
     background: IGLTexture;
 }
 
-export class MixRenderResultsRenderPass<MemoryInput> implements RenderPass<MemoryInput, {}, { foreground: IGLTexture; background: IGLTexture; }> {
+export class MixRenderResultsRenderPass<MemoryInput> implements RenderPass<MemoryInput, MixRenderResultsPassGlobals, MixRenderResultsPassTextures> {
     private drawingTarget: BufferDrawingTarget;
     private drawingContext: WebGL2RenderingContext;
     private gpuProgram: GLProgram;
@@ -30,17 +35,19 @@ export class MixRenderResultsRenderPass<MemoryInput> implements RenderPass<Memor
         deleteShader(gl, fragBaseShader);
     }
 
-    chain(f: (image: RenderResult) => RenderPass<MemoryInput, {}, { foreground: IGLTexture; background: IGLTexture; }>): RenderPass<MemoryInput, {}, { foreground: IGLTexture; background: IGLTexture; }> {
+    chain(f: (image: RenderResult) => RenderPass<MemoryInput, {}, MixRenderResultsPassTextures>): RenderPass<MemoryInput, {}, MixRenderResultsPassTextures> {
         throw new Error("Method not implemented.");
     }
 
-    execute(memory: GPUMemory, globals: GPUGlobals, textures: { foreground: IGLTexture; background: IGLTexture; }): RenderResult {
+    execute(memory: GPUMemory, globals: MixRenderResultsPassGlobals, textures: MixRenderResultsPassTextures): RenderResult {
         this.drawingTarget.bind();
 
         this.gpuProgram.useProgram(this.drawingContext);
 
         this.gpuProgram.setTextureUniform(this.drawingContext, 'backgroundTexture', textures.background);
         this.gpuProgram.setTextureUniform(this.drawingContext, 'foregroundTexture', textures.foreground);
+
+        this.gpuProgram.setUniform1f(this.drawingContext, 'alpha', globals.alpha);
 
         this.drawingContext.drawArrays(this.drawingContext.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
 
