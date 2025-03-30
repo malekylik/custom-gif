@@ -2,9 +2,10 @@ import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts';
 import { GLProgram } from '../gl_api/program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { IGLTexture } from '../gl_api/texture';
-import { BufferDrawingTarget, createBufferDrawingTarget, GPUMemory, RenderPass } from './render-pass';
+import { GPUMemory, RenderPass } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLRenderResult } from '../gl-render-result';
+import { createGLBufferDrawingTarget } from '../gl-drawing-target';
 
 import MainVertText from '../shader_assets/main.vert';
 import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
@@ -21,13 +22,17 @@ export type GifRenderPassTextures = {
 };
 
 export class GifRenderPass<MemoryInput> implements RenderPass<MemoryInput, GifRenderPassGlobals, GifRenderPassTextures> {
-    private drawingTarget: BufferDrawingTarget;
     private drawingContext: WebGL2RenderingContext;
     private gpuProgram: GLProgram;
 
+    private width: number;
+    private height: number;
+
     constructor(gl: WebGL2RenderingContext, width: number, height: number) {
+        this.width = width;
+        this.height = height;
+
         this.drawingContext = gl;
-        this.drawingTarget = createBufferDrawingTarget(gl, width, height);
 
         const vertShader = createVertexGLShader(gl, MainVertText);
         const fragShader = createFragmentGLShader(gl, TextureWithPalleteFragText);
@@ -43,7 +48,9 @@ export class GifRenderPass<MemoryInput> implements RenderPass<MemoryInput, GifRe
     }
 
     execute(memory: GPUMemory, globals: GifRenderPassGlobals, textures: GifRenderPassTextures): RenderResult {
-        this.drawingTarget.bind();
+        const drawingTarget = createGLBufferDrawingTarget(this.drawingContext, this.width, this.height);
+
+        drawingTarget.bind();
 
         this.gpuProgram.useProgram(this.drawingContext);
 
@@ -59,6 +66,10 @@ export class GifRenderPass<MemoryInput> implements RenderPass<MemoryInput, GifRe
 
         this.drawingContext.drawArrays(this.drawingContext.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
 
-        return createGLRenderResult(this.drawingContext, this.drawingTarget.getBuffer());
+        const renderResult = createGLRenderResult(this.drawingContext, drawingTarget.getBuffer());
+
+        drawingTarget.dispose();
+
+        return renderResult;
     }
 }
