@@ -1,11 +1,12 @@
-import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts';
+import { INDECIES_COUNT_NUMBER } from '../consts';
 import { GLProgram } from '../gl_api/program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { IGLTexture } from '../gl_api/texture';
 import { GPUMemory, RenderPass } from './render-pass';
 import { RenderResult } from '../../api/render-result';
-import { createGLRenderResult } from '../gl-render-result';
-import { createGLBufferDrawingTarget } from '../gl-drawing-target';
+import { createGLRenderResult } from '../gl_api/gl-render-result';
+import { createGLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
+import { GLDrawer } from '../gl_api/gl-drawer';
 
 import MainVertText from '../shader_assets/main.vert';
 import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
@@ -22,25 +23,25 @@ export type GifRenderPassTextures = {
 };
 
 export class GifRenderPass<MemoryInput> implements RenderPass<MemoryInput, GifRenderPassGlobals, GifRenderPassTextures> {
-    private drawingContext: WebGL2RenderingContext;
+    private drawer: GLDrawer;
     private gpuProgram: GLProgram;
 
     private width: number;
     private height: number;
 
-    constructor(gl: WebGL2RenderingContext, width: number, height: number) {
+    constructor(drawer: GLDrawer, width: number, height: number) {
         this.width = width;
         this.height = height;
 
-        this.drawingContext = gl;
+        this.drawer = drawer;
 
-        const vertShader = createVertexGLShader(gl, MainVertText);
-        const fragShader = createFragmentGLShader(gl, TextureWithPalleteFragText);
+        const vertShader = createVertexGLShader(this.drawer.getGL(), MainVertText);
+        const fragShader = createFragmentGLShader(this.drawer.getGL(), TextureWithPalleteFragText);
 
-        this.gpuProgram = new GLProgram(gl, vertShader, fragShader);
+        this.gpuProgram = new GLProgram(this.drawer.getGL(), vertShader, fragShader);
 
-        deleteShader(gl, vertShader);
-        deleteShader(gl, fragShader);
+        deleteShader(this.drawer.getGL(), vertShader);
+        deleteShader(this.drawer.getGL(), fragShader);
     }
 
     chain(f: (image: RenderResult) => RenderPass<MemoryInput, GifRenderPassGlobals, GifRenderPassTextures>): RenderPass<MemoryInput, GifRenderPassGlobals, GifRenderPassTextures> {
@@ -48,25 +49,25 @@ export class GifRenderPass<MemoryInput> implements RenderPass<MemoryInput, GifRe
     }
 
     execute(memory: GPUMemory, globals: GifRenderPassGlobals, textures: GifRenderPassTextures): RenderResult {
-        const drawingTarget = createGLBufferDrawingTarget(this.drawingContext, this.width, this.height);
+        const drawingTarget = createGLBufferDrawingTarget(this.drawer.getGL(), this.width, this.height);
 
         drawingTarget.bind();
 
-        this.gpuProgram.useProgram(this.drawingContext);
+        this.gpuProgram.useProgram(this.drawer.getGL());
 
-        this.gpuProgram.setUniform1f(this.drawingContext, 'ColorTableSize', globals.colorTableSize);
+        this.gpuProgram.setUniform1f(this.drawer.getGL(), 'ColorTableSize', globals.colorTableSize);
 
-        this.gpuProgram.setTextureUniform(this.drawingContext, 'IndexTexture', textures.indexTexture);
-        this.gpuProgram.setTextureUniform(this.drawingContext, 'alphaTexture', textures.alphaTexture);
-        this.gpuProgram.setTextureUniform(this.drawingContext, 'ColorTableTexture', textures.colorTableTexture);
+        this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'IndexTexture', textures.indexTexture);
+        this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'alphaTexture', textures.alphaTexture);
+        this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'ColorTableTexture', textures.colorTableTexture);
 
         if (textures.prevFrameTexture) {
-        this.gpuProgram.setTextureUniform(this.drawingContext, 'prevFrameTexture', textures.prevFrameTexture);
+        this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'prevFrameTexture', textures.prevFrameTexture);
         }
 
-        this.drawingContext.drawArrays(this.drawingContext.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+        this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
 
-        const renderResult = createGLRenderResult(this.drawingContext, drawingTarget.getBuffer());
+        const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 
         drawingTarget.dispose();
 

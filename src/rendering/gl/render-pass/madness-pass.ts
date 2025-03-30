@@ -1,11 +1,12 @@
-import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts';
+import { INDECIES_COUNT_NUMBER } from '../consts';
 import { GLProgram } from '../gl_api/program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { IGLTexture } from '../gl_api/texture';
 import { GPUMemory, RenderPass } from './render-pass';
 import { RenderResult } from '../../api/render-result';
-import { createGLRenderResult } from '../gl-render-result';
-import { createGLBufferDrawingTarget } from '../gl-drawing-target';
+import { createGLRenderResult } from '../gl_api/gl-render-result';
+import { createGLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
+import { GLDrawer } from '../gl_api/gl-drawer';
 
 import MainVertText from '../shader_assets/madness.vert';
 import TextureWithPalleteFragText from '../shader_assets/madness.frag';
@@ -18,25 +19,25 @@ export type MandessPassTextures = {
 };
 
 export class MandessPass<MemoryInput> implements RenderPass<MemoryInput, MandessPassGlobals, MandessPassTextures> {
-    private drawingContext: WebGL2RenderingContext;
+    private drawer: GLDrawer;
     private gpuProgram: GLProgram;
 
     private width: number;
     private height: number;
 
-    constructor(gl: WebGL2RenderingContext, width: number, height: number) {
+    constructor(drawer: GLDrawer, width: number, height: number) {
         this.width = width;
         this.height = height;
 
-        this.drawingContext = gl;
+        this.drawer = drawer;
 
-        const vertShader = createVertexGLShader(gl, MainVertText);
-        const fragShader = createFragmentGLShader(gl, TextureWithPalleteFragText);
+        const vertShader = createVertexGLShader(this.drawer.getGL(), MainVertText);
+        const fragShader = createFragmentGLShader(this.drawer.getGL(), TextureWithPalleteFragText);
 
-        this.gpuProgram = new GLProgram(gl, vertShader, fragShader);
+        this.gpuProgram = new GLProgram(this.drawer.getGL(), vertShader, fragShader);
 
-        deleteShader(gl, vertShader);
-        deleteShader(gl, fragShader);
+        deleteShader(this.drawer.getGL(), vertShader);
+        deleteShader(this.drawer.getGL(), fragShader);
     }
 
     chain(f: (image: RenderResult) => RenderPass<MemoryInput, MandessPassGlobals, MandessPassTextures>): RenderPass<MemoryInput, MandessPassGlobals, MandessPassTextures> {
@@ -44,17 +45,17 @@ export class MandessPass<MemoryInput> implements RenderPass<MemoryInput, Mandess
     }
 
     execute(memory: GPUMemory, globals: MandessPassGlobals, textures: MandessPassTextures): RenderResult {
-        const drawingTarget = createGLBufferDrawingTarget(this.drawingContext, this.width, this.height);
+        const drawingTarget = createGLBufferDrawingTarget(this.drawer.getGL(), this.width, this.height);
 
         drawingTarget.bind();
 
-        this.gpuProgram.useProgram(this.drawingContext);
+        this.gpuProgram.useProgram(this.drawer.getGL());
 
-        this.gpuProgram.setTextureUniform(this.drawingContext, 'targetTexture', textures.targetTexture);
+        this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
 
-        this.drawingContext.drawArrays(this.drawingContext.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+        this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
 
-        const renderResult = createGLRenderResult(this.drawingContext, drawingTarget.getBuffer());
+        const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 
         drawingTarget.dispose();
 

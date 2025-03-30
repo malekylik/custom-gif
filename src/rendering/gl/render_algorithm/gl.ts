@@ -15,6 +15,7 @@ import { BackAndWhiteRenderPass } from '../render-pass/black-and-white-pass';
 import { MandessPass } from '../render-pass/madness-pass';
 import { MixRenderResultsRenderPass } from '../render-pass/mix-render-result-pass';
 import { RenderResult } from '../../api/render-result';
+import { createGLDrawer, GLDrawer } from '../gl_api/gl-drawer';
 
 export class GLRenderAlgorithm implements RenderAlgorithm {
   private gifFrametexture: GLTexture;
@@ -28,6 +29,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   private vboToTexture: GLVBO;
   private lzw_uncompress: FactoryOut;
   private gl: WebGL2RenderingContext;
+  private drawer: GLDrawer;
 
   private screenWidth: number;
   private screenHeight: number;
@@ -36,6 +38,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
     const gl = canvas.getContext('webgl2');
+
+    this.drawer = createGLDrawer(gl);
+    this.drawer.startFrame();
 
     const firstFrame = images[0];
     const colorMap = firstFrame.M ? firstFrame.colorMap : globalColorMap;
@@ -98,7 +103,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.gifFrametexture.bind(gl);
     this.gifFrametexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
 
-    this.currentFrame = new GifRenderPass(gl, this.screenWidth, this.screenHeight)
+    this.currentFrame = new GifRenderPass(this.drawer, this.screenWidth, this.screenHeight)
       .execute({}, { colorTableSize: this.maxColorMapSize }, {
         colorTableTexture: this.colorTableTexture,
         indexTexture: this.gifFrametexture,
@@ -106,7 +111,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
         prevFrameTexture: this.prevFrame ? this.prevFrame.texture : null
       });
 
-      this.prevFrame = new CopyRenderResultRenderPass(this.gl, this.screenWidth, this.screenHeight)
+      this.prevFrame = new CopyRenderResultRenderPass(this.drawer, this.screenWidth, this.screenHeight)
       .execute({}, {}, { targetTexture: this.currentFrame.texture });
   }
 
@@ -117,13 +122,17 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   drawToScreen(): void {
     let newResult = this.currentFrame;
-    const newResult1 = new BackAndWhiteRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
-    const newResult2 = new MandessPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
-    newResult = new MixRenderResultsRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, { alpha: 0.7 }, { background: newResult1.texture, foreground: newResult2.texture });
-    newResult = new FlipRenderResultsRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
+    const newResult1 = new BackAndWhiteRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
+    const newResult2 = new MandessPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
+    newResult = new MixRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, { alpha: 0.7 }, { background: newResult1.texture, foreground: newResult2.texture });
 
-    new DrawingToScreenRenderPass(this.gl)
+    newResult = new FlipRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
+
+    new DrawingToScreenRenderPass(this.drawer)
       .execute({}, {}, { targetTexture: newResult.texture } );
+
+    this.drawer.endFrame();
+    this.drawer.startFrame();
   }
 
   private drawToAlphaTexture(gl: WebGL2RenderingContext, image: ImageDecriptor): RenderResult {
@@ -133,12 +142,12 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       alphaSquarCoord: [image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight] as [number, number, number, number],
     };
 
-    return new GifAlphaRenderPass(gl, this.screenWidth, this.screenHeight)
+    return new GifAlphaRenderPass(this.drawer, this.screenWidth, this.screenHeight)
       .execute({}, globals, {gifFrame: this.gifFrametexture});
   }
 
   saveDisposalPrev(): void {
-    this.disposalPrevFrame = new CopyRenderResultRenderPass(this.gl, this.screenWidth, this.screenHeight)
+    this.disposalPrevFrame = new CopyRenderResultRenderPass(this.drawer, this.screenWidth, this.screenHeight)
       .execute({}, {}, { targetTexture: this.currentFrame.texture });
   }
 

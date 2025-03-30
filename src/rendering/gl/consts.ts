@@ -29,3 +29,5 @@ export const QUAD_WITH_TEXTURE_COORD_DATA = Float32Array.from([
   -1.0, -1.0, 0.0, // bottom-left v2
   0.0, 1.0, // texCoord v2
 ]);
+
+export const INDECIES_COUNT_NUMBER = QUAD_WITH_TEXTURE_COORD_DATA.length / 5;

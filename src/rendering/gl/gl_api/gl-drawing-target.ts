@@ -1,5 +1,5 @@
-import { BufferDrawingTarget, DrawingTarget } from '../api/drawing-target';
-import { GLTexture, IGLTexture } from './gl_api/texture';
+import { BufferDrawingTarget, DrawingTarget } from '../../api/drawing-target';
+import { GLTexture, IGLTexture } from './texture';
 
 export interface GLBufferDrawingTarget extends BufferDrawingTarget {
     dispose(): void

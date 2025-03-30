@@ -1,35 +1,36 @@
-import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts';
+import { INDECIES_COUNT_NUMBER } from '../consts';
 import { GLProgram } from '../gl_api/program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { IGLTexture, NoopGLTexture } from '../gl_api/texture';
 import { GPUGlobals, GPUMemory, RenderPass } from './render-pass';
 import { RenderResult } from '../../api/render-result';
-import { createGLRenderResult } from '../gl-render-result';
+import { createGLRenderResult } from '../gl_api/gl-render-result';
+import { createGLScreenDrawingTarget } from '../gl_api/gl-drawing-target';
+import { GLDrawer } from '../gl_api/gl-drawer';
 
 import MainVertText from '../shader_assets/main.vert';
 import TextureFragText from '../shader_assets/texture.frag';
-import { createGLScreenDrawingTarget } from '../gl-drawing-target';
 
 type DrawingToScreenPassTextures = {
     targetTexture: IGLTexture;
 }
 
 export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<MemoryInput, {}, DrawingToScreenPassTextures> {
-    private drawingContext: WebGL2RenderingContext;
+    private drawer: GLDrawer;
     private gpuProgram: GLProgram;
     private noopTexture: IGLTexture;
 
-    constructor(gl: WebGL2RenderingContext) {
-        this.drawingContext = gl;
+    constructor(drawer: GLDrawer) {
+        this.drawer = drawer;
         this.noopTexture = new NoopGLTexture();
 
-        const vertShader = createVertexGLShader(gl, MainVertText);
-        const fragBaseShader = createFragmentGLShader(gl, TextureFragText);
+        const vertShader = createVertexGLShader(this.drawer.getGL(), MainVertText);
+        const fragBaseShader = createFragmentGLShader(this.drawer.getGL(), TextureFragText);
 
-        this.gpuProgram = new GLProgram(gl, vertShader, fragBaseShader);
+        this.gpuProgram = new GLProgram(this.drawer.getGL(), vertShader, fragBaseShader);
 
-        deleteShader(gl, vertShader);
-        deleteShader(gl, fragBaseShader);
+        deleteShader(this.drawer.getGL(), vertShader);
+        deleteShader(this.drawer.getGL(), fragBaseShader);
     }
 
     chain(f: (image: RenderResult) => RenderPass<MemoryInput, {}, DrawingToScreenPassTextures>): RenderPass<MemoryInput, {}, DrawingToScreenPassTextures> {
@@ -37,15 +38,15 @@ export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<Memory
     }
 
     execute(memory: GPUMemory, globals: GPUGlobals, textures: DrawingToScreenPassTextures): RenderResult {
-        const drawingTarget = createGLScreenDrawingTarget(this.drawingContext);
+        const drawingTarget = createGLScreenDrawingTarget(this.drawer.getGL());
 
         drawingTarget.bind();
 
-        this.gpuProgram.useProgram(this.drawingContext);
-        this.gpuProgram.setTextureUniform(this.drawingContext, 'targetTexture', textures.targetTexture);
+        this.gpuProgram.useProgram(this.drawer.getGL());
+        this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
 
-        this.drawingContext.drawArrays(this.drawingContext.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
+        this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
 
-        return createGLRenderResult(this.drawingContext, this.noopTexture);
+        return createGLRenderResult(this.drawer.getGL(), this.noopTexture);
     }
 }

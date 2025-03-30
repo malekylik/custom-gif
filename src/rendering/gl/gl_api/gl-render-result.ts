@@ -1,5 +1,5 @@
-import { RenderResult } from '../api/render-result';
-import { IGLTexture } from './gl_api/texture';
+import { RenderResult } from '../../api/render-result';
+import { IGLTexture } from './texture';
 
 export function createGLRenderResult(gl: WebGL2RenderingContext, texture: IGLTexture): RenderResult {
     return {
