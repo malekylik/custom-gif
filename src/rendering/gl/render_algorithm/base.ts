@@ -45,11 +45,11 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     this.prevGraphicMemory.set(this.graphicMemory);
   }
 
-  getCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView): void {
+  getCanvasPixels( buffer: ArrayBufferView): void {
     new Uint8ClampedArray(buffer.buffer).set(this.graphicMemory.getRawMemory().data);
   }
 
-  getPrevCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView): void {
+  getPrevCanvasPixels(buffer: ArrayBufferView): void {
     new Uint8ClampedArray(buffer.buffer).set(this.prevGraphicMemory.getRawMemory().data);
   }
 
