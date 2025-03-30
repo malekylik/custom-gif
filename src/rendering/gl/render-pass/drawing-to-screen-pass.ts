@@ -1,11 +1,13 @@
-import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts/consts';
-import { GLProgram } from '../gl/gl_api/program';
-import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl/gl_api/shader';
-import { IGLTexture } from '../gl/gl_api/texture';
-import { createScreenDrawingTarget, GPUGlobals, GPUMemory, RenderPass, RenderResult, ScreenDrawingTarget } from './render-pass';
+import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts';
+import { GLProgram } from '../gl_api/program';
+import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
+import { IGLTexture, NoopGLTexture } from '../gl_api/texture';
+import { createScreenDrawingTarget, GPUGlobals, GPUMemory, RenderPass, ScreenDrawingTarget } from './render-pass';
+import { RenderResult } from '../../api/render-result';
+import { createGLRenderResult } from '../gl-render-result';
 
-import MainVertText from '../gl/shader_assets/main.vert';
-import TextureFragText from '../gl/shader_assets/texture.frag';
+import MainVertText from '../shader_assets/main.vert';
+import TextureFragText from '../shader_assets/texture.frag';
 
 type DrawingToScreenPassTextures = {
     targetTexture: IGLTexture;
@@ -15,10 +17,12 @@ export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<Memory
     private drawingTarget: ScreenDrawingTarget;
     private drawingContext: WebGL2RenderingContext;
     private gpuProgram: GLProgram;
+    private noopTexture: IGLTexture;
 
     constructor(gl: WebGL2RenderingContext) {
         this.drawingContext = gl;
         this.drawingTarget = createScreenDrawingTarget(gl);
+        this.noopTexture = new NoopGLTexture();
 
         const vertShader = createVertexGLShader(gl, MainVertText);
         const fragBaseShader = createFragmentGLShader(gl, TextureFragText);
@@ -42,6 +46,6 @@ export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<Memory
         this.drawingContext.drawArrays(this.drawingContext.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
 
         // TODO: put noop texture
-        return ({ texture: null, frameBuffer: null });
+        return createGLRenderResult(this.drawingContext, this.noopTexture);
     }
 }

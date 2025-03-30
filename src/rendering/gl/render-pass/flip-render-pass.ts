@@ -1,11 +1,13 @@
-import { GLProgram } from '../gl/gl_api/program';
-import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl/gl_api/shader';
-import { IGLTexture } from '../gl/gl_api/texture';
-import { BufferDrawingTarget, createBufferDrawingTarget, GPUGlobals, GPUMemory, RenderPass, RenderResult } from './render-pass';
-import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts/consts';
+import { GLProgram } from '../gl_api/program';
+import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
+import { IGLTexture } from '../gl_api/texture';
+import { BufferDrawingTarget, createBufferDrawingTarget, GPUGlobals, GPUMemory, RenderPass } from './render-pass';
+import { RenderResult } from '../../api/render-result';
+import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts';
+import { createGLRenderResult } from '../gl-render-result';
 
-import MainFlippedVertText from '../gl/shader_assets/mainFlipped.vert';
-import MixTextureFragText from '../gl/shader_assets/mixTextures.frag';
+import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
+import MixTextureFragText from '../shader_assets/mixTextures.frag';
 
 type GifRenderPassTextures = {
     targetTexture: IGLTexture;
@@ -42,6 +44,6 @@ export class FlipRenderResultsRenderPass<MemoryInput> implements RenderPass<Memo
 
         this.drawingContext.drawArrays(this.drawingContext.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
 
-        return ({ texture: this.drawingTarget.getBuffer(), frameBuffer: this.drawingTarget });
+        return createGLRenderResult(this.drawingContext, this.drawingTarget.getBuffer());
     }
 }

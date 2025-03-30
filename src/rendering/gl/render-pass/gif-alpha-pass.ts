@@ -1,11 +1,13 @@
-import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts/consts';
-import { GLProgram } from '../gl/gl_api/program';
-import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl/gl_api/shader';
-import { IGLTexture } from '../gl/gl_api/texture';
-import { BufferDrawingTarget, createBufferDrawingTarget, GPUMemory, RenderPass, RenderResult } from './render-pass';
+import { QUAD_WITH_TEXTURE_COORD_DATA } from '../consts';
+import { GLProgram } from '../gl_api/program';
+import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
+import { IGLTexture } from '../gl_api/texture';
+import { BufferDrawingTarget, createBufferDrawingTarget, GPUMemory, RenderPass } from './render-pass';
+import { RenderResult } from '../../api/render-result';
+import { createGLRenderResult } from '../gl-render-result';
 
-import MainVertText from '../gl/shader_assets/main.vert';
-import TextureAlpha from '../gl/shader_assets/textureAlpha.frag';
+import MainVertText from '../shader_assets/main.vert';
+import TextureAlpha from '../shader_assets/textureAlpha.frag';
 
 export type GifAlphaRenderPassGlobals = {
     transperancyIndex: number;
@@ -51,6 +53,6 @@ export class GifAlphaRenderPass<MemoryInput> implements RenderPass<MemoryInput, 
 
         this.drawingContext.drawArrays(this.drawingContext.TRIANGLES, 0, QUAD_WITH_TEXTURE_COORD_DATA.length);
 
-        return ({ texture: this.drawingTarget.getBuffer(), frameBuffer: this.drawingTarget });
+        return createGLRenderResult(this.drawingContext, this.drawingTarget.getBuffer());
     }
 }

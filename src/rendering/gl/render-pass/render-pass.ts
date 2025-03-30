@@ -1,10 +1,5 @@
-import { GLTexture, IGLTexture } from '../gl/gl_api/texture';
-
-export interface RenderResult {
-    texture: IGLTexture;
-    // TODO: do not expose it
-    frameBuffer: BufferDrawingTarget;
-}
+import { RenderResult } from '../../api/render-result';
+import { GLTexture, IGLTexture } from '../gl_api/texture';
 
 export interface GPUMemory {
 
@@ -41,7 +36,6 @@ export type ScreenDrawingTarget = DrawingTarget;
 
 export type BufferDrawingTarget = {
     getBuffer(): IGLTexture;
-    getPixels(width: number, height: number, buffer: ArrayBufferView): void;
     dispose(): void;
 } & DrawingTarget;
 
@@ -71,14 +65,6 @@ export function createBufferDrawingTarget(gl: WebGL2RenderingContext, width: num
 
         getBuffer() {
             return _texture;
-        },
-
-        getPixels(width, height, buffer) {
-            this.bind();
-
-            gl.readPixels(0, 0, width, height, _drawingContext.RGBA, _drawingContext.UNSIGNED_BYTE, buffer);
-
-            _drawingContext.bindFramebuffer(gl.FRAMEBUFFER, null);
         },
 
         dispose() {

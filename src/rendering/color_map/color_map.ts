@@ -6,8 +6,8 @@ import { GLTexture, TextureUnit } from '../gl/gl_api/texture';
 import { GLVBO } from '../gl/gl_api/vbo';
 import { GrapgicMemory } from '../gl/render_algorithm/graphic_memory';
 
-import MainVertText from '../gl/shader_assets/main.vert';
-import TextureFragText from '../gl/shader_assets/texture.frag';
+import MainVertText from '../shader_assets/main.vert';
+import TextureFragText from '../shader_assets/texture.frag';
 
 export class ColorMapVisualizer {
   private gl: WebGL2RenderingContext;

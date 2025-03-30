@@ -1,27 +1,27 @@
 import { ColorMap } from 'src/parsing/gif/color_map';
 import { ImageDecriptor } from 'src/parsing/gif/image_descriptor';
 import { ScreenDescriptor } from 'src/parsing/gif/screen_descriptor';
-import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../../consts/consts';
+import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../consts';
 import { GLVBO } from '../gl_api/vbo';
 import { RenderAlgorithm } from './render_algorithm';
 import { GLTexture, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
 import { FactoryOut, FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
-import { RenderResult } from '../../render-pass/render-pass';
-import { FlipRenderResultsRenderPass } from '../../render-pass/flip-render-pass';
-import { DrawingToScreenRenderPass } from '../../render-pass/drawing-to-screen-pass';
-import { GifAlphaRenderPass } from '../../render-pass/gif-alpha-pass';
-import { GifRenderPass } from '../../render-pass/gif-frame-pass';
-import { CopyRenderResultRenderPass } from '../../render-pass/copy-render-result-pass';
-import { BackAndWhiteRenderPass } from '../../render-pass/black-and-white-pass';
-import { MandessPass } from '../../render-pass/madness-pass';
-import { MixRenderResultsRenderPass } from '../../render-pass/mix-render-result-pass';
+import { FlipRenderResultsRenderPass } from '../render-pass/flip-render-pass';
+import { DrawingToScreenRenderPass } from '../render-pass/drawing-to-screen-pass';
+import { GifAlphaRenderPass } from '../render-pass/gif-alpha-pass';
+import { GifRenderPass } from '../render-pass/gif-frame-pass';
+import { CopyRenderResultRenderPass } from '../render-pass/copy-render-result-pass';
+import { BackAndWhiteRenderPass } from '../render-pass/black-and-white-pass';
+import { MandessPass } from '../render-pass/madness-pass';
+import { MixRenderResultsRenderPass } from '../render-pass/mix-render-result-pass';
+import { RenderResult } from '../../api/render-result';
 
 export class GLRenderAlgorithm implements RenderAlgorithm {
   private gifFrametexture: GLTexture;
   private colorTableTexture: GLTexture;
 
   private currentFrame: RenderResult;
-  private disposalPrev: RenderResult;
+  private disposalPrevFrame: RenderResult;
   private prevFrame: RenderResult;
 
   private uncompressedData: Uint8Array;
@@ -29,11 +29,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   private lzw_uncompress: FactoryOut;
   private gl: WebGL2RenderingContext;
 
-  // TODO: remove
   private screenWidth: number;
   private screenHeight: number;
 
-  // TODO: remove
   private maxColorMapSize: number;
 
   constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
@@ -113,17 +111,17 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   }
 
   restorePrevDisposal(): void {
-      this.currentFrame = this.disposalPrev;
-      this.prevFrame = this.disposalPrev;
+      this.currentFrame = this.disposalPrevFrame;
+      this.prevFrame = this.disposalPrevFrame;
   }
 
   drawToScreen(): void {
     let newResult = this.currentFrame;
     const newResult1 = new BackAndWhiteRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
-    const newResult2 = new MandessPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {                                                                                                                          }, { targetTexture: newResult.texture });
+    const newResult2 = new MandessPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
     newResult = new MixRenderResultsRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, { alpha: 0.7 }, { background: newResult1.texture, foreground: newResult2.texture });
     newResult = new FlipRenderResultsRenderPass(this.gl, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
-                                                                                                                          
+
     new DrawingToScreenRenderPass(this.gl)
       .execute({}, {}, { targetTexture: newResult.texture } );
   }
@@ -140,21 +138,19 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   }
 
   saveDisposalPrev(): void {
-    this.disposalPrev = new CopyRenderResultRenderPass(this.gl, this.screenWidth, this.screenHeight)
+    this.disposalPrevFrame = new CopyRenderResultRenderPass(this.gl, this.screenWidth, this.screenHeight)
       .execute({}, {}, { targetTexture: this.currentFrame.texture });
   }
 
-  getCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView) {
-    // TODO: think how to improve
+  getCanvasPixels(buffer: ArrayBufferView) {
     if (this.currentFrame) {
-      this.currentFrame.frameBuffer.getPixels(screen.screenWidth, screen.screenHeight, buffer);
+      this.currentFrame.readResultToBuffer(buffer);
     }
   }
 
-  getPrevCanvasPixels(screen: ScreenDescriptor, buffer: ArrayBufferView) {
-    // TODO: think how to improve
+  getPrevCanvasPixels(buffer: ArrayBufferView) {
     if (this.prevFrame) {
-      this.prevFrame.frameBuffer.getPixels(screen.screenWidth, screen.screenHeight, buffer);
+      this.prevFrame.readResultToBuffer(buffer);
     }
   }
 }
