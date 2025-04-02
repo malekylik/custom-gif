@@ -112,15 +112,25 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.gifFrametexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
 
     this.currentFrame = new GifRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-      .execute({}, { colorTableSize: this.maxColorMapSize }, {
-        colorTableTexture: this.colorTableTexture,
-        indexTexture: this.gifFrametexture,
-        alphaTexture: alphaRenderPassResult.texture,
-        prevFrameTexture: this.prevFrame ? this.prevFrame.texture : null
-      }, getGLSystem(this.id).reosuceManager);
+      .execute({
+        memory: {},
+        globals: { colorTableSize: this.maxColorMapSize },
+        textures: {
+          colorTableTexture: this.colorTableTexture,
+          indexTexture: this.gifFrametexture,
+          alphaTexture: alphaRenderPassResult.texture,
+          prevFrameTexture: this.prevFrame ? this.prevFrame.texture : null
+        },
+        resourceManager: getGLSystem(this.id).reosuceManager
+      });
 
       this.prevFrame = new CopyRenderResultRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-      .execute({}, {}, { targetTexture: this.currentFrame.texture }, getGLSystem(this.id).reosuceManager);
+      .execute({
+        memory: {},
+        globals: {},
+        textures: { targetTexture: this.currentFrame.texture },
+        resourceManager: getGLSystem(this.id).reosuceManager,
+      });
   }
 
   restorePrevDisposal(): void {
@@ -130,14 +140,43 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   drawToScreen(): void {
     let newResult = this.currentFrame;
-    const newResult1 = new BackAndWhiteRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture }, getGLSystem(this.id).reosuceManager);
-    const newResult2 = new MandessPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture }, getGLSystem(this.id).reosuceManager);
-    newResult = new MixRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, { alpha: 0.7 }, { background: newResult1.texture, foreground: newResult2.texture }, getGLSystem(this.id).reosuceManager);
+    const newResult1 = new BackAndWhiteRenderPass(this.drawer, this.screenWidth, this.screenHeight)
+    .execute({
+      memory: {},
+      globals: {},
+      textures: { targetTexture: newResult.texture },
+      resourceManager: getGLSystem(this.id).reosuceManager,
+    });
+    const newResult2 = new MandessPass(this.drawer, this.screenWidth, this.screenHeight)
+    .execute({
+      memory: {},
+      globals: {},
+      textures: { targetTexture: newResult.texture },
+      resourceManager: getGLSystem(this.id).reosuceManager,
+    });
+    newResult = new MixRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight)
+    .execute({
+      memory: {},
+      globals: {alpha: 0.7},
+      textures: { background: newResult1.texture, foreground: newResult2.texture },
+      resourceManager: getGLSystem(this.id).reosuceManager,
+    });
 
-    newResult = new FlipRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture }, getGLSystem(this.id).reosuceManager);
+    newResult = new FlipRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight)
+    .execute({
+      memory: {},
+      globals: {},
+      textures: { targetTexture: newResult.texture },
+      resourceManager: getGLSystem(this.id).reosuceManager,
+    });
 
     new DrawingToScreenRenderPass(this.drawer)
-      .execute({}, {}, { targetTexture: newResult.texture } );
+    .execute({
+      memory: {},
+      globals: {},
+      textures: {targetTexture: newResult.texture},
+      resourceManager: getGLSystem(this.id).reosuceManager,
+    });
 
     this.drawer.endFrame();
     getGLSystem(this.id).reosuceManager.endFrame();
@@ -154,12 +193,22 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     };
 
     return new GifAlphaRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-      .execute({}, globals, {gifFrame: this.gifFrametexture}, getGLSystem(this.id).reosuceManager);
+    .execute({
+      memory: {},
+      globals: globals,
+      textures: {gifFrame: this.gifFrametexture},
+      resourceManager: getGLSystem(this.id).reosuceManager,
+    });
   }
 
   saveDisposalPrev(): void {
     this.disposalPrevFrame = new CopyRenderResultRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-      .execute({}, {}, { targetTexture: this.currentFrame.texture }, getGLSystem(this.id).reosuceManager);
+    .execute({
+      memory: {},
+      globals: {},
+      textures: { targetTexture: this.currentFrame.texture },
+      resourceManager: getGLSystem(this.id).reosuceManager,
+    });
   }
 
   getCanvasPixels(buffer: ArrayBufferView) {

@@ -2,10 +2,9 @@ import { INDECIES_COUNT_NUMBER } from '../consts';
 import { GLProgram } from '../gl_api/program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { IGLTexture } from '../gl_api/texture';
-import { GPUMemory, RenderPass } from './render-pass';
+import { RenderPass, RenderPassArgs } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
-import { ResourceManager } from '../../api/resource-manager';
 import { GLDrawer } from '../gl_api/gl-drawer';
 
 import MainVertText from '../shader_assets/madness.vert';
@@ -44,7 +43,8 @@ export class MandessPass<MemoryInput> implements RenderPass<MemoryInput, Mandess
         throw new Error("Method not implemented.");
     }
 
-    execute(memory: GPUMemory, globals: MandessPassGlobals, textures: MandessPassTextures, resourceManager: ResourceManager): RenderResult {
+    execute(args: RenderPassArgs<MemoryInput, MandessPassGlobals, MandessPassTextures>): RenderResult {
+        const { textures, resourceManager } = args;
         const drawingTarget = resourceManager.allocateFrameDrawingTarget(this.width, this.height);
 
         drawingTarget.bind();

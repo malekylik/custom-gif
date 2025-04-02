@@ -1,12 +1,11 @@
 import { GLProgram } from '../gl_api/program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { IGLTexture } from '../gl_api/texture';
-import { GPUGlobals, GPUMemory, RenderPass } from './render-pass';
+import { RenderPass, RenderPassArgs } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { INDECIES_COUNT_NUMBER } from '../consts';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
 import { GLDrawer } from '../gl_api/gl-drawer';
-import { ResourceManager } from '../../api/resource-manager';
 
 import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
 import MixTextureFragText from '../shader_assets/mixTextures.frag';
@@ -41,7 +40,8 @@ export class FlipRenderResultsRenderPass<MemoryInput> implements RenderPass<Memo
         throw new Error("Method not implemented.");
     }
 
-    execute(memory: GPUMemory, globals: GPUGlobals, textures: GifRenderPassTextures, resourceManager: ResourceManager): RenderResult {
+    execute(args: RenderPassArgs<MemoryInput, {}, GifRenderPassTextures>): RenderResult {
+        const { memory, globals, textures, resourceManager } = args;
         const drawingTarget = resourceManager.allocateFrameDrawingTarget(this.width, this.height);
 
         drawingTarget.bind();

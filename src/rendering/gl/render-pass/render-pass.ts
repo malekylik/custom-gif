@@ -19,6 +19,13 @@ export type GPUInputTextures = {
     [textureName: string]: IGLTexture;
 };
 
+export interface RenderPassArgs<MemoryInput, GlobalsInput extends GPUGlobals, TexturesInput extends GPUInputTextures> {
+    memory: MemoryInput;
+    globals: GlobalsInput;
+    textures: TexturesInput;
+    resourceManager: ResourceManager
+}
+
 /**
  * Represents a GPU program which can be chain in a sequence
  */
@@ -26,5 +33,5 @@ export interface RenderPass<MemoryInput, GlobalsInput extends GPUGlobals, Textur
     chain(f: (image: RenderResult) => RenderPass<MemoryInput, GlobalsInput, TexturesInput>): RenderPass<MemoryInput, GlobalsInput, TexturesInput>;
 
     // TODO: should return RenderResult
-    execute(memory: GPUMemory, globals: GPUGlobals, textures: TexturesInput, resourceManager: ResourceManager): RenderResult;
+    execute(args: RenderPassArgs<MemoryInput, GlobalsInput, TexturesInput>): RenderResult;
 }

@@ -36,6 +36,8 @@ export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: n
         dispose() {
             _drawingContext.bindFramebuffer(gl.FRAMEBUFFER, null);
             _drawingContext.deleteFramebuffer(frameBuffer);
+
+            // _drawingContext.deleteTexture(_texture.getGLTexture());
         },
     };
 

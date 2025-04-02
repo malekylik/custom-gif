@@ -2,7 +2,7 @@ import { INDECIES_COUNT_NUMBER } from '../consts';
 import { GLProgram } from '../gl_api/program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { IGLTexture, NoopGLTexture } from '../gl_api/texture';
-import { GPUGlobals, GPUMemory, RenderPass } from './render-pass';
+import { RenderPass, RenderPassArgs } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
 import { createGLScreenDrawingTarget } from '../gl_api/gl-drawing-target';
@@ -37,7 +37,8 @@ export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<Memory
         throw new Error("Method not implemented.");
     }
 
-    execute(memory: GPUMemory, globals: GPUGlobals, textures: DrawingToScreenPassTextures): RenderResult {
+    execute(args: RenderPassArgs<MemoryInput, {}, DrawingToScreenPassTextures>): RenderResult {
+        const {textures} = args;
         const drawingTarget = createGLScreenDrawingTarget(this.drawer.getGL());
 
         drawingTarget.bind();
