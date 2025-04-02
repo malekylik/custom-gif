@@ -16,6 +16,9 @@ import { MandessPass } from '../render-pass/madness-pass';
 import { MixRenderResultsRenderPass } from '../render-pass/mix-render-result-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLDrawer, GLDrawer } from '../gl_api/gl-drawer';
+import { getGLSystem, initGLSystem } from '../gl-system';
+
+let id = -1;
 
 export class GLRenderAlgorithm implements RenderAlgorithm {
   private gifFrametexture: GLTexture;
@@ -36,8 +39,13 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   private maxColorMapSize: number;
 
+  private id: string;
+
   constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
     const gl = canvas.getContext('webgl2');
+    this.id = String(++id);
+
+    initGLSystem(gl, String(this.id));
 
     this.drawer = createGLDrawer(gl);
     this.drawer.startFrame();
@@ -109,10 +117,10 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
         indexTexture: this.gifFrametexture,
         alphaTexture: alphaRenderPassResult.texture,
         prevFrameTexture: this.prevFrame ? this.prevFrame.texture : null
-      });
+      }, getGLSystem(this.id).reosuceManager);
 
       this.prevFrame = new CopyRenderResultRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-      .execute({}, {}, { targetTexture: this.currentFrame.texture });
+      .execute({}, {}, { targetTexture: this.currentFrame.texture }, getGLSystem(this.id).reosuceManager);
   }
 
   restorePrevDisposal(): void {
@@ -122,17 +130,20 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   drawToScreen(): void {
     let newResult = this.currentFrame;
-    const newResult1 = new BackAndWhiteRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
-    const newResult2 = new MandessPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
-    newResult = new MixRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, { alpha: 0.7 }, { background: newResult1.texture, foreground: newResult2.texture });
+    const newResult1 = new BackAndWhiteRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture }, getGLSystem(this.id).reosuceManager);
+    const newResult2 = new MandessPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture }, getGLSystem(this.id).reosuceManager);
+    newResult = new MixRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, { alpha: 0.7 }, { background: newResult1.texture, foreground: newResult2.texture }, getGLSystem(this.id).reosuceManager);
 
-    newResult = new FlipRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture });
+    newResult = new FlipRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight).execute({}, {}, { targetTexture: newResult.texture }, getGLSystem(this.id).reosuceManager);
 
     new DrawingToScreenRenderPass(this.drawer)
       .execute({}, {}, { targetTexture: newResult.texture } );
 
     this.drawer.endFrame();
+    getGLSystem(this.id).reosuceManager.endFrame();
+
     this.drawer.startFrame();
+    getGLSystem(this.id).reosuceManager.startFrame();
   }
 
   private drawToAlphaTexture(gl: WebGL2RenderingContext, image: ImageDecriptor): RenderResult {
@@ -143,12 +154,12 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     };
 
     return new GifAlphaRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-      .execute({}, globals, {gifFrame: this.gifFrametexture});
+      .execute({}, globals, {gifFrame: this.gifFrametexture}, getGLSystem(this.id).reosuceManager);
   }
 
   saveDisposalPrev(): void {
     this.disposalPrevFrame = new CopyRenderResultRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-      .execute({}, {}, { targetTexture: this.currentFrame.texture });
+      .execute({}, {}, { targetTexture: this.currentFrame.texture }, getGLSystem(this.id).reosuceManager);
   }
 
   getCanvasPixels(buffer: ArrayBufferView) {

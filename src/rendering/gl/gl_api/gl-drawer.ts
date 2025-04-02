@@ -1,3 +1,5 @@
+import { Drawer } from '../../api/drawer';
+
 export interface GLDrawer extends Drawer {
     getGL(): WebGL2RenderingContext;
 }

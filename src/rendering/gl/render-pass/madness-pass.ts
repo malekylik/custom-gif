@@ -5,7 +5,7 @@ import { IGLTexture } from '../gl_api/texture';
 import { GPUMemory, RenderPass } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
-import { createGLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
+import { ResourceManager } from '../../api/resource-manager';
 import { GLDrawer } from '../gl_api/gl-drawer';
 
 import MainVertText from '../shader_assets/madness.vert';
@@ -44,8 +44,8 @@ export class MandessPass<MemoryInput> implements RenderPass<MemoryInput, Mandess
         throw new Error("Method not implemented.");
     }
 
-    execute(memory: GPUMemory, globals: MandessPassGlobals, textures: MandessPassTextures): RenderResult {
-        const drawingTarget = createGLBufferDrawingTarget(this.drawer.getGL(), this.width, this.height);
+    execute(memory: GPUMemory, globals: MandessPassGlobals, textures: MandessPassTextures, resourceManager: ResourceManager): RenderResult {
+        const drawingTarget = resourceManager.allocateFrameDrawingTarget(this.width, this.height);
 
         drawingTarget.bind();
 
@@ -56,8 +56,6 @@ export class MandessPass<MemoryInput> implements RenderPass<MemoryInput, Mandess
         this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
-
-        drawingTarget.dispose();
 
         return renderResult;
     }

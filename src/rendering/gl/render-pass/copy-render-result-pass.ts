@@ -4,9 +4,9 @@ import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../g
 import { IGLTexture } from '../gl_api/texture';
 import { GPUGlobals, GPUMemory, RenderPass } from './render-pass';
 import { RenderResult } from '../../api/render-result';
-import { createGLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
 import { GLDrawer } from '../gl_api/gl-drawer';
+import { ResourceManager } from '../../api/resource-manager';
 
 import MainVertText from '../shader_assets/main.vert';
 import TextureFragText from '../shader_assets/texture.frag';
@@ -41,8 +41,8 @@ export class CopyRenderResultRenderPass<MemoryInput> implements RenderPass<Memor
         throw new Error("Method not implemented.");
     }
 
-    execute(memory: GPUMemory, globals: GPUGlobals, textures: CopyRenderResultPassTextures): RenderResult {
-        const drawingTarget = createGLBufferDrawingTarget(this.drawer.getGL(), this.width, this.height);
+    execute(memory: GPUMemory, globals: GPUGlobals, textures: CopyRenderResultPassTextures, resourceManager: ResourceManager): RenderResult {
+        const drawingTarget = resourceManager.allocateFrameDrawingTarget(this.width, this.height);
 
         drawingTarget.bind();
 
@@ -52,8 +52,6 @@ export class CopyRenderResultRenderPass<MemoryInput> implements RenderPass<Memor
         this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
-
-        drawingTarget.dispose();
 
         return renderResult;
     }

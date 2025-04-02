@@ -1,3 +1,4 @@
+import { ResourceManager } from '../../api/resource-manager';
 import { RenderResult } from '../../api/render-result';
 import { GLTexture, IGLTexture } from '../gl_api/texture';
 
@@ -25,5 +26,5 @@ export interface RenderPass<MemoryInput, GlobalsInput extends GPUGlobals, Textur
     chain(f: (image: RenderResult) => RenderPass<MemoryInput, GlobalsInput, TexturesInput>): RenderPass<MemoryInput, GlobalsInput, TexturesInput>;
 
     // TODO: should return RenderResult
-    execute(memory: GPUMemory, globals: GPUGlobals, textures: TexturesInput): RenderResult;
+    execute(memory: GPUMemory, globals: GPUGlobals, textures: TexturesInput, resourceManager: ResourceManager): RenderResult;
 }

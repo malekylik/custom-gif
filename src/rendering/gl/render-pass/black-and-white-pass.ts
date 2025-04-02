@@ -5,8 +5,8 @@ import { IGLTexture } from '../gl_api/texture';
 import { GPUGlobals, GPUMemory, RenderPass } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
-import { createGLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
 import { GLDrawer } from '../gl_api/gl-drawer';
+import { ResourceManager } from '../../api/resource-manager';
 
 import MainVertText from '../shader_assets/main.vert';
 import BlackAndWhiteFragText from '../shader_assets/blanckWhiteTexture.frag';
@@ -41,8 +41,8 @@ export class BackAndWhiteRenderPass<MemoryInput> implements RenderPass<MemoryInp
         throw new Error("Method not implemented.");
     }
 
-    execute(memory: GPUMemory, globals: GPUGlobals, textures: BackAndWhitePassTextures): RenderResult {
-        const drawingTarget = createGLBufferDrawingTarget(this.drawer.getGL(), this.width, this.height);
+    execute(memory: GPUMemory, globals: GPUGlobals, textures: BackAndWhitePassTextures, resourceManager: ResourceManager): RenderResult {
+        const drawingTarget = resourceManager.allocateFrameDrawingTarget(this.width, this.height);
 
         drawingTarget.bind();
 
@@ -52,8 +52,6 @@ export class BackAndWhiteRenderPass<MemoryInput> implements RenderPass<MemoryInp
         this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
-
-        drawingTarget.dispose();
 
         return renderResult;
     }

@@ -5,8 +5,8 @@ import { GPUGlobals, GPUMemory, RenderPass } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { INDECIES_COUNT_NUMBER } from '../consts';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
-import { createGLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
 import { GLDrawer } from '../gl_api/gl-drawer';
+import { ResourceManager } from '../../api/resource-manager';
 
 import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
 import MixTextureFragText from '../shader_assets/mixTextures.frag';
@@ -41,8 +41,8 @@ export class FlipRenderResultsRenderPass<MemoryInput> implements RenderPass<Memo
         throw new Error("Method not implemented.");
     }
 
-    execute(memory: GPUMemory, globals: GPUGlobals, textures: GifRenderPassTextures): RenderResult {
-        const drawingTarget = createGLBufferDrawingTarget(this.drawer.getGL(), this.width, this.height);
+    execute(memory: GPUMemory, globals: GPUGlobals, textures: GifRenderPassTextures, resourceManager: ResourceManager): RenderResult {
+        const drawingTarget = resourceManager.allocateFrameDrawingTarget(this.width, this.height);
 
         drawingTarget.bind();
 
@@ -52,8 +52,6 @@ export class FlipRenderResultsRenderPass<MemoryInput> implements RenderPass<Memo
         this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
-
-        drawingTarget.dispose();
 
         return renderResult;
     }

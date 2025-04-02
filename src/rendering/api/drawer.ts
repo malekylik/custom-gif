@@ -1,4 +1,4 @@
-interface Drawer {
+export interface Drawer {
     startFrame(): void;
     endFrame(): void;
 
