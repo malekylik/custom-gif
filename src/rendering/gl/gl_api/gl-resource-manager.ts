@@ -6,7 +6,7 @@ export interface GLResourceManager extends ResourceManager {
 }
 
 export function createGLResourceManager(gl: WebGL2RenderingContext): GLResourceManager {
-    const frameDrawingTargets: GLBufferDrawingTarget[] = [];
+    let frameDrawingTargets: GLBufferDrawingTarget[] = [];
 
     return {
         startFrame() {
@@ -34,5 +34,7 @@ export function createGLResourceManager(gl: WebGL2RenderingContext): GLResourceM
         for (let i = 0; i < frameDrawingTargets.length; i++) {
             frameDrawingTargets[i].dispose();
         }
+
+        frameDrawingTargets = [];
     }
 }
