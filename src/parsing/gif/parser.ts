@@ -3,7 +3,7 @@ import { ColorMap, parseGlobalColorMap } from './color_map';
 import { parseImageList } from './image_list';
 import { parseScreenDescriptor, ScreenDescriptor } from './screen_descriptor';
 import { GIFSpecialSymbol, ColorMapBlock } from './consts';
-import { ImageDecriptor } from './image_descriptor';
+import { ImageDescriptor } from './image_descriptor';
 
 export interface GIF {
   signature: string;
@@ -12,7 +12,7 @@ export interface GIF {
   screenDescriptor: ScreenDescriptor;
   colorMap: ColorMap;
 
-  images: Array<ImageDecriptor>;
+  images: Array<ImageDescriptor>;
 
   buffer: Uint8Array,
 }

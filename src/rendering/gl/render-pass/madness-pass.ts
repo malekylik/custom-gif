@@ -10,14 +10,14 @@ import { GLDrawer } from '../gl_api/gl-drawer';
 import MainVertText from '../shader_assets/madness.vert';
 import TextureWithPalleteFragText from '../shader_assets/madness.frag';
 
-export type MandessPassGlobals = {
+export type MandessRenderPassGlobals = {
 };
 
-export type MandessPassTextures = {
+export type MandessRenderPassTextures = {
     targetTexture: IGLTexture;
 };
 
-export class MandessPass<MemoryInput> implements RenderPass<MemoryInput, MandessPassGlobals, MandessPassTextures> {
+export class MandessRenderPass<MemoryInput> implements RenderPass<MemoryInput, MandessRenderPassGlobals, MandessRenderPassTextures> {
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
 
@@ -33,11 +33,11 @@ export class MandessPass<MemoryInput> implements RenderPass<MemoryInput, Mandess
         deleteShader(this.drawer.getGL(), fragShader);
     }
 
-    chain(f: (image: RenderResult) => RenderPass<MemoryInput, MandessPassGlobals, MandessPassTextures>): RenderPass<MemoryInput, MandessPassGlobals, MandessPassTextures> {
+    chain(f: (image: RenderResult) => RenderPass<MemoryInput, MandessRenderPassGlobals, MandessRenderPassTextures>): RenderPass<MemoryInput, MandessRenderPassGlobals, MandessRenderPassTextures> {
         throw new Error("Method not implemented.");
     }
 
-    execute(args: RenderPassArgs<MemoryInput, MandessPassGlobals, MandessPassTextures>): RenderResult {
+    execute(args: RenderPassArgs<MemoryInput, MandessRenderPassGlobals, MandessRenderPassTextures>): RenderResult {
         const { textures, drawingTarget } = args;
 
         this.gpuProgram.useProgram(this.drawer.getGL());

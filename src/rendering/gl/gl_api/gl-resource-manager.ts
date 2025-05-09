@@ -54,8 +54,6 @@ export function createGLResourceManager(gl: WebGL2RenderingContext, id: string):
         },
 
         endFrame() {
-            console.log(id, 'allocationCount', allocationCount);
-
             clearFrameData();
 
             allocationCount = 0;
@@ -65,7 +63,6 @@ export function createGLResourceManager(gl: WebGL2RenderingContext, id: string):
             allocationDepth += 1;
             frameDrawingTargets[allocationDepth] = [];
 
-            // TODO: add check that allocator only called inside it's own callback
             const allocator: GLFrameDrawingTargetTemporaryAllocator & { depth: number } = {
                 depth: allocationDepth,
 

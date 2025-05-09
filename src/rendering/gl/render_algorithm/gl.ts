@@ -1,5 +1,5 @@
 import { ColorMap } from 'src/parsing/gif/color_map';
-import { ImageDecriptor } from 'src/parsing/gif/image_descriptor';
+import { ImageDescriptor } from 'src/parsing/gif/image_descriptor';
 import { ScreenDescriptor } from 'src/parsing/gif/screen_descriptor';
 import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../consts';
 import { GLVBO } from '../gl_api/vbo';
@@ -11,8 +11,8 @@ import { DrawingToScreenRenderPass } from '../render-pass/drawing-to-screen-pass
 import { GifAlphaRenderPass } from '../render-pass/gif-alpha-pass';
 import { GifRenderPass } from '../render-pass/gif-frame-pass';
 import { CopyRenderResultRenderPass } from '../render-pass/copy-render-result-pass';
-import { BackAndWhiteRenderPass } from '../render-pass/black-and-white-pass';
-import { MandessPass } from '../render-pass/madness-pass';
+import { BlackAndWhiteRenderPass } from '../render-pass/black-and-white-pass';
+import { MandessRenderPass } from '../render-pass/madness-pass';
 import { MixRenderResultsRenderPass } from '../render-pass/mix-render-result-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLDrawer, GLDrawer } from '../gl_api/gl-drawer';
@@ -47,7 +47,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   private id: string;
 
-  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
     const gl = canvas.getContext('webgl2');
     this.id = String(++id);
 
@@ -100,7 +100,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.gl = gl;
   }
 
-  drawToTexture(image: ImageDecriptor, globalColorMap: ColorMap): void {
+  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): void {
     const gl = this.gl;
 
     this.lzw_uncompress(image);
@@ -164,8 +164,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
       let newResult = this.currentFrame;
 
-      // TODO typo
-      const renderPass1 = new BackAndWhiteRenderPass(this.drawer);
+      const renderPass1 = new BlackAndWhiteRenderPass(this.drawer);
       const newResult1 = renderPass1
       .execute({
         memory: {},
@@ -175,8 +174,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       });
       renderPass1.dispose();
 
-      // TODO rename
-      const renderPass2 = new MandessPass(this.drawer);
+      const renderPass2 = new MandessRenderPass(this.drawer);
       const newResult2 = renderPass2
       .execute({
         memory: {},
@@ -225,7 +223,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     getGLSystem(this.id).resouceManager.startFrame();
   }
 
-  private drawToAlphaTexture(drawingTarget: BufferDrawingTarget, image: ImageDecriptor): RenderResult {
+  private drawToAlphaTexture(drawingTarget: BufferDrawingTarget, image: ImageDescriptor): RenderResult {
     const globals = {
       screenHeight: this.screenHeight,
       transperancyIndex: image.graphicControl?.isTransparent ? image.graphicControl.transparentColorIndex : 512,

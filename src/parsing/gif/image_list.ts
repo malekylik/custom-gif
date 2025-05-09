@@ -1,5 +1,5 @@
-import { Extension, GIFSpecialSymbol, ColorMapBlock, ImageDecriptorBlock } from './consts';
-import { ImageDecriptor, parseImageDescriptor } from './image_descriptor';
+import { Extension, GIFSpecialSymbol, ColorMapBlock, ImageDescriptorBlock } from './consts';
+import { ImageDescriptor, parseImageDescriptor } from './image_descriptor';
 import { parseColorMap } from './color_map';
 import { findEndOfSubData } from './utils';
 import { GraphicControl, parseGraphicControl } from './graphic_control';
@@ -12,9 +12,9 @@ function findEndOfImageCompressedData(buffer: ArrayBuffer, start: number) {
 
 export function parseImageList(buffer: ArrayBuffer, start: number) {
   const HEAP8 = new Uint8Array(buffer);
-  const images: Array<ImageDecriptor> = [];
+  const images: Array<ImageDescriptor> = [];
   let graphicControl: GraphicControl = null;
-  let image: ImageDecriptor = null;
+  let image: ImageDescriptor = null;
 
   while (start < HEAP8.byteLength && start !== -1) {
     switch (HEAP8[start]) {
@@ -40,7 +40,7 @@ export function parseImageList(buffer: ArrayBuffer, start: number) {
         image = parseImageDescriptor(buffer, start);
         images.push(image);
 
-        start += ImageDecriptorBlock.size;
+        start += ImageDescriptorBlock.size;
 
         if (image.M) {
           image.colorMap = parseColorMap(buffer, start, image.pixel);

@@ -1,4 +1,4 @@
-import { ImageDecriptor } from '../../gif/image_descriptor';
+import { ImageDescriptor } from '../../gif/image_descriptor';
 import { GIF } from '../../gif/parser';
 import { createModule, LZWUncompressModule } from '../uncompress/uncompress_wasm';
 import { FactoryResult } from './uncompress_factory';
@@ -12,7 +12,7 @@ export function createLZWFuncFromWasm(gif: GIF): Promise<FactoryResult> {
       module = m;
       startPointer = m.gifStartPointer;
 
-      function _lzw_uncompress(image: ImageDecriptor) {
+      function _lzw_uncompress(image: ImageDescriptor) {
         m.lzw_uncompress(startPointer + image.startPointer, image.compressedData.length, m.outStartPointer, m.outBuffer.length);
       }
 

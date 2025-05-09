@@ -1,5 +1,5 @@
 import { ColorMap } from '../../../parsing/gif/color_map';
-import { ImageDecriptor } from '../../../parsing/gif/image_descriptor';
+import { ImageDescriptor } from '../../../parsing/gif/image_descriptor';
 import { ScreenDescriptor } from '../../../parsing/gif/screen_descriptor';
 import { FactoryOut, FactoryResult } from '../../../parsing/lzw/factory/uncompress_factory';
 import { GrapgicMemory } from './graphic_memory';
@@ -12,7 +12,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
   private prevGraphicMemory: GrapgicMemory;
   private ctx: CanvasRenderingContext2D;
 
-  constructor (canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor (canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
     this.ctx = canvas.getContext('2d');
 
     this.uncompressedData = uncompressed.out;
@@ -21,7 +21,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     this.prevGraphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
   }
 
-  drawToTexture(image: ImageDecriptor, globalColorMap: ColorMap): void {
+  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): void {
     const graphicControl = image.graphicControl;
 
     if (graphicControl?.isTransparent) {
@@ -53,7 +53,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     new Uint8ClampedArray(buffer.buffer).set(this.prevGraphicMemory.getRawMemory().data);
   }
 
-  private updateFrameData87(image: ImageDecriptor, globalColorMap: ColorMap) {
+  private updateFrameData87(image: ImageDescriptor, globalColorMap: ColorMap) {
     const graphicMemory = this.graphicMemory;
     const colorMap = image.M ? image.colorMap : globalColorMap;
     const imageLeft = image.imageLeft;
@@ -80,7 +80,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     }
   }
 
-  private updateFrameData89(image: ImageDecriptor, globalColorMap: ColorMap) {
+  private updateFrameData89(image: ImageDescriptor, globalColorMap: ColorMap) {
     const graphicMemory = this.graphicMemory;
     const colorMap = image.M ? image.colorMap : globalColorMap;
     const graphicControl = image.graphicControl;

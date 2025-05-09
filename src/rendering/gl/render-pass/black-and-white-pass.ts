@@ -14,7 +14,7 @@ type BackAndWhitePassTextures = {
     targetTexture: IGLTexture;
 }
 
-export class BackAndWhiteRenderPass<MemoryInput> implements RenderPass<MemoryInput, {}, BackAndWhitePassTextures> {
+export class BlackAndWhiteRenderPass<MemoryInput> implements RenderPass<MemoryInput, {}, BackAndWhitePassTextures> {
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
     private disposed;

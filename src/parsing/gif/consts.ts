@@ -27,6 +27,6 @@ export enum ColorMapBlock {
   entriesCount = 3,
 }
 
-export enum ImageDecriptorBlock {
+export enum ImageDescriptorBlock {
   size = 10,
 }
