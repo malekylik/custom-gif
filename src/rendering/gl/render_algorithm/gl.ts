@@ -17,12 +17,18 @@ import { MixRenderResultsRenderPass } from '../render-pass/mix-render-result-pas
 import { RenderResult } from '../../api/render-result';
 import { createGLDrawer, GLDrawer } from '../gl_api/gl-drawer';
 import { getGLSystem, initGLSystem } from '../gl-system';
+import { BufferDrawingTarget } from '../../api/drawing-target';
+import { GLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
 
 let id = -1;
 
 export class GLRenderAlgorithm implements RenderAlgorithm {
   private gifFrametexture: GLTexture;
   private colorTableTexture: GLTexture;
+
+  private currentFrameBuffer: GLBufferDrawingTarget;
+  private disposalPrevFrameBuffer: GLBufferDrawingTarget;
+  private prevFrameBuffer: GLBufferDrawingTarget;
 
   private currentFrame: RenderResult;
   private disposalPrevFrame: RenderResult;
@@ -102,35 +108,51 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.gifFrametexture.bind(gl);
     this.gifFrametexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
 
-    const alphaRenderPassResult: RenderResult = this.drawToAlphaTexture(gl, image);
-    const colorMap = image.M ? image.colorMap : globalColorMap;
+    getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
+      const alphaRenderPassResult: RenderResult = this.drawToAlphaTexture(allocator.allocate(this.screenWidth, this.screenHeight), image);
+      const colorMap = image.M ? image.colorMap : globalColorMap;
+  
+      this.colorTableTexture.bind(gl);
+      this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
+  
+      this.gifFrametexture.bind(gl);
+      this.gifFrametexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
+  
+      if (this.currentFrameBuffer) {
+        getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.currentFrameBuffer);
+      }
+      this.currentFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight);
 
-    this.colorTableTexture.bind(gl);
-    this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
+      const renderPass1 = new GifRenderPass(this.drawer);
+      this.currentFrame = renderPass1
+        .execute({
+          memory: {},
+          globals: { colorTableSize: this.maxColorMapSize },
+          textures: {
+            colorTableTexture: this.colorTableTexture,
+            indexTexture: this.gifFrametexture,
+            alphaTexture: alphaRenderPassResult.texture,
+            prevFrameTexture: this.prevFrame ? this.prevFrame.texture : null
+          },
+          drawingTarget: this.currentFrameBuffer
+        });
+        renderPass1.dispose();
 
-    this.gifFrametexture.bind(gl);
-    this.gifFrametexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
-
-    this.currentFrame = new GifRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-      .execute({
-        memory: {},
-        globals: { colorTableSize: this.maxColorMapSize },
-        textures: {
-          colorTableTexture: this.colorTableTexture,
-          indexTexture: this.gifFrametexture,
-          alphaTexture: alphaRenderPassResult.texture,
-          prevFrameTexture: this.prevFrame ? this.prevFrame.texture : null
-        },
-        resourceManager: getGLSystem(this.id).reosuceManager
-      });
-
-      this.prevFrame = new CopyRenderResultRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-      .execute({
-        memory: {},
-        globals: {},
-        textures: { targetTexture: this.currentFrame.texture },
-        resourceManager: getGLSystem(this.id).reosuceManager,
-      });
+        if (this.prevFrameBuffer) {
+          getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.prevFrameBuffer);
+        }
+        this.prevFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight);
+  
+        const renderPass2 = new CopyRenderResultRenderPass(this.drawer);
+        this.prevFrame = renderPass2
+        .execute({
+          memory: {},
+          globals: {},
+          textures: { targetTexture: this.currentFrame.texture },
+          drawingTarget: this.prevFrameBuffer,
+        });
+        renderPass2.dispose();
+    });
   }
 
   restorePrevDisposal(): void {
@@ -139,76 +161,104 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   }
 
   drawToScreen(): void {
-    let newResult = this.currentFrame;
-    const newResult1 = new BackAndWhiteRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-    .execute({
-      memory: {},
-      globals: {},
-      textures: { targetTexture: newResult.texture },
-      resourceManager: getGLSystem(this.id).reosuceManager,
-    });
-    const newResult2 = new MandessPass(this.drawer, this.screenWidth, this.screenHeight)
-    .execute({
-      memory: {},
-      globals: {},
-      textures: { targetTexture: newResult.texture },
-      resourceManager: getGLSystem(this.id).reosuceManager,
-    });
-    newResult = new MixRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-    .execute({
-      memory: {},
-      globals: {alpha: 0.7},
-      textures: { background: newResult1.texture, foreground: newResult2.texture },
-      resourceManager: getGLSystem(this.id).reosuceManager,
-    });
+    getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
+      let newResult = this.currentFrame;
 
-    newResult = new FlipRenderResultsRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-    .execute({
-      memory: {},
-      globals: {},
-      textures: { targetTexture: newResult.texture },
-      resourceManager: getGLSystem(this.id).reosuceManager,
-    });
+      // TODO typo
+      const renderPass1 = new BackAndWhiteRenderPass(this.drawer);
+      const newResult1 = renderPass1
+      .execute({
+        memory: {},
+        globals: {},
+        textures: { targetTexture: newResult.texture },
+        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
+      });
+      renderPass1.dispose();
 
-    new DrawingToScreenRenderPass(this.drawer)
-    .execute({
-      memory: {},
-      globals: {},
-      textures: {targetTexture: newResult.texture},
-      resourceManager: getGLSystem(this.id).reosuceManager,
+      // TODO rename
+      const renderPass2 = new MandessPass(this.drawer);
+      const newResult2 = renderPass2
+      .execute({
+        memory: {},
+        globals: {},
+        textures: { targetTexture: newResult.texture },
+        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
+      });
+      renderPass2.dispose();
+
+      const renderPass3 = new MixRenderResultsRenderPass(this.drawer);
+      newResult = renderPass3
+      .execute({
+        memory: {},
+        globals: {alpha: 0.7},
+        textures: { background: newResult1.texture, foreground: newResult2.texture },
+        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
+      });
+      renderPass3.dispose();
+
+      const renderPass4 = new FlipRenderResultsRenderPass(this.drawer);
+      newResult = renderPass4
+      .execute({
+        memory: {},
+        globals: {},
+        textures: { targetTexture: newResult.texture },
+        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
+      });
+      renderPass4.dispose();
+
+      console.log('number of draws')
+
+      const renderPass5 = new DrawingToScreenRenderPass(this.drawer);
+      renderPass5
+        .execute({
+          memory: {},
+          globals: {},
+          textures: {targetTexture: newResult.texture},
+        });
+      renderPass5.dispose();
     });
 
     this.drawer.endFrame();
-    getGLSystem(this.id).reosuceManager.endFrame();
+    getGLSystem(this.id).resouceManager.endFrame();
 
     this.drawer.startFrame();
-    getGLSystem(this.id).reosuceManager.startFrame();
+    getGLSystem(this.id).resouceManager.startFrame();
   }
 
-  private drawToAlphaTexture(gl: WebGL2RenderingContext, image: ImageDecriptor): RenderResult {
+  private drawToAlphaTexture(drawingTarget: BufferDrawingTarget, image: ImageDecriptor): RenderResult {
     const globals = {
       screenHeight: this.screenHeight,
       transperancyIndex: image.graphicControl?.isTransparent ? image.graphicControl.transparentColorIndex : 512,
       alphaSquarCoord: [image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight] as [number, number, number, number],
     };
 
-    return new GifAlphaRenderPass(this.drawer, this.screenWidth, this.screenHeight)
-    .execute({
+    const renderPass1 = new GifAlphaRenderPass(this.drawer);
+    const result = renderPass1.execute({
       memory: {},
       globals: globals,
       textures: {gifFrame: this.gifFrametexture},
-      resourceManager: getGLSystem(this.id).reosuceManager,
+      drawingTarget: drawingTarget,
     });
+    renderPass1.dispose();
+
+    return result;
   }
 
   saveDisposalPrev(): void {
-    this.disposalPrevFrame = new CopyRenderResultRenderPass(this.drawer, this.screenWidth, this.screenHeight)
+    if (this.disposalPrevFrameBuffer) {
+      getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.disposalPrevFrameBuffer);
+    }
+    this.disposalPrevFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight);
+
+    const renderPass1 = new CopyRenderResultRenderPass(this.drawer);
+    this.disposalPrevFrame = renderPass1
     .execute({
       memory: {},
       globals: {},
       textures: { targetTexture: this.currentFrame.texture },
-      resourceManager: getGLSystem(this.id).reosuceManager,
+      drawingTarget: this.disposalPrevFrameBuffer,
     });
+    renderPass1.dispose();
   }
 
   getCanvasPixels(buffer: ArrayBufferView) {

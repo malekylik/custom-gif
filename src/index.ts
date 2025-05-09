@@ -44,18 +44,18 @@ function handleFiles() {
           });
 
 
-          const sotwareGifVisualizerContainer = document.createElement('div');
-          const sotwareGifVisualizer = document.createElement('canvas');
-          const sotwareGifVisualizerContainerTitle = document.createElement('span');
+          const softwareGifVisualizerContainer = document.createElement('div');
+          const softwareGifVisualizer = document.createElement('canvas');
+          const softwareGifVisualizerContainerTitle = document.createElement('span');
 
-          sotwareGifVisualizerContainerTitle.innerText = 'Render Type - SoftWare';
+          softwareGifVisualizerContainerTitle.innerText = 'Render Type - SoftWare';
 
-          sotwareGifVisualizerContainer.append(sotwareGifVisualizer);
-          sotwareGifVisualizerContainer.append(sotwareGifVisualizerContainerTitle);
+          softwareGifVisualizerContainer.append(softwareGifVisualizer);
+          softwareGifVisualizerContainer.append(softwareGifVisualizerContainerTitle);
   
-          container.append(sotwareGifVisualizerContainer);
+          container.append(softwareGifVisualizerContainer);
 
-          renderer.addGifToRender(gif, sotwareGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'Software' })
+          renderer.addGifToRender(gif, softwareGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'Software' })
             .then((descriptor) => {
               renderer.autoplayStart(descriptor);
             });

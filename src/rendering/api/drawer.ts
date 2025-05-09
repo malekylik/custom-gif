@@ -1,8 +1,10 @@
+import { DrawingTarget } from "./drawing-target";
+
 export interface Drawer {
     startFrame(): void;
     endFrame(): void;
 
-    drawTriangles(first: number, count: number): void;
+    drawTriangles(renderTarget: DrawingTarget, first: number, count: number): void;
 
-    getNumberOfDrawCalls(): number;
+    getNumberOfDrawCalls(renderTarget: DrawingTarget): number;
 }

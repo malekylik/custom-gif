@@ -1,16 +1,24 @@
-import { BufferDrawingTarget, DrawingTarget } from '../../api/drawing-target';
-import { GLTexture, IGLTexture } from './texture';
+import { BufferDrawingTarget } from '../../api/drawing-target';
+import { GLTexture, IGLTexture, NoopGLTexture } from './texture';
 
 export interface GLBufferDrawingTarget extends BufferDrawingTarget {
     dispose(): void
 }
 
-export function createGLScreenDrawingTarget(gl: WebGL2RenderingContext): DrawingTarget {
+export function createGLScreenDrawingTarget(gl: WebGL2RenderingContext): GLBufferDrawingTarget {
     const _drawingContext: WebGL2RenderingContext = gl;
+    const noopTexture = new NoopGLTexture();
 
-    const drawingTarget: DrawingTarget = {
+    const drawingTarget: GLBufferDrawingTarget = {
         bind() {
             _drawingContext.bindFramebuffer(_drawingContext.FRAMEBUFFER, null);
+        },
+
+        getBuffer() {
+            return noopTexture;
+        },
+
+        dispose() {
         },
     };
 
@@ -22,7 +30,7 @@ export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: n
     const _width: number = width;
     const _height: number = height;
 
-    const { frameBuffer, texture: _texture } = init();
+    const { frameBuffer, texture: _texture, rbo } = init();
 
     const drawingTarget: GLBufferDrawingTarget = {
         bind() {
@@ -37,14 +45,15 @@ export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: n
             _drawingContext.bindFramebuffer(gl.FRAMEBUFFER, null);
             _drawingContext.deleteFramebuffer(frameBuffer);
 
-            // _drawingContext.deleteTexture(_texture.getGLTexture());
+            _drawingContext.deleteRenderbuffer(rbo);
+
+            _drawingContext.deleteTexture(_texture.getGLTexture());
         },
     };
 
     return drawingTarget;
 
-    function init(): { frameBuffer: WebGLFramebuffer; texture: IGLTexture } {
-        // TODO: think about deleting
+    function init(): { frameBuffer: WebGLFramebuffer; texture: IGLTexture; rbo: WebGLRenderbuffer } {
         const frameBuffer = _drawingContext.createFramebuffer();
         _drawingContext.bindFramebuffer(_drawingContext.FRAMEBUFFER, frameBuffer);
 
@@ -60,6 +69,6 @@ export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: n
 
         _drawingContext.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-        return ({ frameBuffer, texture });
+        return ({ frameBuffer, texture, rbo });
     }
 }

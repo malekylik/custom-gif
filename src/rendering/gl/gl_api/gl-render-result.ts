@@ -18,6 +18,7 @@ export function createGLRenderResult(gl: WebGL2RenderingContext, texture: IGLTex
         const frameBuffer = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer);
 
+        // TODO: delete ???
         const rbo = gl.createRenderbuffer();
         gl.bindRenderbuffer(gl.RENDERBUFFER, rbo);
         gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, texture.getWidth(), texture.getHeight());

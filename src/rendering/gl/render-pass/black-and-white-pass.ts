@@ -17,14 +17,10 @@ type BackAndWhitePassTextures = {
 export class BackAndWhiteRenderPass<MemoryInput> implements RenderPass<MemoryInput, {}, BackAndWhitePassTextures> {
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
+    private disposed;
 
-    private width: number;
-    private height: number;
-
-    constructor(drawer: GLDrawer, width: number, height: number) {
-        this.width = width;
-        this.height = height;
-
+    constructor(drawer: GLDrawer) {
+        this.disposed = false;
         this.drawer = drawer;
 
         const vertShader = createVertexGLShader(this.drawer.getGL(), MainVertText);
@@ -41,18 +37,26 @@ export class BackAndWhiteRenderPass<MemoryInput> implements RenderPass<MemoryInp
     }
 
     execute(args: RenderPassArgs<MemoryInput, {}, BackAndWhitePassTextures>): RenderResult {
-        const { textures, resourceManager } = args;
-        const drawingTarget = resourceManager.allocateFrameDrawingTarget(this.width, this.height);
-
-        drawingTarget.bind();
+        const { textures, drawingTarget } = args;
 
         this.gpuProgram.useProgram(this.drawer.getGL());
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
 
-        this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
+        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 
         return renderResult;
+    }
+
+    dispose(): void {
+        if (this.disposed) {
+            console.log('Render pass was already disposed');
+
+            return;
+        }
+
+        this.gpuProgram.dispose(this.drawer.getGL());
+        this.disposed = true;
     }
 }

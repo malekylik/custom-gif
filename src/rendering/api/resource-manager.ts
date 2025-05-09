@@ -1,11 +1,12 @@
-import { IGLTexture } from '../gl/gl_api/texture';
 import { BufferDrawingTarget } from './drawing-target';
+
+export interface FrameDrawingTargetTemporaryAllocator {
+    allocate(width: number, height: number): BufferDrawingTarget;
+}
 
 export interface ResourceManager {
     startFrame(): void;
     endFrame(): void;
 
-    allocateFrameDrawingTarget(width: number, height: number): BufferDrawingTarget;
-    // TODO: abstract
-    // allocateFrameTexture(): IGLTexture;
+    allocateFrameDrawingTarget(callback: (allocator: FrameDrawingTargetTemporaryAllocator) => void): void;
 }

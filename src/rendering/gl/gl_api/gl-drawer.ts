@@ -1,3 +1,4 @@
+import { DrawingTarget } from '../../api/drawing-target';
 import { Drawer } from '../../api/drawer';
 
 export interface GLDrawer extends Drawer {
@@ -5,13 +6,19 @@ export interface GLDrawer extends Drawer {
 }
 
 export function createGLDrawer(gl: WebGL2RenderingContext): GLDrawer {
-    let drawCallNumber: number = 0;
+    let drawCallNumber = new WeakMap<DrawingTarget, number>();
 
     return {
-        drawTriangles(first, count) {
+        drawTriangles(renderTarget, first, count) {
+            renderTarget.bind();
+
             gl.drawArrays(gl.TRIANGLES, first, count);
 
-            drawCallNumber += 1;
+            if (drawCallNumber.has(renderTarget)) {
+                drawCallNumber.set(renderTarget, drawCallNumber.get(renderTarget) + 1);
+            } else {
+                drawCallNumber.set(renderTarget, 0);
+            }
         },
 
         getGL() {
@@ -19,15 +26,15 @@ export function createGLDrawer(gl: WebGL2RenderingContext): GLDrawer {
         },
 
         startFrame() {
-            drawCallNumber = 0;
+            drawCallNumber = new Map();
         },
 
         endFrame() {
-            drawCallNumber = 0;
+            drawCallNumber = new Map();
         },
 
-        getNumberOfDrawCalls() {
-            return drawCallNumber;
+        getNumberOfDrawCalls(renderTarget: DrawingTarget) {
+            return drawCallNumber.has(renderTarget) ? drawCallNumber.get(renderTarget) : 0;
         },
     }
 }

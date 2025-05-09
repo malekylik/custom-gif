@@ -1,6 +1,7 @@
 import { ResourceManager } from '../../api/resource-manager';
 import { RenderResult } from '../../api/render-result';
 import { GLTexture, IGLTexture } from '../gl_api/texture';
+import { BufferDrawingTarget } from 'src/rendering/api/drawing-target';
 
 export interface GPUMemory {
 
@@ -23,15 +24,17 @@ export interface RenderPassArgs<MemoryInput, GlobalsInput extends GPUGlobals, Te
     memory: MemoryInput;
     globals: GlobalsInput;
     textures: TexturesInput;
-    resourceManager: ResourceManager
+    drawingTarget: BufferDrawingTarget;
 }
 
 /**
  * Represents a GPU program which can be chain in a sequence
  */
-export interface RenderPass<MemoryInput, GlobalsInput extends GPUGlobals, TexturesInput extends GPUInputTextures> {
+export interface RenderPass<MemoryInput, GlobalsInput extends GPUGlobals, TexturesInput extends GPUInputTextures, > {
     chain(f: (image: RenderResult) => RenderPass<MemoryInput, GlobalsInput, TexturesInput>): RenderPass<MemoryInput, GlobalsInput, TexturesInput>;
 
     // TODO: should return RenderResult
     execute(args: RenderPassArgs<MemoryInput, GlobalsInput, TexturesInput>): RenderResult;
+
+    dispose(): void;
 }

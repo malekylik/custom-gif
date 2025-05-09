@@ -101,4 +101,8 @@ export class GLProgram {
 
     return cache;
   }
+
+  dispose(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
+    gl.deleteProgram(this.program);
+  }
 }

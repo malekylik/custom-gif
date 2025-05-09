@@ -24,13 +24,7 @@ export class GifAlphaRenderPass<MemoryInput> implements RenderPass<MemoryInput, 
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
 
-    private width: number;
-    private height: number;
-
-    constructor(drawer: GLDrawer, width: number, height: number) {
-        this.width = width;
-        this.height = height;
-
+    constructor(drawer: GLDrawer) {
         this.drawer = drawer;
 
         const vertShader = createVertexGLShader(this.drawer.getGL(), MainVertText);
@@ -47,10 +41,7 @@ export class GifAlphaRenderPass<MemoryInput> implements RenderPass<MemoryInput, 
     }
 
     execute(args: RenderPassArgs<MemoryInput, GifAlphaRenderPassGlobals, GifAlphaRenderPassTextures>): RenderResult {
-        const { globals, textures, resourceManager } = args;
-        const drawingTarget = resourceManager.allocateFrameDrawingTarget(this.width, this.height);
-
-        drawingTarget.bind();
+        const { globals, textures, drawingTarget } = args;
 
         this.gpuProgram.useProgram(this.drawer.getGL());
 
@@ -60,10 +51,15 @@ export class GifAlphaRenderPass<MemoryInput> implements RenderPass<MemoryInput, 
 
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'IndexTexture', textures.gifFrame);
 
-        this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
+        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 
         return renderResult;
+    }
+
+    // TODO: think about it
+    dispose(): void {
+        this.gpuProgram.dispose(this.drawer.getGL());
     }
 }

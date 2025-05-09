@@ -2,6 +2,7 @@ import { ColorMap } from './color_map';
 import { GIFSpecialSymbol } from './consts';
 import { GraphicControl } from './graphic_control';
 
+// TODO: typo
 export interface ImageDecriptor {
   imageLeft: number;
   imageTop: number;

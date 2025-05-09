@@ -18,11 +18,9 @@ type DrawingToScreenPassTextures = {
 export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<MemoryInput, {}, DrawingToScreenPassTextures> {
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
-    private noopTexture: IGLTexture;
 
     constructor(drawer: GLDrawer) {
         this.drawer = drawer;
-        this.noopTexture = new NoopGLTexture();
 
         const vertShader = createVertexGLShader(this.drawer.getGL(), MainVertText);
         const fragBaseShader = createFragmentGLShader(this.drawer.getGL(), TextureFragText);
@@ -37,17 +35,19 @@ export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<Memory
         throw new Error("Method not implemented.");
     }
 
-    execute(args: RenderPassArgs<MemoryInput, {}, DrawingToScreenPassTextures>): RenderResult {
+    execute(args: Omit<RenderPassArgs<MemoryInput, {}, DrawingToScreenPassTextures>, 'drawingTarget'>): RenderResult {
         const {textures} = args;
         const drawingTarget = createGLScreenDrawingTarget(this.drawer.getGL());
-
-        drawingTarget.bind();
 
         this.gpuProgram.useProgram(this.drawer.getGL());
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
 
-        this.drawer.drawTriangles(0, INDECIES_COUNT_NUMBER);
+        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
 
-        return createGLRenderResult(this.drawer.getGL(), this.noopTexture);
+        return createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
+    }
+
+    dispose(): void {
+        this.gpuProgram.dispose(this.drawer.getGL());
     }
 }
