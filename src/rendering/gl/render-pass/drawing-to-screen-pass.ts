@@ -1,15 +1,14 @@
 import { INDECIES_COUNT_NUMBER } from '../consts';
 import { GLProgram } from '../gl_api/program';
-import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
-import { IGLTexture, NoopGLTexture } from '../gl_api/texture';
+import { IGLTexture } from '../gl_api/texture';
 import { RenderPass, RenderPassArgs } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
 import { createGLScreenDrawingTarget } from '../gl_api/gl-drawing-target';
 import { GLDrawer } from '../gl_api/gl-drawer';
 
-import MainVertText from '../shader_assets/main.vert';
-import TextureFragText from '../shader_assets/texture.frag';
+import { GLShaderManager } from '../gl_api/gl-shader-manager';
+import { ShaderPromgramId } from '../../api/shader-manager';
 
 type DrawingToScreenPassTextures = {
     targetTexture: IGLTexture;
@@ -19,16 +18,10 @@ export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<Memory
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
 
-    constructor(drawer: GLDrawer) {
+    constructor(drawer: GLDrawer, shaderManager: GLShaderManager) {
         this.drawer = drawer;
 
-        const vertShader = createVertexGLShader(this.drawer.getGL(), MainVertText);
-        const fragBaseShader = createFragmentGLShader(this.drawer.getGL(), TextureFragText);
-
-        this.gpuProgram = new GLProgram(this.drawer.getGL(), vertShader, fragBaseShader);
-
-        deleteShader(this.drawer.getGL(), vertShader);
-        deleteShader(this.drawer.getGL(), fragBaseShader);
+        this.gpuProgram = shaderManager.getProgram(ShaderPromgramId.ScreenDrawer);
     }
 
     chain(f: (image: RenderResult) => RenderPass<MemoryInput, {}, DrawingToScreenPassTextures>): RenderPass<MemoryInput, {}, DrawingToScreenPassTextures> {
@@ -45,9 +38,5 @@ export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<Memory
         this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
 
         return createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
-    }
-
-    dispose(): void {
-        this.gpuProgram.dispose(this.drawer.getGL());
     }
 }

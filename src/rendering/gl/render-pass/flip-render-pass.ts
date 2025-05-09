@@ -1,14 +1,13 @@
 import { GLProgram } from '../gl_api/program';
-import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { IGLTexture } from '../gl_api/texture';
 import { RenderPass, RenderPassArgs } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { INDECIES_COUNT_NUMBER } from '../consts';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
 import { GLDrawer } from '../gl_api/gl-drawer';
+import { ShaderPromgramId } from '../../api/shader-manager';
+import { GLShaderManager } from '../gl_api/gl-shader-manager';
 
-import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
-import MixTextureFragText from '../shader_assets/mixTextures.frag';
 
 type GifRenderPassTextures = {
     targetTexture: IGLTexture;
@@ -18,17 +17,10 @@ export class FlipRenderResultsRenderPass<MemoryInput> implements RenderPass<Memo
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
 
-    constructor(drawer: GLDrawer) {
-
+    constructor(drawer: GLDrawer, shaderManager: GLShaderManager) {
         this.drawer = drawer;
 
-        const vertShader = createVertexGLShader(this.drawer.getGL(), MainFlippedVertText);
-        const fragBaseShader = createFragmentGLShader(this.drawer.getGL(), MixTextureFragText);
-
-        this.gpuProgram = new GLProgram(this.drawer.getGL(), vertShader, fragBaseShader);
-
-        deleteShader(this.drawer.getGL(), vertShader);
-        deleteShader(this.drawer.getGL(), fragBaseShader);
+        this.gpuProgram = shaderManager.getProgram(ShaderPromgramId.FlipDrawer);
     }
 
     chain(f: (image: RenderResult) => RenderPass<MemoryInput, {}, GifRenderPassTextures>): RenderPass<MemoryInput, {}, GifRenderPassTextures> {
@@ -48,9 +40,5 @@ export class FlipRenderResultsRenderPass<MemoryInput> implements RenderPass<Memo
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 
         return renderResult;
-    }
-
-    dispose(): void {
-        this.gpuProgram.dispose(this.drawer.getGL());
     }
 }

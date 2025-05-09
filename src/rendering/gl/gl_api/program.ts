@@ -38,6 +38,10 @@ export class GLProgram {
     this.currentTextureUnit = -1;
   }
 
+  isProgramCreated(): boolean {
+    return this.program !== null;
+  }
+
   useProgram(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
     this.currentTextureUnit = -1;
     gl.useProgram(this.program);
@@ -104,5 +108,6 @@ export class GLProgram {
 
   dispose(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
     gl.deleteProgram(this.program);
+    this.program = null;
   }
 }

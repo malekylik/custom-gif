@@ -35,6 +35,4 @@ export interface RenderPass<MemoryInput, GlobalsInput extends GPUGlobals, Textur
 
     // TODO: should return RenderResult
     execute(args: RenderPassArgs<MemoryInput, GlobalsInput, TexturesInput>): RenderResult;
-
-    dispose(): void;
 }

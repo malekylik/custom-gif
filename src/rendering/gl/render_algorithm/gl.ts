@@ -123,8 +123,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       }
       this.currentFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight);
 
-      const renderPass1 = new GifRenderPass(this.drawer);
-      this.currentFrame = renderPass1
+      this.currentFrame = new GifRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
         .execute({
           memory: {},
           globals: { colorTableSize: this.maxColorMapSize },
@@ -136,22 +135,19 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
           },
           drawingTarget: this.currentFrameBuffer
         });
-        renderPass1.dispose();
 
         if (this.prevFrameBuffer) {
           getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.prevFrameBuffer);
         }
         this.prevFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight);
   
-        const renderPass2 = new CopyRenderResultRenderPass(this.drawer);
-        this.prevFrame = renderPass2
+        this.prevFrame = new CopyRenderResultRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
         .execute({
           memory: {},
           globals: {},
           textures: { targetTexture: this.currentFrame.texture },
           drawingTarget: this.prevFrameBuffer,
         });
-        renderPass2.dispose();
     });
   }
 
@@ -164,56 +160,46 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
       let newResult = this.currentFrame;
 
-      const renderPass1 = new BlackAndWhiteRenderPass(this.drawer);
-      const newResult1 = renderPass1
+      const newResult1 = new BlackAndWhiteRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
       .execute({
         memory: {},
         globals: {},
         textures: { targetTexture: newResult.texture },
         drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
       });
-      renderPass1.dispose();
 
-      const renderPass2 = new MandessRenderPass(this.drawer);
-      const newResult2 = renderPass2
+      const newResult2 = new MandessRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
       .execute({
         memory: {},
         globals: {},
         textures: { targetTexture: newResult.texture },
         drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
       });
-      renderPass2.dispose();
 
-      const renderPass3 = new MixRenderResultsRenderPass(this.drawer);
-      newResult = renderPass3
+      newResult = new MixRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
       .execute({
         memory: {},
         globals: {alpha: 0.7},
         textures: { background: newResult1.texture, foreground: newResult2.texture },
         drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
       });
-      renderPass3.dispose();
 
-      const renderPass4 = new FlipRenderResultsRenderPass(this.drawer);
-      newResult = renderPass4
+      newResult = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
       .execute({
         memory: {},
         globals: {},
         textures: { targetTexture: newResult.texture },
         drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
       });
-      renderPass4.dispose();
 
       console.log('number of draws')
 
-      const renderPass5 = new DrawingToScreenRenderPass(this.drawer);
-      renderPass5
+      new DrawingToScreenRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
         .execute({
           memory: {},
           globals: {},
           textures: {targetTexture: newResult.texture},
         });
-      renderPass5.dispose();
     });
 
     this.drawer.endFrame();
@@ -230,14 +216,13 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       alphaSquarCoord: [image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight] as [number, number, number, number],
     };
 
-    const renderPass1 = new GifAlphaRenderPass(this.drawer);
-    const result = renderPass1.execute({
+    const result = new GifAlphaRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+    .execute({
       memory: {},
       globals: globals,
       textures: {gifFrame: this.gifFrametexture},
       drawingTarget: drawingTarget,
     });
-    renderPass1.dispose();
 
     return result;
   }
@@ -248,15 +233,13 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     }
     this.disposalPrevFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight);
 
-    const renderPass1 = new CopyRenderResultRenderPass(this.drawer);
-    this.disposalPrevFrame = renderPass1
+    this.disposalPrevFrame = new CopyRenderResultRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
     .execute({
       memory: {},
       globals: {},
       textures: { targetTexture: this.currentFrame.texture },
       drawingTarget: this.disposalPrevFrameBuffer,
     });
-    renderPass1.dispose();
   }
 
   getCanvasPixels(buffer: ArrayBufferView) {

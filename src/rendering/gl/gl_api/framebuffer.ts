@@ -1,5 +1,6 @@
 import { GLTexture } from "./texture";
 
+// TODO: delete
 export class GLFramebuffer {
   private frameBuffer: WebGLFramebuffer;
   private width: number;

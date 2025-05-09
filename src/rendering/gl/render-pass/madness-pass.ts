@@ -1,14 +1,13 @@
 import { INDECIES_COUNT_NUMBER } from '../consts';
 import { GLProgram } from '../gl_api/program';
-import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl_api/shader';
 import { IGLTexture } from '../gl_api/texture';
 import { RenderPass, RenderPassArgs } from './render-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLRenderResult } from '../gl_api/gl-render-result';
 import { GLDrawer } from '../gl_api/gl-drawer';
 
-import MainVertText from '../shader_assets/madness.vert';
-import TextureWithPalleteFragText from '../shader_assets/madness.frag';
+import { ShaderPromgramId } from '../../api/shader-manager';
+import { GLShaderManager } from '../gl_api/gl-shader-manager';
 
 export type MandessRenderPassGlobals = {
 };
@@ -21,16 +20,10 @@ export class MandessRenderPass<MemoryInput> implements RenderPass<MemoryInput, M
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
 
-    constructor(drawer: GLDrawer) {
+    constructor(drawer: GLDrawer, shaderManager: GLShaderManager) {
         this.drawer = drawer;
 
-        const vertShader = createVertexGLShader(this.drawer.getGL(), MainVertText);
-        const fragShader = createFragmentGLShader(this.drawer.getGL(), TextureWithPalleteFragText);
-
-        this.gpuProgram = new GLProgram(this.drawer.getGL(), vertShader, fragShader);
-
-        deleteShader(this.drawer.getGL(), vertShader);
-        deleteShader(this.drawer.getGL(), fragShader);
+        this.gpuProgram = shaderManager.getProgram(ShaderPromgramId.Mandess);
     }
 
     chain(f: (image: RenderResult) => RenderPass<MemoryInput, MandessRenderPassGlobals, MandessRenderPassTextures>): RenderPass<MemoryInput, MandessRenderPassGlobals, MandessRenderPassTextures> {
@@ -49,9 +42,5 @@ export class MandessRenderPass<MemoryInput> implements RenderPass<MemoryInput, M
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 
         return renderResult;
-    }
-
-    dispose(): void {
-        this.gpuProgram.dispose(this.drawer.getGL());
     }
 }
