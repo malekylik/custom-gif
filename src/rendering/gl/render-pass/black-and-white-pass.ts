@@ -16,10 +16,8 @@ type BackAndWhitePassTextures = {
 export class BlackAndWhiteRenderPass<MemoryInput> implements RenderPass<MemoryInput, {}, BackAndWhitePassTextures> {
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
-    private disposed;
 
     constructor(drawer: GLDrawer, shaderManager: GLShaderManager) {
-        this.disposed = false;
         this.drawer = drawer;
 
         this.gpuProgram = shaderManager.getProgram(ShaderPromgramId.BlackAndWhite);
@@ -35,7 +33,7 @@ export class BlackAndWhiteRenderPass<MemoryInput> implements RenderPass<MemoryIn
         this.gpuProgram.useProgram(this.drawer.getGL());
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
 
-        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
+        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER, this.drawer.getNumberOfDrawCalls(textures.targetTexture));
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 

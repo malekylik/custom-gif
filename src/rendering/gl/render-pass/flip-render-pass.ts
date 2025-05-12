@@ -13,6 +13,7 @@ type GifRenderPassTextures = {
     targetTexture: IGLTexture;
 }
 
+// Or NoopRenderPass
 export class FlipRenderResultsRenderPass<MemoryInput> implements RenderPass<MemoryInput, {}, GifRenderPassTextures> {
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
@@ -35,7 +36,7 @@ export class FlipRenderResultsRenderPass<MemoryInput> implements RenderPass<Memo
         this.gpuProgram.useProgram(this.drawer.getGL());
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
 
-        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
+        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER, this.drawer.getNumberOfDrawCalls(textures.targetTexture));
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 

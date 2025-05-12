@@ -44,7 +44,7 @@ export class GifAlphaRenderPass<MemoryInput> implements RenderPass<MemoryInput, 
 
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'IndexTexture', textures.gifFrame);
 
-        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
+        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER, this.drawer.getNumberOfDrawCalls(textures.gifFrame));
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 

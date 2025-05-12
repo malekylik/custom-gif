@@ -35,7 +35,7 @@ export class DrawingToScreenRenderPass<MemoryInput> implements RenderPass<Memory
         this.gpuProgram.useProgram(this.drawer.getGL());
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
 
-        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
+        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER, this.drawer.getNumberOfDrawCalls(textures.targetTexture));
 
         return createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
     }

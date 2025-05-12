@@ -42,7 +42,18 @@ export class MixRenderResultsRenderPass<MemoryInput> implements RenderPass<Memor
 
         this.gpuProgram.setUniform1f(this.drawer.getGL(), 'alpha', globals.alpha);
 
-        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
+        const backgroundNumberOfCalls = this.drawer.getNumberOfDrawCalls(textures.background);
+        const foregroundNumberOfCalls = this.drawer.getNumberOfDrawCalls(textures.foreground);
+
+        if (!(
+            (backgroundNumberOfCalls % 2 === 0 && foregroundNumberOfCalls % 2 === 0) ||
+            (backgroundNumberOfCalls % 2 === 1 && foregroundNumberOfCalls % 2 === 1)
+        )) {
+            console.warn('MixRenderResultsRenderPass: foreground and background texture are flipped in different direction');
+        }
+
+        // TODO: think what should be
+        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER, globals.alpha >= 0.5 ? foregroundNumberOfCalls : backgroundNumberOfCalls);
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 

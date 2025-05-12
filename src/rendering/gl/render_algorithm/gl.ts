@@ -23,7 +23,7 @@ import { GLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
 let id = -1;
 
 export class GLRenderAlgorithm implements RenderAlgorithm {
-  private gifFrametexture: GLTexture;
+  private gifFrameTexture: GLTexture;
   private colorTableTexture: GLTexture;
 
   private currentFrameBuffer: GLBufferDrawingTarget;
@@ -92,10 +92,10 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.maxColorMapSize = maxColorMapSize;
 
     this.colorTableTexture = new GLTexture(gl, maxColorMapSize, 1, null);
-    this.gifFrametexture = new GLTexture(gl, screenWidth, screenHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
+    this.gifFrameTexture = new GLTexture(gl, screenWidth, screenHeight, null, { imageFormat: { internalFormat: TextureFormat.R8, format: TextureFormat.RED, type: TextureType.UNSIGNED_BYTE } });
 
     this.colorTableTexture.setTextureUnit(TextureUnit.TEXTURE0);
-    this.gifFrametexture.setTextureUnit(TextureUnit.TEXTURE1);
+    this.gifFrameTexture.setTextureUnit(TextureUnit.TEXTURE1);
 
     this.gl = gl;
   }
@@ -105,8 +105,8 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     this.lzw_uncompress(image);
 
-    this.gifFrametexture.bind(gl);
-    this.gifFrametexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
+    this.gifFrameTexture.bind(gl);
+    this.gifFrameTexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
 
     getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
       const alphaRenderPassResult: RenderResult = this.drawToAlphaTexture(allocator.allocate(this.screenWidth, this.screenHeight), image);
@@ -115,8 +115,8 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       this.colorTableTexture.bind(gl);
       this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
   
-      this.gifFrametexture.bind(gl);
-      this.gifFrametexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
+      this.gifFrameTexture.bind(gl);
+      this.gifFrameTexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
   
       if (this.currentFrameBuffer) {
         getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.currentFrameBuffer);
@@ -129,7 +129,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
           globals: { colorTableSize: this.maxColorMapSize },
           textures: {
             colorTableTexture: this.colorTableTexture,
-            indexTexture: this.gifFrametexture,
+            indexTexture: this.gifFrameTexture,
             alphaTexture: alphaRenderPassResult.texture,
             prevFrameTexture: this.prevFrame ? this.prevFrame.texture : null
           },
@@ -140,7 +140,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
           getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.prevFrameBuffer);
         }
         this.prevFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight);
-  
+
         this.prevFrame = new CopyRenderResultRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
         .execute({
           memory: {},
@@ -184,15 +184,15 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
         drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
       });
 
-      newResult = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
-      .execute({
-        memory: {},
-        globals: {},
-        textures: { targetTexture: newResult.texture },
-        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
-      });
-
-      console.log('number of draws')
+      if (this.drawer.getNumberOfDrawCalls(newResult.texture) % 2 === 1) {
+        newResult = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+          .execute({
+            memory: {},
+            globals: {},
+            textures: { targetTexture: newResult.texture },
+            drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
+          });
+      }
 
       new DrawingToScreenRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
         .execute({
@@ -220,7 +220,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     .execute({
       memory: {},
       globals: globals,
-      textures: {gifFrame: this.gifFrametexture},
+      textures: {gifFrame: this.gifFrameTexture},
       drawingTarget: drawingTarget,
     });
 

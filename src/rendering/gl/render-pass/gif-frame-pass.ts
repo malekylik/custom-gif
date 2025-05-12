@@ -46,10 +46,10 @@ export class GifRenderPass<MemoryInput> implements RenderPass<MemoryInput, GifRe
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'ColorTableTexture', textures.colorTableTexture);
 
         if (textures.prevFrameTexture) {
-        this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'prevFrameTexture', textures.prevFrameTexture);
+            this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'prevFrameTexture', textures.prevFrameTexture);
         }
 
-        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER);
+        this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER, this.drawer.getNumberOfDrawCalls(textures.indexTexture));
 
         const renderResult = createGLRenderResult(this.drawer.getGL(), drawingTarget.getBuffer());
 

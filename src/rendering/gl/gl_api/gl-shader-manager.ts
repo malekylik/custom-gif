@@ -4,7 +4,6 @@ import { createFragmentGLShader, createVertexGLShader, deleteShader } from './sh
 
 import MainVertText from '../shader_assets/main.vert';
 import MadnessVertText from '../shader_assets/madness.vert';
-import MainFlippedVertText from '../shader_assets/mainFlipped.vert';
 
 import TextureFragText from '../shader_assets/texture.frag';
 import BlackAndWhiteFragText from '../shader_assets/blanckWhiteTexture.frag';
@@ -96,6 +95,6 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
 
     function getDefaultProgramText() {
         // TODO: use flip drawer as noop shader program, add unknown shader for debuging
-        return { vertText: MainFlippedVertText, fragText: TextureFragText };
+        return { vertText: MainVertText, fragText: TextureFragText };
     }
 }
