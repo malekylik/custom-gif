@@ -1,6 +1,6 @@
-import { ImageDecriptor } from "src/parsing/gif/image_descriptor";
+import { ImageDescriptor } from "src/parsing/gif/image_descriptor";
 
-export type FactoryOut = (image: ImageDecriptor) => void;
+export type FactoryOut = (image: ImageDescriptor) => void;
 
 export interface FactoryResult {
   lzw_uncompress: FactoryOut;

@@ -1,5 +1,5 @@
 import { ColorMap } from '../../../parsing/gif/color_map';
-import { ImageDecriptor } from '../../../parsing/gif/image_descriptor';
+import { ImageDescriptor } from '../../../parsing/gif/image_descriptor';
 import { ScreenDescriptor } from '../../../parsing/gif/screen_descriptor';
 import { FactoryOut, FactoryResult } from '../../../parsing/lzw/factory/uncompress_factory';
 import { GrapgicMemory } from './graphic_memory';
@@ -10,15 +10,18 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
   private lzw_uncompress: FactoryOut;
   private graphicMemory: GrapgicMemory;
   private prevGraphicMemory: GrapgicMemory;
+  private ctx: CanvasRenderingContext2D;
 
-  constructor (ctx: CanvasRenderingContext2D, screenDescriptor: ScreenDescriptor, images: Array<ImageDecriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor (canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+    this.ctx = canvas.getContext('2d');
+
     this.uncompressedData = uncompressed.out;
     this.lzw_uncompress = uncompressed.lzw_uncompress;
     this.graphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
     this.prevGraphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
   }
 
-  drawToTexture(ctx: CanvasRenderingContext2D, image: ImageDecriptor, globalColorMap: ColorMap): void {
+  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): void {
     const graphicControl = image.graphicControl;
 
     if (graphicControl?.isTransparent) {
@@ -28,29 +31,29 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     }
   }
 
-  drawToScreen(ctx: CanvasRenderingContext2D): void {
+  drawToScreen(): void {
     const graphicMemory = this.graphicMemory;
 
-    ctx.putImageData(graphicMemory.getRawMemory(), 0, 0);
+    this.ctx.putImageData(graphicMemory.getRawMemory(), 0, 0);
   }
 
-  drawPrevToTexture(ctx: CanvasRenderingContext2D): void {
+  restorePrevDisposal(): void {
     this.graphicMemory.set(this.prevGraphicMemory);
   }
 
-  savePrevFrame(ctx: CanvasRenderingContext2D): void {
+  saveDisposalPrev(): void {
     this.prevGraphicMemory.set(this.graphicMemory);
   }
 
-  getCanvasPixels(ctx: CanvasRenderingContext2D, screen: ScreenDescriptor, buffer: ArrayBufferView): void {
+  getCanvasPixels( buffer: ArrayBufferView): void {
     new Uint8ClampedArray(buffer.buffer).set(this.graphicMemory.getRawMemory().data);
   }
 
-  getPrevCanvasPixels(ctx: CanvasRenderingContext2D, screen: ScreenDescriptor, buffer: ArrayBufferView): void {
+  getPrevCanvasPixels(buffer: ArrayBufferView): void {
     new Uint8ClampedArray(buffer.buffer).set(this.prevGraphicMemory.getRawMemory().data);
   }
 
-  private updateFrameData87(image: ImageDecriptor, globalColorMap: ColorMap) {
+  private updateFrameData87(image: ImageDescriptor, globalColorMap: ColorMap) {
     const graphicMemory = this.graphicMemory;
     const colorMap = image.M ? image.colorMap : globalColorMap;
     const imageLeft = image.imageLeft;
@@ -77,7 +80,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     }
   }
 
-  private updateFrameData89(image: ImageDecriptor, globalColorMap: ColorMap) {
+  private updateFrameData89(image: ImageDescriptor, globalColorMap: ColorMap) {
     const graphicMemory = this.graphicMemory;
     const colorMap = image.M ? image.colorMap : globalColorMap;
     const graphicControl = image.graphicControl;

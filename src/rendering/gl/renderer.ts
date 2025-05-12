@@ -1,61 +1,84 @@
 import { GIF } from 'src/parsing/gif/parser';
 import { FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 import { Timer } from '../timer';
-import { Renderer } from '../renderer';
+import { Renderer, RendererGifDescriptor } from '../renderer';
 import { BaseRenderAlgorithm } from './render_algorithm/base';
 import { GLRenderAlgorithm } from './render_algorithm/gl';
 import { RenderAlgorithm } from './render_algorithm/render_algorithm';
 import { DisposalMethod } from '../../parsing/gif/graphic_control';
+import { GifEntity } from 'src/parsing/new_gif/gif_entity';
+
+type RendererEntity = {
+  gifEntity: GifEntity;
+  currentFrame: number;
+  timer: Timer;
+  algorithm: RenderAlgorithm;
+  canvas: HTMLCanvasElement;
+};
 
 const FPS = 1 / 25 * 1000;
 
 export interface RendererOptions {
   uncompress: FactoryResult;
+  algorithm: 'GL' | 'Software'
 }
 
-export class GLRenderer implements Renderer {
-  private gif: GIF;
-  private ctx: WebGL2RenderingContext | CanvasRenderingContext2D;
-  private currentFrame: number;
-  private timer: Timer;
-  private algorithm: RenderAlgorithm;
+export class BasicRenderer implements Renderer {
+  private gifs: RendererEntity[];
 
-  constructor(gif: GIF, canvas: HTMLCanvasElement, options: RendererOptions) {
-    this.gif = gif;
-    this.currentFrame = 0;
-    this.ctx = canvas.getContext('webgl2');
-    // this.ctx = canvas.getContext('2d');
-    this.timer = new Timer();
-    this.algorithm = new GLRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images, this.gif.colorMap, options.uncompress);
-    // this.algorithm = new BaseRenderAlgorithm(this.ctx, this.gif.screenDescriptor, this.gif.images, this.gif.colorMap, options.uncompress);
-    const { screenWidth, screenHeight } = this.gif.screenDescriptor;
-
-    canvas.width = screenWidth;
-    canvas.height = screenHeight;
-    canvas.style.width = `${screenWidth}px`;
-    canvas.style.height = `${screenHeight}px`;
-
-    if (this.gif.images.length) {
-      this.timer.once(() => {
-        this.drawFrame();
-      });
-    }
+  constructor() {
+    this.gifs = [];
   }
 
-  setFrame(frame: number): Promise<void> {
-    return new Promise((resolve) => {
-      if (frame > -1 && frame < this.gif.images.length) {
-        if (frame !== this.currentFrame) {
-          this.timer.clear();
+  addGifToRender(gifEntity: GifEntity, canvas: HTMLCanvasElement, options: RendererOptions): Promise<RendererGifDescriptor> {
+    const descriptop: RendererGifDescriptor = {
+      id: this.gifs.length
+    };
+    const gif: RendererEntity = {
+      gifEntity,
+      currentFrame: -1,
+      algorithm: options.algorithm === 'GL' ?
+        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress) :
+        new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress),
+      timer: new Timer,
+      canvas,
+    };
 
-          this.timer.once(() => {
+    const { screenWidth, screenHeight } = gif.gifEntity.gif.screenDescriptor;
+
+    gif.canvas.width = screenWidth;
+    gif.canvas.height = screenHeight;
+    gif.canvas.style.width = `${screenWidth}px`;
+    gif.canvas.style.height = `${screenHeight}px`;
+
+    this.gifs.push(gif);
+
+    if (gif.gifEntity.gif.images.length) {
+      return new Promise(resolve => gif.timer.once(() => {
+        this.setFrame(descriptop, 0)
+          .then(() => resolve(descriptop));
+      }));
+    }
+
+    return Promise.resolve(descriptop);
+  }
+
+  setFrame(descriptor: RendererGifDescriptor, frame: number): Promise<void> {
+    const gif = this.gifs[descriptor.id];
+
+    return new Promise((resolve) => {
+      if (frame > -1 && frame < gif.gifEntity.gif.images.length) {
+        if (frame !== gif.currentFrame) {
+          gif.timer.clear();
+
+          gif.timer.once(() => {
             for (let i = 0; i < frame; i++) {
-              this.drawToTexture(i);
-              this.performeDisposalMethod(i);
+              this.drawToTexture(gif, i);
+              this.performeDisposalMethod(gif, i);
             }
 
-            this.currentFrame = frame;
-            this.drawFrame();
+            gif.currentFrame = frame;
+            this._drawFrame(gif, gif.currentFrame);
             resolve();
           });
         } else {
@@ -67,18 +90,20 @@ export class GLRenderer implements Renderer {
     });
   }
 
-  autoplayStart(): boolean {
-    if (this.gif.images.length > 1) {
+  autoplayStart(descriptor: RendererGifDescriptor): boolean {
+    const gif = this.gifs[descriptor.id];
+
+    if (gif.gifEntity.gif.images.length > 1) {
       const callback = () => {
-        const nextFrame = (this.currentFrame + 1) % this.gif.images.length;
+        const nextFrame = (gif.currentFrame + 1) % gif.gifEntity.gif.images.length;
 
-        this.timer.once(callback, this.gif.images[nextFrame].graphicControl?.delayTime || FPS) as unknown as number;
+        gif.timer.once(callback, gif.gifEntity.gif.images[nextFrame].graphicControl?.delayTime || FPS) as unknown as number;
 
-        this.currentFrame = nextFrame;
-        this.drawFrame();
+        gif.currentFrame = nextFrame;
+        this._drawFrame(gif, gif.currentFrame);
       };
 
-      this.timer.once(callback, this.gif.images[this.currentFrame].graphicControl?.delayTime || FPS) as unknown as number;
+      gif.timer.once(callback, gif.gifEntity.gif.images[gif.currentFrame].graphicControl?.delayTime || FPS) as unknown as number;
 
       return true;
     } else {
@@ -86,48 +111,52 @@ export class GLRenderer implements Renderer {
     }
   }
 
-  autoplayEnd(): void {
-    this.timer.clear();
+  autoplayEnd(descriptor: RendererGifDescriptor): void {
+    const gif = this.gifs[descriptor.id];
+
+    gif.timer.clear();
   }
 
-  private drawToTexture(frame = this.currentFrame): void {
-    const image = this.gif.images[frame];
+  private drawToTexture(gif: RendererEntity, frame: number): void {
+    const image = gif.gifEntity.gif.images[frame];
 
     console.log('frame = ', frame);
 
-    this.algorithm.drawToTexture(this.ctx, image, this.gif.colorMap);
+    // render current
+    gif.algorithm.drawToTexture(image, gif.gifEntity.gif.colorMap);
 
     // TODO: add support of DisposalMethod.clear
     if (image.graphicControl?.disposalMethod !== DisposalMethod.prev) {
-      this.algorithm.savePrevFrame(this.ctx);
+      gif.algorithm.saveDisposalPrev();
     }
   }
 
-  getCanvasPixel(buffer: ArrayBufferView) {
-    return this.algorithm.getCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
+  // TODO: fix later
+  // getCanvasPixel(buffer: ArrayBufferView) {
+  //   return this.algorithm.getCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
+  // }
+
+  // getPrevCanvasPixel(buffer: ArrayBufferView) {
+  //   return this.algorithm.getPrevCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
+  // }
+
+  private drawToScreen(gif: RendererEntity): void {
+    gif.algorithm.drawToScreen();
   }
 
-  getPrevCanvasPixel(buffer: ArrayBufferView) {
-    return this.algorithm.getPrevCanvasPixels(this.ctx as unknown as WebGL2RenderingContext, this.gif.screenDescriptor, buffer);
+  private _drawFrame(gif: RendererEntity, frame: number): void {
+    this.drawToTexture(gif, frame);
+
+    this.drawToScreen(gif);
+
+    this.performeDisposalMethod(gif, frame);
   }
 
-  private drawToScreen(): void {
-    this.algorithm.drawToScreen(this.ctx);
-  }
-
-  private drawFrame(frame = this.currentFrame): void {
-    this.drawToTexture(frame);
-
-    this.drawToScreen();
-
-    this.performeDisposalMethod(frame);
-  }
-
-  private performeDisposalMethod(frame = this.currentFrame): void {
-    const image = this.gif.images[frame];
+  private performeDisposalMethod(gif: RendererEntity, frame: number): void {
+    const image = gif.gifEntity.gif.images[frame];
 
     if (image.graphicControl?.disposalMethod === DisposalMethod.prev) {
-      this.algorithm.drawPrevToTexture(this.ctx);
+      gif.algorithm.restorePrevDisposal();
     }
   }
 }

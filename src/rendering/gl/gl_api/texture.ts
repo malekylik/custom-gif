@@ -71,13 +71,30 @@ const DefaultOptions: TextureConfig = {
   imageFormat: DefaultImageFormat,
 }
 
-export class GLTexture {
+export interface IGLTexture {
+  getWidth(): number;
+  getHeight(): number;
+
+  bind(gl: WebGLRenderingContext | WebGL2RenderingContext): void;
+  // TODO: should be part of gl program ?
+  activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext, textureUnit?: number): void;
+  
+  getGLTexture(): WebGLTexture;
+}
+
+export class GLTexture implements IGLTexture {
   private config: TextureConfig;
   private texture: WebGLTexture;
   private textureUnit: TextureUnit;
   private prevDataPointer: ArrayBufferView;
 
+  private width: number;
+  private height: number;
+
   constructor(gl: WebGL2RenderingContext, width: number, height: number, data: ArrayBufferView | null, config = DefaultOptions) {
+    this.width = width;
+    this.height = height;
+
     this.texture = gl.createTexture();
     this.textureUnit = TextureUnit.TEXTURE0;
     const filtering = config?.filtering ?? DefaultFiltering;
@@ -128,7 +145,37 @@ export class GLTexture {
     return this.texture;
   }
 
-  activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
-    gl.activeTexture(convertToGLTextureUnit(gl, this.textureUnit));
+  activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext, texture?: number): void {
+    gl.activeTexture(convertToGLTextureUnit(gl, texture !== undefined ? texture : this.textureUnit));
+  }
+
+  getWidth(): number {
+    return this.width;
+  }
+
+  getHeight(): number {
+    return this.height;
+  }
+}
+
+export class NoopGLTexture implements IGLTexture {
+  bind(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
+    console.warn('A noop texture was tried to bind');
+    console.trace();
+  }
+
+  getGLTexture(): WebGLTexture {
+    return null;
+  }
+
+  activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext, texture?: number): void {
+  }
+
+  getWidth(): number {
+    return -1;
+  }
+
+  getHeight(): number {
+    return -1;
   }
 }

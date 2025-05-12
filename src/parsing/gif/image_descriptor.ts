@@ -2,7 +2,7 @@ import { ColorMap } from './color_map';
 import { GIFSpecialSymbol } from './consts';
 import { GraphicControl } from './graphic_control';
 
-export interface ImageDecriptor {
+export interface ImageDescriptor {
   imageLeft: number;
   imageTop: number;
   imageWidth: number;
@@ -21,7 +21,7 @@ export interface ImageDecriptor {
   startPointer: number;
 }
 
-export function parseImageDescriptor(buffer: ArrayBuffer, imagesDescriptorOffset: number): ImageDecriptor {
+export function parseImageDescriptor(buffer: ArrayBuffer, imagesDescriptorOffset: number): ImageDescriptor {
   const HEAP8 = new Uint8Array(buffer);
 
   if (HEAP8[imagesDescriptorOffset] !== GIFSpecialSymbol.imageSeparator) {
