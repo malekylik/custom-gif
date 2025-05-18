@@ -189,31 +189,31 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   private postProcessing(frame: RenderResult, allocator: GLFrameDrawingTargetTemporaryAllocator): RenderResult {
     let newResult = frame;
 
-    const newResult1 = new BlackAndWhiteRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
-      .execute({
-        memory: {},
-        globals: {},
-        textures: { targetTexture: newResult.texture },
-        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
-      });
+    // const newResult1 = new BlackAndWhiteRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+    //   .execute({
+    //     memory: {},
+    //     globals: {},
+    //     textures: { targetTexture: newResult.texture },
+    //     drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
+    //   });
 
-    const newResult2 = new MandessRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
-      .execute({
-        memory: {},
-        globals: {},
-        textures: { targetTexture: newResult.texture },
-        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
-      });
+    // const newResult2 = new MandessRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+    //   .execute({
+    //     memory: {},
+    //     globals: {},
+    //     textures: { targetTexture: newResult.texture },
+    //     drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
+    //   });
 
-    newResult = new MixRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
-      .execute({
-        memory: {},
-        globals: {alpha: 0.7},
-        textures: { background: newResult1.texture, foreground: newResult2.texture },
-        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
-      });
+    // newResult = new MixRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+    //   .execute({
+    //     memory: {},
+    //     globals: {alpha: 0.7},
+    //     textures: { background: newResult1.texture, foreground: newResult2.texture },
+    //     drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
+    //   });
 
-      return newResult;
+    return newResult;
   }
 
   private drawToAlphaTexture(drawingTarget: BufferDrawingTarget, image: ImageDescriptor): RenderResult {

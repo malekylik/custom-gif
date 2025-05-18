@@ -29,84 +29,79 @@ function handleFiles() {
 
           const glGifVisualizerContainer = document.createElement('div');
           const glGifVisualizer = document.createElement('canvas');
-          const glGifVisualizerContainerTitle = document.createElement('span');
 
-          glGifVisualizerContainerTitle.innerText = 'Render Type - GL';
+          const gifMetaData = document.createElement('div');
+
+          const glGifFrameNumber = document.createElement('span');
+
+          const glGifStopButton = document.createElement('button');
+          const glGifNextButton = document.createElement('button');
+
+          gifMetaData.append(glGifFrameNumber);
+          gifMetaData.append(glGifStopButton);
+
+          const getCurrentFrameText = (currentFrame: number, totalNumber: number) => `${currentFrame} / ${totalNumber}`;
+          const getPlayButtonText = (isRunning: boolean) => isRunning ? 'stop' : 'play';
+
+          glGifStopButton.textContent = getPlayButtonText(false);
+          glGifFrameNumber.textContent = getCurrentFrameText(1, gif.gif.images.length);
+          glGifNextButton.textContent = 'Next';
+
+          glGifNextButton.disabled = true;
 
           glGifVisualizerContainer.append(glGifVisualizer);
-          glGifVisualizerContainer.append(glGifVisualizerContainerTitle);
+          glGifVisualizerContainer.append(gifMetaData);
+          glGifVisualizerContainer.append(glGifNextButton);
 
           container.append(glGifVisualizerContainer);
 
           renderer.addGifToRender(gif, glGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'GL' })
             .then((descriptor) => {
-              renderer.autoplayStart(descriptor);
+              let isRun = false;
+
+              if (renderer.autoplayStart(descriptor)) {
+                isRun = true;
+                glGifStopButton.textContent = getPlayButtonText(isRun);
+              } else {
+                glGifNextButton.disabled = false;
+              }
+
+              let setting = false;
+              glGifNextButton.addEventListener('click', () => {
+                if (!setting) {
+                  setting = true;
+                  renderer.setFrame(descriptor, (renderer.getCurrentFrame(descriptor) + 1) % gif.gif.images.length)
+                    .then(() => setting = false);
+                }
+              });
+
+              glGifStopButton.addEventListener('click', () => {
+                if (isRun) {
+                  renderer.autoplayEnd(descriptor);
+                  isRun = false;
+                } else {
+                  if (renderer.autoplayStart(descriptor)) {
+                    isRun = true;
+                  }
+                }
+
+                glGifStopButton.textContent = getPlayButtonText(isRun);
+                glGifNextButton.disabled = isRun;
+              });
+
+              renderer.onFrameRender(descriptor, (data) => {
+                glGifFrameNumber.innerText = getCurrentFrameText(data.frameNumber + 1, data.totalFrameNumber);
+              })
           });
-
-
-          const softwareGifVisualizerContainer = document.createElement('div');
-          const softwareGifVisualizer = document.createElement('canvas');
-          const softwareGifVisualizerContainerTitle = document.createElement('span');
-
-          softwareGifVisualizerContainerTitle.innerText = 'Render Type - SoftWare';
-
-          softwareGifVisualizerContainer.append(softwareGifVisualizer);
-          softwareGifVisualizerContainer.append(softwareGifVisualizerContainerTitle);
-  
-          container.append(softwareGifVisualizerContainer);
-
-          renderer.addGifToRender(gif, softwareGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'Software' })
-            .then((descriptor) => {
-              renderer.autoplayStart(descriptor);
-            });
 
           main.append(container);
 
-
-          // changeInput.addEventListener('change', (e: InputEvent) => {
-          //   const value = parseInt((e.target as any).value);
-
-          //   if (!isNaN(value) && (value < gif.images.length && value >= 0)) {
-          //     const setFramePromise = gifRenderer.setFrame(value);
-          //   }
-          // });
 
           console.log('new gif: ', gif);
 
           gifs.push(gif);
         });
     }
-
-    // const arrayBuffer = e.target.result as ArrayBuffer;
-    // const gif = parseGif(arrayBuffer);
-
-    // console.log(gif);
-
-    // const container = document.createElement('div');
-    // const gifVisualizer = document.createElement('canvas');
-
-    // const changeInput = document.createElement('input');
-    // changeInput.type = 'text';
-    // changeInput.value = '0';
-
-    // container.append(gifVisualizer);
-    // container.append(changeInput);
-
-    // main.append(container);
-
-    // createLZWFuncFromWasm(gif)
-    //   .then((lzw_uncompress) => {
-    //     let gifRenderer = new GLRenderer(gif, gifVisualizer, { uncompress: lzw_uncompress });
-    //     gifRenderer.autoplayStart();
-
-    //     changeInput.addEventListener('change', (e: InputEvent) => {
-    //       const value = parseInt((e.target as any).value);
-
-    //       if (!isNaN(value) && (value < gif.images.length && value >= 0)) {
-    //         const setFramePromise = gifRenderer.setFrame(value);
-    //       }
-    //     });
-    //   });
   }
   reader.readAsArrayBuffer(this.files[0]);
 }

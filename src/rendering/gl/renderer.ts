@@ -23,11 +23,15 @@ export interface RendererOptions {
   algorithm: 'GL' | 'Software'
 }
 
+type FrameSubsription = (r: { frameNumber: number; totalFrameNumber: number; gifDescription: RendererGifDescriptor }) => void;
+
 export class BasicRenderer implements Renderer {
   private gifs: RendererEntity[];
+  private frameSubsriptions: FrameSubsription[];
 
   constructor() {
     this.gifs = [];
+    this.frameSubsriptions = [];
   }
 
   addGifToRender(gifEntity: GifEntity, canvas: HTMLCanvasElement, options: RendererOptions): Promise<RendererGifDescriptor> {
@@ -72,14 +76,20 @@ export class BasicRenderer implements Renderer {
           gif.timer.clear();
 
           gif.timer.once(() => {
-            for (let i = 0; i < frame; i++) {
+            const from = Math.max(0, frame < gif.currentFrame ? 0 : gif.currentFrame);
+            const to = frame
+
+            for (let i = from; i < to; i++) {
               this.drawToTexture(gif, i);
               this.performeDisposalMethod(gif, i);
             }
 
             gif.currentFrame = frame;
             this._drawFrame(gif, gif.currentFrame);
+
             resolve();
+
+            this.notifySubscribers(descriptor);
           });
         } else {
           resolve();
@@ -101,6 +111,8 @@ export class BasicRenderer implements Renderer {
 
         gif.currentFrame = nextFrame;
         this._drawFrame(gif, gif.currentFrame);
+
+        this.notifySubscribers(descriptor);
       };
 
       gif.timer.once(callback, gif.gifEntity.gif.images[gif.currentFrame].graphicControl?.delayTime || FPS) as unknown as number;
@@ -117,10 +129,28 @@ export class BasicRenderer implements Renderer {
     gif.timer.clear();
   }
 
+  onFrameRender(descriptor: RendererGifDescriptor, callback: FrameSubsription): { clear: () => void } {
+    this.frameSubsriptions.push((data) => {
+      if (data.gifDescription.id === descriptor.id) {
+        callback(data);
+      }
+    });
+
+    return {
+      clear: () => {
+        this.frameSubsriptions = this.frameSubsriptions.filter(c => c !== callback);
+      }
+    }
+  }
+
+  getCurrentFrame(descriptor: RendererGifDescriptor): number {
+    const gif = this.gifs[descriptor.id];
+
+    return gif.currentFrame;
+  }
+
   private drawToTexture(gif: RendererEntity, frame: number): void {
     const image = gif.gifEntity.gif.images[frame];
-
-    console.log('frame = ', frame);
 
     // render current
     gif.algorithm.drawToTexture(image, gif.gifEntity.gif.colorMap);
@@ -129,6 +159,14 @@ export class BasicRenderer implements Renderer {
     if (image.graphicControl?.disposalMethod !== DisposalMethod.prev) {
       gif.algorithm.saveDisposalPrev();
     }
+  }
+
+  private notifySubscribers(descriptor: RendererGifDescriptor) {
+    const gif = this.gifs[descriptor.id];
+
+    this.frameSubsriptions.forEach(c => {
+      c({ gifDescription: descriptor, frameNumber: gif.currentFrame, totalFrameNumber: gif.gifEntity.gif.images.length });
+    });
   }
 
   // TODO: fix later
