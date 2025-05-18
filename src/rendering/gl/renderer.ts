@@ -2,11 +2,12 @@ import { GIF } from 'src/parsing/gif/parser';
 import { FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 import { Timer } from '../timer';
 import { Renderer, RendererGifDescriptor } from '../renderer';
-import { BaseRenderAlgorithm } from './render_algorithm/base';
-import { GLRenderAlgorithm } from './render_algorithm/gl';
+import { BaseRenderAlgorithm } from './render_algorithm/software_render_algorithm';
+import { GLRenderAlgorithm } from './render_algorithm/gl_render_algorithm.';
 import { RenderAlgorithm } from './render_algorithm/render_algorithm';
 import { DisposalMethod } from '../../parsing/gif/graphic_control';
 import { GifEntity } from 'src/parsing/new_gif/gif_entity';
+import { createMadnessEffect } from './effects/madness-effect';
 
 type RendererEntity = {
   gifEntity: GifEntity;
@@ -179,7 +180,10 @@ export class BasicRenderer implements Renderer {
   // }
 
   private drawToScreen(gif: RendererEntity): void {
-    gif.algorithm.drawToScreen();
+    const { screenWidth, screenHeight } = gif.gifEntity.gif.screenDescriptor;
+    const effect = createMadnessEffect({ screenHeight: screenHeight, screenWidth: screenWidth, from: 0, to: 5 });
+
+    gif.algorithm.drawToScreen([effect]);
   }
 
   private _drawFrame(gif: RendererEntity, frame: number): void {
