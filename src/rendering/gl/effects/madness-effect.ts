@@ -2,15 +2,17 @@ import { RenderResult } from "../../api/render-result";
 import { GLDrawer } from "../gl_api/gl-drawer";
 import { GLFrameDrawingTargetTemporaryAllocator } from "../gl_api/gl-resource-manager";
 import { BlackAndWhiteRenderPass } from "../render-pass/black-and-white-pass";
-import { getGLSystem } from "../gl-system";
 import { MandessRenderPass } from "../render-pass/madness-pass";
 import { MixRenderResultsRenderPass } from "../render-pass/mix-render-result-pass";
 import { GLEffect } from "../gl_api/gl-effect";
 import { GLShaderManager } from "../gl_api/gl-shader-manager";
+import { getEffectId } from "../../api/effect";
 
-interface GLMadnessEffect extends GLEffect {
+export interface GLMadnessEffect extends GLEffect {
   setAlpha(a: number): void;
 }
+
+export const MadnessEffectId = getEffectId();
 
 export function createMadnessEffect(data: { screenWidth: number, screenHeight: number, from: number, to: number }): GLMadnessEffect {
   let alpha = 0.7;
@@ -44,6 +46,10 @@ export function createMadnessEffect(data: { screenWidth: number, screenHeight: n
       });
 
       return newResult;
+    },
+
+    shouldBeApplied(frameNumber) {
+      return frameNumber >= data.from && frameNumber <= data.to;
     },
 
     setAlpha(a) {

@@ -1,4 +1,3 @@
-import { GIF } from 'src/parsing/gif/parser';
 import { FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 import { Timer } from '../timer';
 import { Renderer, RendererGifDescriptor } from '../renderer';
@@ -7,7 +6,7 @@ import { GLRenderAlgorithm } from './render_algorithm/gl_render_algorithm.';
 import { RenderAlgorithm } from './render_algorithm/render_algorithm';
 import { DisposalMethod } from '../../parsing/gif/graphic_control';
 import { GifEntity } from 'src/parsing/new_gif/gif_entity';
-import { createMadnessEffect } from './effects/madness-effect';
+import { Effect } from '../api/effect';
 
 type RendererEntity = {
   gifEntity: GifEntity;
@@ -15,6 +14,7 @@ type RendererEntity = {
   timer: Timer;
   algorithm: RenderAlgorithm;
   canvas: HTMLCanvasElement;
+  effects: Effect[];
 };
 
 const FPS = 1 / 25 * 1000;
@@ -47,6 +47,7 @@ export class BasicRenderer implements Renderer {
         new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress),
       timer: new Timer,
       canvas,
+      effects: [],
     };
 
     const { screenWidth, screenHeight } = gif.gifEntity.gif.screenDescriptor;
@@ -66,6 +67,35 @@ export class BasicRenderer implements Renderer {
     }
 
     return Promise.resolve(descriptop);
+  }
+
+  addEffectToGif(descriptor: RendererGifDescriptor, from: number, to: number, effectFactory: (data: {
+                screenWidth: number;
+                screenHeight: number;
+                from: number;
+                to: number;
+              }) => Effect) {
+    // assert
+    if (from > to) {
+      console.warn('from cannot be greater than to', from, to);
+    }
+
+    const gif = this.gifs[descriptor.id];
+
+    if (from < 0) {
+      console.warn('from should be greater than 0', from);
+    }
+
+    if (to >= gif.gifEntity.gif.images.length) {
+      console.warn('to should be less than number of gif frames', to, gif.gifEntity.gif.images.length);
+    }
+
+    gif.effects.push(effectFactory({
+      screenWidth: gif.gifEntity.gif.screenDescriptor.screenWidth,
+      screenHeight: gif.gifEntity.gif.screenDescriptor.screenHeight,
+      from: from,
+      to: to,
+    }));
   }
 
   setFrame(descriptor: RendererGifDescriptor, frame: number): Promise<void> {
@@ -180,10 +210,14 @@ export class BasicRenderer implements Renderer {
   // }
 
   private drawToScreen(gif: RendererEntity): void {
-    const { screenWidth, screenHeight } = gif.gifEntity.gif.screenDescriptor;
-    const effect = createMadnessEffect({ screenHeight: screenHeight, screenWidth: screenWidth, from: 0, to: 5 });
+    // const { screenWidth, screenHeight } = gif.gifEntity.gif.screenDescriptor;
+    // const effect = createMadnessEffect({ screenHeight: screenHeight, screenWidth: screenWidth, from: 0, to: 5 });
 
-    gif.algorithm.drawToScreen([effect]);
+    const effects = gif.effects.filter(effect => effect.shouldBeApplied(gif.currentFrame));
+
+    // const effects = effect.shouldBeApplied(gif.currentFrame) ? [effect] : [];
+
+    gif.algorithm.drawToScreen(effects);
   }
 
   private _drawFrame(gif: RendererEntity, frame: number): void {

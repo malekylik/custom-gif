@@ -4,6 +4,8 @@ import { lzw_uncompress } from './parsing/lzw/uncompress/uncompress_debug';
 import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js';
 import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
 import { createGifEntity, GifEntity } from './parsing/new_gif/gif_entity';
+import { createMadnessEffect } from './rendering/gl/effects/madness-effect';
+import { createBlackAndWhiteEffect } from './rendering/gl/effects/black-and-white-effect ';
 
 const main = document.getElementById('main');
 
@@ -57,6 +59,9 @@ function handleFiles() {
 
           renderer.addGifToRender(gif, glGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'GL' })
             .then((descriptor) => {
+              renderer.addEffectToGif(descriptor, 2, 30, data => createMadnessEffect(data));
+              renderer.addEffectToGif(descriptor, 25, 45, data => createBlackAndWhiteEffect(data));
+
               let isRun = false;
 
               if (renderer.autoplayStart(descriptor)) {
@@ -95,7 +100,6 @@ function handleFiles() {
           });
 
           main.append(container);
-
 
           console.log('new gif: ', gif);
 
