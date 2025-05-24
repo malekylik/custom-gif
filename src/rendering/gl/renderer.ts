@@ -25,14 +25,17 @@ export interface RendererOptions {
 }
 
 type FrameSubsription = (r: { frameNumber: number; totalFrameNumber: number; gifDescription: RendererGifDescriptor }) => void;
+type EffectSubsription = (r: { effect: Effect; effects: Effect[]; from: number, to: number; gifDescription: RendererGifDescriptor }) => void;
 
 export class BasicRenderer implements Renderer {
   private gifs: RendererEntity[];
   private frameSubsriptions: FrameSubsription[];
+  private effectSubsriptions: EffectSubsription[];
 
   constructor() {
     this.gifs = [];
     this.frameSubsriptions = [];
+    this.effectSubsriptions = [];
   }
 
   addGifToRender(gifEntity: GifEntity, canvas: HTMLCanvasElement, options: RendererOptions): Promise<RendererGifDescriptor> {
@@ -90,12 +93,16 @@ export class BasicRenderer implements Renderer {
       console.warn('to should be less than number of gif frames', to, gif.gifEntity.gif.images.length);
     }
 
-    gif.effects.push(effectFactory({
+    const effect = effectFactory({
       screenWidth: gif.gifEntity.gif.screenDescriptor.screenWidth,
       screenHeight: gif.gifEntity.gif.screenDescriptor.screenHeight,
       from: from,
       to: to,
-    }));
+    });
+
+    gif.effects.push(effect);
+
+    this.notifyEffectSubscribers(descriptor, effect, from, to);
   }
 
   setFrame(descriptor: RendererGifDescriptor, frame: number): Promise<void> {
@@ -120,7 +127,7 @@ export class BasicRenderer implements Renderer {
 
             resolve();
 
-            this.notifySubscribers(descriptor);
+            this.notifyFrameSubscribers(descriptor);
           });
         } else {
           resolve();
@@ -143,7 +150,7 @@ export class BasicRenderer implements Renderer {
         gif.currentFrame = nextFrame;
         this._drawFrame(gif, gif.currentFrame);
 
-        this.notifySubscribers(descriptor);
+        this.notifyFrameSubscribers(descriptor);
       };
 
       gif.timer.once(callback, gif.gifEntity.gif.images[gif.currentFrame].graphicControl?.delayTime || FPS) as unknown as number;
@@ -174,6 +181,20 @@ export class BasicRenderer implements Renderer {
     }
   }
 
+  onEffectAdded(descriptor: RendererGifDescriptor, callback: EffectSubsription): { clear: () => void } {
+    this.effectSubsriptions.push((data) => {
+      if (data.gifDescription.id === descriptor.id) {
+        callback(data);
+      }
+    });
+
+    return {
+      clear: () => {
+        this.effectSubsriptions = this.effectSubsriptions.filter(c => c !== callback);
+      }
+    }
+  }
+
   getCurrentFrame(descriptor: RendererGifDescriptor): number {
     const gif = this.gifs[descriptor.id];
 
@@ -192,11 +213,19 @@ export class BasicRenderer implements Renderer {
     }
   }
 
-  private notifySubscribers(descriptor: RendererGifDescriptor) {
+  private notifyFrameSubscribers(descriptor: RendererGifDescriptor) {
     const gif = this.gifs[descriptor.id];
 
     this.frameSubsriptions.forEach(c => {
       c({ gifDescription: descriptor, frameNumber: gif.currentFrame, totalFrameNumber: gif.gifEntity.gif.images.length });
+    });
+  }
+
+  private notifyEffectSubscribers(descriptor: RendererGifDescriptor, effect: Effect, from: number, to: number) {
+    const gif = this.gifs[descriptor.id];
+
+    this.effectSubsriptions.forEach(c => {
+      c({ gifDescription: descriptor, effect, effects: gif.effects, from: from, to: to });
     });
   }
 
@@ -210,12 +239,7 @@ export class BasicRenderer implements Renderer {
   // }
 
   private drawToScreen(gif: RendererEntity): void {
-    // const { screenWidth, screenHeight } = gif.gifEntity.gif.screenDescriptor;
-    // const effect = createMadnessEffect({ screenHeight: screenHeight, screenWidth: screenWidth, from: 0, to: 5 });
-
     const effects = gif.effects.filter(effect => effect.shouldBeApplied(gif.currentFrame));
-
-    // const effects = effect.shouldBeApplied(gif.currentFrame) ? [effect] : [];
 
     gif.algorithm.drawToScreen(effects);
   }

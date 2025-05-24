@@ -16,4 +16,8 @@ export interface Effect {
 
    // TODO: should be part of effect interface ?
    shouldBeApplied(frameNumber: number): boolean;
+
+   getFrom(): number;
+   getTo(): number;
+   getId(): number;
 }

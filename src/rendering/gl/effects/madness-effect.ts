@@ -52,6 +52,18 @@ export function createMadnessEffect(data: { screenWidth: number, screenHeight: n
       return frameNumber >= data.from && frameNumber <= data.to;
     },
 
+    getId() {
+      return MadnessEffectId;
+    },
+
+    getFrom() {
+      return data.from;
+    },
+
+    getTo() {
+      return data.to;
+    },
+
     setAlpha(a) {
       alpha = a;
     },

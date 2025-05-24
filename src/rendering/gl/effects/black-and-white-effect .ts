@@ -30,5 +30,17 @@ export function createBlackAndWhiteEffect(data: { screenWidth: number, screenHei
     shouldBeApplied(frameNumber) {
       return frameNumber >= data.from && frameNumber <= data.to;
     },
+
+    getId() {
+      return BlackAndWhiteEffectId;
+    },
+
+    getFrom() {
+      return data.from;
+    },
+
+    getTo() {
+      return data.to;
+    },
   };
 }

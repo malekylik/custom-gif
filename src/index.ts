@@ -4,8 +4,9 @@ import { lzw_uncompress } from './parsing/lzw/uncompress/uncompress_debug';
 import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js';
 import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
 import { createGifEntity, GifEntity } from './parsing/new_gif/gif_entity';
-import { createMadnessEffect } from './rendering/gl/effects/madness-effect';
-import { createBlackAndWhiteEffect } from './rendering/gl/effects/black-and-white-effect ';
+import { createMadnessEffect, MadnessEffectId } from './rendering/gl/effects/madness-effect';
+import { BlackAndWhiteEffectId, createBlackAndWhiteEffect } from './rendering/gl/effects/black-and-white-effect ';
+import { Effect } from './rendering/api/effect';
 
 const main = document.getElementById('main');
 
@@ -51,14 +52,65 @@ function handleFiles() {
 
           glGifNextButton.disabled = true;
 
+          const effectListContent = document.createElement('div');
+          const effectListData = document.createElement('div');
+          const effectEditContainer = document.createElement('div');
+          let effectEditor: HTMLDivElement | null;
+
+          effectListContent.append(effectListData);
+          effectListContent.append(effectEditContainer);
+
+          function getEffectName(effectId: number): string | null {
+            if (effectId === MadnessEffectId) {
+              return 'Madness Effect';
+            }
+
+            if (effectId === BlackAndWhiteEffectId) {
+              return 'Black And White Effect';
+            }
+
+            return null;
+          }
+
+          function upodateEffectListListeners(effectListData: HTMLDivElement, effects: Effect[]) {
+            const lis = effectListData.querySelectorAll('li');
+
+            lis.forEach((li, i) => {
+              li.addEventListener('click', () => {
+                const effect = effects[i];
+
+                if (effectEditor) {
+                  effectEditContainer.removeChild(effectEditor);
+                  effectEditor = null;
+                }
+
+                effectEditor = document.createElement('div');
+                effectEditor.innerHTML = `<span>Editing: ${getEffectName(effect.getId())}</span>`;
+
+                effectEditContainer.append(effectEditor);
+              });
+            })
+          }
+
+          const getEffectListContent = (effects: Effect[]): string => effects.length === 0 ? 'No effects' : '<ul>' +(effects.map((effect, i) => `<li> ${i + 1}. ${getEffectName(effect.getId()) || 'Unknown Effect'} - from: ${effect.getFrom()}; to: ${effect.getTo()} </li>`).join('\n')) + '</ul>';
+
+          effectListData.innerHTML = getEffectListContent([]);
+          upodateEffectListListeners(effectListData, []);
+
           glGifVisualizerContainer.append(glGifVisualizer);
           glGifVisualizerContainer.append(gifMetaData);
           glGifVisualizerContainer.append(glGifNextButton);
 
           container.append(glGifVisualizerContainer);
+          container.append(effectListContent);
 
           renderer.addGifToRender(gif, glGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'GL' })
             .then((descriptor) => {
+              renderer.onEffectAdded(descriptor, (data) => {
+                effectListData.innerHTML = getEffectListContent(data.effects);
+                upodateEffectListListeners(effectListData, data.effects);
+              });
+
               renderer.addEffectToGif(descriptor, 2, 30, data => createMadnessEffect(data));
               renderer.addEffectToGif(descriptor, 25, 45, data => createBlackAndWhiteEffect(data));
 
