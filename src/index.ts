@@ -4,8 +4,8 @@ import { lzw_uncompress } from './parsing/lzw/uncompress/uncompress_debug';
 import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js';
 import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
 import { createGifEntity, GifEntity } from './parsing/new_gif/gif_entity';
-import { createMadnessEffect, MadnessEffectId } from './rendering/gl/effects/madness-effect';
-import { BlackAndWhiteEffectId, createBlackAndWhiteEffect } from './rendering/gl/effects/black-and-white-effect ';
+import { createMadnessEffect, GLMadnessEffect, isMadnessEffect, MadnessEffectId } from './rendering/gl/effects/madness-effect';
+import { BlackAndWhiteEffectId, createBlackAndWhiteEffect, GLBlackAndWhiteEffect, isBlackAndWhiteEffect } from './rendering/gl/effects/black-and-white-effect ';
 import { Effect } from './rendering/api/effect';
 
 const main = document.getElementById('main');
@@ -72,6 +72,86 @@ function handleFiles() {
             return null;
           }
 
+          function addEffectNumberListener(fromInput: HTMLInputElement, li: HTMLElement, effect: Effect, setValue: (v: number) => void, index: number): void {
+            fromInput.addEventListener('input', () => {
+              const valueS = fromInput.value;
+              if (!isNaN(Number(valueS))) {
+                const value = Number(valueS);
+                setValue(value);
+                li.innerHTML = getEffectDesc(effect, index);
+              }
+            });
+          }
+
+          function createBlackAndWhiteEditorElement(effect: GLBlackAndWhiteEffect, li: HTMLElement, index: number): HTMLElement {
+            const container = document.createElement('div');
+
+            container.innerHTML = `<div>
+              <div>
+                <span>From</span>
+                <input class="from-input" value="${effect.getFrom()}" />
+              </div>
+              <div>
+                <span>To</span>
+                <input class="to-input" value="${effect.getTo()}" />
+              </div>
+            </div>
+            `;
+
+            const fromInput: HTMLInputElement = container.querySelector('.from-input');
+            addEffectNumberListener(fromInput, li, effect, v => effect.setFrom(v), index);
+
+            const toInput: HTMLInputElement = container.querySelector('.to-input');
+            addEffectNumberListener(toInput, li, effect, v => effect.setTo(v), index);
+
+            return container;
+          }
+
+          function createMadnessEditorElement(effect: GLMadnessEffect, li: HTMLElement, index: number): HTMLElement {
+            const container = document.createElement('div');
+
+            container.innerHTML = `<div>
+              <div>
+                <span>From</span>
+                <input class="from-input" value="${effect.getFrom()}" />
+              </div>
+              <div>
+                <span>To</span>
+                <input class="to-input" value="${effect.getTo()}" />
+              </div>
+              <div>
+                <span>Alpha</span>
+                <input class="alpha-input" value="${effect.getAlpha()}" />
+              </div>
+            </div>
+            `;
+
+            const fromInput: HTMLInputElement = container.querySelector('.from-input');
+            addEffectNumberListener(fromInput, li, effect, v => effect.setFrom(v), index);
+
+            const toInput: HTMLInputElement = container.querySelector('.to-input');
+            addEffectNumberListener(toInput, li, effect, v => effect.setTo(v), index);
+
+            const alphaInput: HTMLInputElement = container.querySelector('.alpha-input');
+            addEffectNumberListener(alphaInput, li, effect, v => effect.setAlpha(v), index);
+
+            return container;
+          }
+
+          function getEffectEditorComponent(effect: Effect, li: HTMLElement, index: number): HTMLElement | null {
+            const container = document.createElement('div');
+
+            if (isMadnessEffect(effect)) {
+              container.append(createMadnessEditorElement(effect, li, index));
+            }
+
+            if (isBlackAndWhiteEffect(effect)) {
+              container.append(createBlackAndWhiteEditorElement(effect, li, index));
+            }
+
+            return container;
+          }
+
           function upodateEffectListListeners(effectListData: HTMLDivElement, effects: Effect[]) {
             const lis = effectListData.querySelectorAll('li');
 
@@ -87,12 +167,19 @@ function handleFiles() {
                 effectEditor = document.createElement('div');
                 effectEditor.innerHTML = `<span>Editing: ${getEffectName(effect.getId())}</span>`;
 
+                const editorElement = getEffectEditorComponent(effect, li, i);
+
+                if (editorElement) {
+                  effectEditor.append(editorElement);
+                }
+
                 effectEditContainer.append(effectEditor);
               });
             })
           }
 
-          const getEffectListContent = (effects: Effect[]): string => effects.length === 0 ? 'No effects' : '<ul>' +(effects.map((effect, i) => `<li> ${i + 1}. ${getEffectName(effect.getId()) || 'Unknown Effect'} - from: ${effect.getFrom()}; to: ${effect.getTo()} </li>`).join('\n')) + '</ul>';
+          const getEffectDesc = (effect: Effect, index: number): string => `${index + 1}. ${getEffectName(effect.getId()) || 'Unknown Effect'} - from: ${effect.getFrom()}; to: ${effect.getTo()}`;
+          const getEffectListContent = (effects: Effect[]): string => effects.length === 0 ? 'No effects' : '<ul>' +(effects.map((effect, i) => `<li> ${getEffectDesc(effect, i)} </li>`).join('\n')) + '</ul>';
 
           effectListData.innerHTML = getEffectListContent([]);
           upodateEffectListListeners(effectListData, []);

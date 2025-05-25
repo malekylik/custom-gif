@@ -6,13 +6,18 @@ import { MandessRenderPass } from "../render-pass/madness-pass";
 import { MixRenderResultsRenderPass } from "../render-pass/mix-render-result-pass";
 import { GLEffect } from "../gl_api/gl-effect";
 import { GLShaderManager } from "../gl_api/gl-shader-manager";
-import { getEffectId } from "../../api/effect";
+import { Effect, getEffectId } from "../../api/effect";
 
 export interface GLMadnessEffect extends GLEffect {
   setAlpha(a: number): void;
+  getAlpha(): number;
 }
 
 export const MadnessEffectId = getEffectId();
+
+export function isMadnessEffect(effect: Effect): effect is GLMadnessEffect {
+  return effect.getId() === MadnessEffectId;
+}
 
 export function createMadnessEffect(data: { screenWidth: number, screenHeight: number, from: number, to: number }): GLMadnessEffect {
   let alpha = 0.7;
@@ -62,6 +67,18 @@ export function createMadnessEffect(data: { screenWidth: number, screenHeight: n
 
     getTo() {
       return data.to;
+    },
+
+    setFrom(from) {
+      data.from = from;
+    },
+
+    setTo(to) {
+      data.to = to;
+    },
+
+    getAlpha() {
+      return alpha;
     },
 
     setAlpha(a) {

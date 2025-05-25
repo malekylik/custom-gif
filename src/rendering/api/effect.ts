@@ -18,6 +18,9 @@ export interface Effect {
    shouldBeApplied(frameNumber: number): boolean;
 
    getFrom(): number;
+   setFrom(from: number): void;
    getTo(): number;
-   getId(): number;
+   setTo(to: number): void;
+
+   getId(): EffectId;
 }
