@@ -11,14 +11,14 @@ import { DrawingToScreenRenderPass } from '../render-pass/drawing-to-screen-pass
 import { GifAlphaRenderPass } from '../render-pass/gif-alpha-pass';
 import { GifRenderPass } from '../render-pass/gif-frame-pass';
 import { CopyRenderResultRenderPass } from '../render-pass/copy-render-result-pass';
-import { BlackAndWhiteRenderPass } from '../render-pass/black-and-white-pass';
-import { MandessRenderPass } from '../render-pass/madness-pass';
-import { MixRenderResultsRenderPass } from '../render-pass/mix-render-result-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLDrawer, GLDrawer } from '../gl_api/gl-drawer';
 import { getGLSystem, initGLSystem } from '../gl-system';
 import { BufferDrawingTarget } from '../../api/drawing-target';
 import { GLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
+import { GLFrameDrawingTargetTemporaryAllocator } from '../gl_api/gl-resource-manager';
+import { createMadnessEffect } from '../effects/madness-effect';
+import { GLEffect } from '../gl_api/gl-effect';
 
 let id = -1;
 
@@ -156,33 +156,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       this.prevFrame = this.disposalPrevFrame;
   }
 
-  drawToScreen(): void {
+  drawToScreen(effects: GLEffect[]): void {
     getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
-      let newResult = this.currentFrame;
-
-      const newResult1 = new BlackAndWhiteRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
-      .execute({
-        memory: {},
-        globals: {},
-        textures: { targetTexture: newResult.texture },
-        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
-      });
-
-      const newResult2 = new MandessRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
-      .execute({
-        memory: {},
-        globals: {},
-        textures: { targetTexture: newResult.texture },
-        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
-      });
-
-      newResult = new MixRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
-      .execute({
-        memory: {},
-        globals: {alpha: 0.7},
-        textures: { background: newResult1.texture, foreground: newResult2.texture },
-        drawingTarget: allocator.allocate(this.screenWidth, this.screenHeight),
-      });
+      let newResult = this.postProcessing(this.currentFrame, allocator, effects);
 
       if (this.drawer.getNumberOfDrawCalls(newResult.texture) % 2 === 1) {
         newResult = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
@@ -209,6 +185,18 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     getGLSystem(this.id).resouceManager.startFrame();
   }
 
+  private postProcessing(frame: RenderResult, allocator: GLFrameDrawingTargetTemporaryAllocator, effects: GLEffect[]): RenderResult {
+    let newResult = frame;
+
+    for (let i = 0; i < effects.length; i++) {
+      const effect = effects[i];
+
+      newResult = effect.apply(this.drawer, getGLSystem(this.id).shaderManager, newResult, allocator);
+    }
+
+    return newResult;
+  }
+
   private drawToAlphaTexture(drawingTarget: BufferDrawingTarget, image: ImageDescriptor): RenderResult {
     const globals = {
       screenHeight: this.screenHeight,
@@ -216,6 +204,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       alphaSquarCoord: [image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight] as [number, number, number, number],
     };
 
+    // TODO: maybe it worth to draw it in one shader pass
     const result = new GifAlphaRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
     .execute({
       memory: {},
