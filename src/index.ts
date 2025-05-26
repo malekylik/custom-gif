@@ -7,6 +7,7 @@ import { createGifEntity, GifEntity } from './parsing/new_gif/gif_entity';
 import { createMadnessEffect, GLMadnessEffect, isMadnessEffect, MadnessEffectId } from './rendering/gl/effects/madness-effect';
 import { BlackAndWhiteEffectId, createBlackAndWhiteEffect, GLBlackAndWhiteEffect, isBlackAndWhiteEffect } from './rendering/gl/effects/black-and-white-effect ';
 import { Effect } from './rendering/api/effect';
+import { computed, effect, onDispose, ReadSignal, root, signal, WriteSignal } from '@maverick-js/signals';
 
 const main = document.getElementById('main');
 
@@ -15,6 +16,65 @@ fileInput.type = 'file';
 
 const gifs: GifEntity[] = [];
 const renderer = new BasicRenderer();
+
+const listen = <T extends Element> (element: T, type: string, callback: () => void) => {
+  element.addEventListener(type, callback);
+  // Called when the effect is re-run or finally disposed.
+  onDispose(() => element.removeEventListener(type, callback));
+};
+
+function getGifMeta(props: { totalFrameNumber: ReadSignal<number>; currentFrameNumber: ReadSignal<number>; isPlay: WriteSignal<boolean>; renderNext: ReadSignal<() => Promise<void>> }): { element: HTMLElement; dispose: () => void; } {
+  return root((dispose) => {
+    const isSetting = signal(false);
+
+    const gifMetaData = document.createElement('div');
+
+    gifMetaData.innerHTML = `
+      <div>
+        <div class="gif-meta-frame-data">0 / 0</div>
+        <div>
+          <button class="gif-meta-button-play">Stop</button>
+          <button class="gif-meta-button-next">Next</button>
+        </div>
+      </div>
+    `;
+
+    const playButton = gifMetaData.querySelector('.gif-meta-button-play');
+    effect(() => { playButton.textContent = props.isPlay() ? 'Stop' : 'Play'; });
+    effect(() => {
+      listen(playButton, 'click', () => {
+        props.isPlay.set((v) => !v);
+      })
+    });
+
+    const nextButton: HTMLButtonElement = gifMetaData.querySelector('.gif-meta-button-next');
+    effect(() => { nextButton.disabled = props.isPlay(); });
+    effect(() => {
+      listen(nextButton, 'click', () => {
+        if (!isSetting()) {
+          isSetting.set(true);
+          props.renderNext()().then(() => isSetting.set(false));
+        }
+      })
+    });
+
+    const frameData = gifMetaData.querySelector('.gif-meta-frame-data');
+    effect(() => {
+      frameData.textContent = `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`;
+    })
+
+    return ({ element: gifMetaData, dispose: () => { dispose(); } });
+          //   const glGifStopButton = document.createElement('button');
+          // const glGifNextButton = document.createElement('button');
+
+          //           glGifStopButton.textContent = getPlayButtonText(false);
+          // glGifFrameNumber.textContent = getCurrentFrameText(1, gif.gif.images.length);
+
+          //           glGifNextButton.textContent = 'Next';
+
+          // glGifNextButton.disabled = true;
+  });
+}
 
 function handleFiles() {
   const reader = new FileReader();
@@ -33,24 +93,11 @@ function handleFiles() {
           const glGifVisualizerContainer = document.createElement('div');
           const glGifVisualizer = document.createElement('canvas');
 
-          const gifMetaData = document.createElement('div');
-
-          const glGifFrameNumber = document.createElement('span');
-
-          const glGifStopButton = document.createElement('button');
-          const glGifNextButton = document.createElement('button');
-
-          gifMetaData.append(glGifFrameNumber);
-          gifMetaData.append(glGifStopButton);
-
-          const getCurrentFrameText = (currentFrame: number, totalNumber: number) => `${currentFrame} / ${totalNumber}`;
-          const getPlayButtonText = (isRunning: boolean) => isRunning ? 'stop' : 'play';
-
-          glGifStopButton.textContent = getPlayButtonText(false);
-          glGifFrameNumber.textContent = getCurrentFrameText(1, gif.gif.images.length);
-          glGifNextButton.textContent = 'Next';
-
-          glGifNextButton.disabled = true;
+          const isPlay = signal(false);
+          const currentFrameNumber = signal(1);
+          const totalFrameNumber = signal(gif.gif.images.length);
+          const renderNext = signal(() => Promise.resolve());
+          const gifMetaElement = getGifMeta({ isPlay, renderNext, currentFrameNumber, totalFrameNumber });
 
           const effectListContent = document.createElement('div');
           const effectListData = document.createElement('div');
@@ -185,8 +232,7 @@ function handleFiles() {
           upodateEffectListListeners(effectListData, []);
 
           glGifVisualizerContainer.append(glGifVisualizer);
-          glGifVisualizerContainer.append(gifMetaData);
-          glGifVisualizerContainer.append(glGifNextButton);
+          glGifVisualizerContainer.append(gifMetaElement.element);
 
           container.append(glGifVisualizerContainer);
           container.append(effectListContent);
@@ -201,40 +247,23 @@ function handleFiles() {
               renderer.addEffectToGif(descriptor, 2, 30, data => createMadnessEffect(data));
               renderer.addEffectToGif(descriptor, 25, 45, data => createBlackAndWhiteEffect(data));
 
-              let isRun = false;
-
-              if (renderer.autoplayStart(descriptor)) {
-                isRun = true;
-                glGifStopButton.textContent = getPlayButtonText(isRun);
-              } else {
-                glGifNextButton.disabled = false;
-              }
-
-              let setting = false;
-              glGifNextButton.addEventListener('click', () => {
-                if (!setting) {
-                  setting = true;
-                  renderer.setFrame(descriptor, (renderer.getCurrentFrame(descriptor) + 1) % gif.gif.images.length)
-                    .then(() => setting = false);
-                }
-              });
-
-              glGifStopButton.addEventListener('click', () => {
-                if (isRun) {
-                  renderer.autoplayEnd(descriptor);
-                  isRun = false;
-                } else {
-                  if (renderer.autoplayStart(descriptor)) {
-                    isRun = true;
+              // TODO: call inside root - ?
+              effect(() => {
+                if (isPlay()) {
+                  if (!renderer.autoplayStart(descriptor)) {
+                    // TODO: hm use onError ?
+                    console.warn('Error to stop');
                   }
+                } else {
+                  renderer.autoplayEnd(descriptor);
                 }
-
-                glGifStopButton.textContent = getPlayButtonText(isRun);
-                glGifNextButton.disabled = isRun;
               });
+              isPlay.set(true);
+
+              renderNext.set(() => () => renderer.setFrame(descriptor, (renderer.getCurrentFrame(descriptor) + 1) % gif.gif.images.length));
 
               renderer.onFrameRender(descriptor, (data) => {
-                glGifFrameNumber.innerText = getCurrentFrameText(data.frameNumber + 1, data.totalFrameNumber);
+                currentFrameNumber.set(data.frameNumber + 1);
               })
           });
 
