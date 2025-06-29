@@ -1,13 +1,11 @@
 import { parseGif } from './parsing/gif';
 import { BasicRenderer } from './rendering/gl/renderer';
-import { lzw_uncompress } from './parsing/lzw/uncompress/uncompress_debug';
-import { createLZWFuncFromJS } from './parsing/lzw/factory/uncompress_factory_js';
 import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
 import { createGifEntity, GifEntity } from './parsing/new_gif/gif_entity';
 import { createMadnessEffect, GLMadnessEffect, isMadnessEffect, MadnessEffectId } from './rendering/gl/effects/madness-effect';
 import { BlackAndWhiteEffectId, createBlackAndWhiteEffect, GLBlackAndWhiteEffect, isBlackAndWhiteEffect } from './rendering/gl/effects/black-and-white-effect ';
 import { Effect } from './rendering/api/effect';
-import { computed, effect, onDispose, ReadSignal, root, signal, WriteSignal } from '@maverick-js/signals';
+import { effect, onDispose, ReadSignal, root, signal, WriteSignal } from '@maverick-js/signals';
 
 const main = document.getElementById('main');
 
@@ -16,6 +14,73 @@ fileInput.type = 'file';
 
 const gifs: GifEntity[] = [];
 const renderer = new BasicRenderer();
+
+let parseId = 0;
+
+
+
+function getParseId() {
+  return parseId++;
+}
+
+function getNewId() {
+  let id = 0;
+
+  return () => id++;
+}
+
+function html(templateParts: TemplateStringsArray, ...values: unknown[]): { element: HTMLElement; dispose: () => void; } {
+  const templateId = getParseId();
+  const idGetter = getNewId();
+
+  console.log('html', values, templateParts);
+  const container = document.createElement('div');
+  let dispose = () => {};
+
+  let signalsToUpdate: Array<{ selector: string; signal: ReadSignal<unknown> }> = [];
+
+  let resultHtml = templateParts.length > 0 ? templateParts[0] : '';
+
+  for (let i = 1; i < templateParts.length; i++) {
+    const value = values[i - 1];
+    if (typeof value === 'function') {
+      const selector = `parsed-element-${templateId}-${idGetter()}`;
+
+      resultHtml = resultHtml.slice(0, resultHtml.length - 2) + ` class="${selector}" >`;
+
+      signalsToUpdate.push({ selector, signal: value as ReadSignal<unknown> });
+
+      resultHtml += templateParts[i];
+    } else {
+      resultHtml += String(value) + templateParts[i];
+    }
+  }
+
+  console.log('result html', resultHtml);
+
+  container.innerHTML = resultHtml;
+
+  if (signalsToUpdate.length > 0) {
+    root((_dispose) => {
+      dispose = _dispose;
+
+      for (let i = 0; i < signalsToUpdate.length; i++) {
+        const signalToUpdate = signalsToUpdate[0];
+        let elemet = container.querySelector('.' + signalToUpdate.selector);
+
+        if (elemet) {
+          effect(() => {
+            elemet.innerHTML = String(signalToUpdate.signal());
+          });
+        } else {
+          console.warn('Error during parsing template: cannot find element with id ' + signalToUpdate.selector);
+        }
+      }
+    });
+  }
+
+  return { element: container, dispose };
+}
 
 const listen = <T extends Element> (element: T, type: string, callback: () => void) => {
   element.addEventListener(type, callback);
@@ -29,15 +94,17 @@ function getGifMeta(props: { totalFrameNumber: ReadSignal<number>; currentFrameN
 
     const gifMetaData = document.createElement('div');
 
-    gifMetaData.innerHTML = `
+    const view = html`
       <div>
-        <div class="gif-meta-frame-data">0 / 0</div>
+        <div>${() => `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`}</div>
         <div>
           <button class="gif-meta-button-play">Stop</button>
           <button class="gif-meta-button-next">Next</button>
         </div>
       </div>
     `;
+
+    gifMetaData.appendChild(view.element);
 
     const playButton = gifMetaData.querySelector('.gif-meta-button-play');
     effect(() => { playButton.textContent = props.isPlay() ? 'Stop' : 'Play'; });
@@ -58,21 +125,7 @@ function getGifMeta(props: { totalFrameNumber: ReadSignal<number>; currentFrameN
       })
     });
 
-    const frameData = gifMetaData.querySelector('.gif-meta-frame-data');
-    effect(() => {
-      frameData.textContent = `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`;
-    })
-
-    return ({ element: gifMetaData, dispose: () => { dispose(); } });
-          //   const glGifStopButton = document.createElement('button');
-          // const glGifNextButton = document.createElement('button');
-
-          //           glGifStopButton.textContent = getPlayButtonText(false);
-          // glGifFrameNumber.textContent = getCurrentFrameText(1, gif.gif.images.length);
-
-          //           glGifNextButton.textContent = 'Next';
-
-          // glGifNextButton.disabled = true;
+    return ({ element: gifMetaData, dispose: () => { dispose(); view.dispose(); } });
   });
 }
 
