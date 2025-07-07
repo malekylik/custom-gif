@@ -29,10 +29,10 @@ function getNewId() {
   return () => id++;
 }
 
-let elementStart = '<';
-let intermediateStart = '</';
-let intermediateEnd = '>';
-let elementEnd = '/>';
+let elementStart: '<' = '<';
+let intermediateStart: '</' = '</';
+let intermediateEnd: '>' = '>';
+let elementEnd: '/>' = '/>';
 let skipableSymbol = new Set<string>(['\n', ' ']);
 
 // let skipableSymbol = new Set<string>(['\n', ' ']);
@@ -82,7 +82,7 @@ function parseHTML(templateParts: TemplateStringsArray, ...values: unknown[]): P
     let tagStart = currentValueIndex;
     let currentTemplateString = templateParts[currentTemplateStringIndex];
 
-    while (currentValueIndex < currentTemplateString.length && !skipableSymbol.has(currentTemplateString[currentValueIndex])) {
+    while (currentValueIndex < currentTemplateString.length && !skipableSymbol.has(currentTemplateString[currentValueIndex]) && currentTemplateString[currentValueIndex] !== intermediateEnd) {
       currentValueIndex++;
     }
 
@@ -125,10 +125,32 @@ function parseHTML(templateParts: TemplateStringsArray, ...values: unknown[]): P
   }
 
   function parseChildren() {
-    skip();
-    // while (getCurrentChar() !== intermediateEnd) {
 
-    // }
+    while (true) {
+    skip();
+
+    if (getCurrentChar() === elementStart && getCurrentChar(2) !== intermediateStart) {
+      const parent = currentParsingElement;
+
+      currentParsingElement = {
+        tag: undefined,
+        properties: [],
+        bindings: [],
+        events: [],
+        children: [],
+      }
+
+      parent.children.push(currentParsingElement);
+
+      parseElement();
+
+      currentParsingElement = parent;
+    } else {
+      break;
+    }
+  }
+
+  skip();
   }
 
   function parseElementEnd() {
@@ -158,8 +180,23 @@ function parseHTML(templateParts: TemplateStringsArray, ...values: unknown[]): P
   }
 }
 
+// TODO: implement and check with trees
+function parsedToStr(root: ParsedElement): string {
+  let result = '';
+
+  // while () {
+
+  // }
+
+  return result;
+}
+
 function html(templateParts: TemplateStringsArray, ...values: unknown[]): { element: HTMLElement; dispose: () => void; } {
-  console.log(parseHTML(templateParts, values));
+  let tree = parseHTML(templateParts, values);
+  let strTree = parsedToStr(tree);
+
+  console.log(tree);
+  console.log(strTree);
 
   const templateId = getParseId();
   const idGetter = getNewId();
@@ -220,11 +257,13 @@ function toEvent(f: Function): string {
 html`
 
   <div  >   
-
+    <div></div>
+    <span></span>
 
   </div>
 
   `;
+
 
 // const listen = <T extends Element> (element: T, type: string, callback: () => void) => {
 //   element.addEventListener(type, callback);
