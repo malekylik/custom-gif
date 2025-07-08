@@ -179,12 +179,48 @@ function parseHTML(templateParts: TemplateStringsArray, ...values: unknown[]): P
 // TODO: implement and check with trees
 function parsedToStr(root: ParsedElement): string {
   let result = '';
+  let currentElement: ParsedElement | null = root;
+  let level = 1;
 
-  // while () {
-
-  // }
+  elementToStr();
 
   return result;
+
+  function elementToStr() {
+      result += `${new Array(level).join(' ')}${elementStart}${currentElement.tag}`;
+
+      result += intermediateEnd;
+
+      if (currentElement.children.length > 0) {
+        result += '\n';
+      }
+
+      renderChildren();
+
+      if (currentElement.children.length > 0) {
+        result += new Array(level).join(' ');
+      }
+
+      result += `${intermediateStart}${currentElement.tag}${intermediateEnd}`;
+
+      result += '\n';
+  }
+
+  function renderChildren() {
+    level += 1;
+
+    let savedElement = currentElement;
+
+    for (let i = 0; i < currentElement.children.length; i++) {
+      currentElement = currentElement.children[i];
+
+      elementToStr();
+
+      currentElement = savedElement;
+    }
+
+    level -= 1;
+  }
 }
 
 function html(templateParts: TemplateStringsArray, ...values: unknown[]): { element: HTMLElement; dispose: () => void; } {
