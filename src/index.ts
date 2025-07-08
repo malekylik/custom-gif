@@ -39,7 +39,7 @@ let skipableSymbol = new Set<string>(['\n', ' ']);
 
 type ParsedElement = {
   tag: 'div' | 'span' | string | undefined;
-  properties: [];
+  properties: unknown[];
   bindings: [];
   events: [],
   children: ParsedElement[];
@@ -113,7 +113,7 @@ function parseHTML(templateParts: TemplateStringsArray, ...values: unknown[]): P
 
     skip();
 
-    // parse tags
+    parseAttribs();
 
     if (getCurrentChar() === intermediateEnd) {
       advanceIndex();
@@ -124,33 +124,106 @@ function parseHTML(templateParts: TemplateStringsArray, ...values: unknown[]): P
     return tag;
   }
 
-  function parseChildren() {
+  function parseAttribs() {
+    while (getCurrentChar() !== intermediateEnd) {
+      skip();
 
-    while (true) {
-    skip();
+      const attribName = parseAttribName();
 
-    if (getCurrentChar() === elementStart && getCurrentChar(2) !== intermediateStart) {
-      const parent = currentParsingElement;
-
-      currentParsingElement = {
-        tag: undefined,
-        properties: [],
-        bindings: [],
-        events: [],
-        children: [],
+      if (getCurrentChar() !== '=') {
+        console.warn('Error during parseAttribs 1');
       }
 
-      parent.children.push(currentParsingElement);
+      advanceIndex();
 
-      parseElement();
+      const attibValue = parseAttribValue();
 
-      currentParsingElement = parent;
-    } else {
-      break;
+      currentParsingElement.properties.push([[attribName, attibValue]]);
+
+      skip();
     }
   }
 
-  skip();
+  function parseAttribName(): string {
+    let tagStart = currentValueIndex;
+    let currentTemplateString = templateParts[currentTemplateStringIndex];
+
+    while (currentValueIndex < currentTemplateString.length && currentTemplateString[currentValueIndex] !== '=') {
+      currentValueIndex++;
+    }
+
+    return currentTemplateString.slice(tagStart, currentValueIndex);
+  }
+
+  function parseAttribValue() {
+    if (getCurrentChar() !== '"') {
+      console.warn('Error during parseAttribValue 1');
+    }
+
+    advanceIndex();
+
+    if (isNextTemplateValue()) {
+      // const templateValue = getNextTemplateValue();
+
+      // // do some stuff with template value
+
+      // advanceTemplateValueIndex();
+    } else {
+      // we just have a string value, just parse it
+
+      let tagStart = currentValueIndex;
+      let currentTemplateString = templateParts[currentTemplateStringIndex];
+
+      while (currentValueIndex < currentTemplateString.length && (currentTemplateString[currentValueIndex] !== '"')) {
+        currentValueIndex++;
+      }
+
+      let attibValue = currentTemplateString.slice(tagStart, currentValueIndex);
+
+      end();
+
+      return attibValue;
+    }
+
+    function end() {
+      if (getCurrentChar() !== '"') {
+        console.warn('Error during parseAttribValue 2');
+      }
+
+      advanceIndex();
+    }
+  }
+
+  function isNextTemplateValue(): boolean {
+    return templateParts[currentTemplateStringIndex].length - 1 === currentValueIndex;
+  }
+
+  function parseChildren() {
+    while (true) {
+      skip();
+
+      if (getCurrentChar() === elementStart && getCurrentChar(2) !== intermediateStart) {
+        const parent = currentParsingElement;
+
+        currentParsingElement = {
+          tag: undefined,
+          properties: [],
+          bindings: [],
+          events: [],
+          children: [],
+        }
+
+        parent.children.push(currentParsingElement);
+
+        parseElement();
+
+        currentParsingElement = parent;
+      } else {
+        break;
+      }
+    }
+
+    skip();
   }
 
   function parseElementEnd() {
@@ -289,8 +362,8 @@ function toEvent(f: Function): string {
 html`
 
   <div  >   
-    <div></div>
-    <span></span  >
+    <div class="some class shit"></div>
+    <span input="input-value" ></span  >
 
   </div>
 
