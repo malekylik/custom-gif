@@ -160,14 +160,10 @@ function parseHTML(templateParts: TemplateStringsArray, ...values: unknown[]): P
       console.warn('Error during parseElementEnd 1');
     }
 
-    if (getCurrentChar(currentParsingElement.tag.length) === currentParsingElement.tag) {
-      advanceIndex(currentParsingElement.tag.length);
-    } else {
-      console.warn('Error during parseElementEnd 2');
-    }
+    const closingTag = parseElementTag();
 
-    if (!(skipableSymbol.has(getCurrentChar()) || getCurrentChar() === intermediateEnd)) {
-      console.warn('Error during parseElementEnd 3');
+    if (closingTag !== currentParsingElement.tag) {
+      console.warn('Error during parseElementEnd 2');
     }
 
     skip();
@@ -258,7 +254,7 @@ html`
 
   <div  >   
     <div></div>
-    <span></span>
+    <span></span  >
 
   </div>
 
