@@ -106,6 +106,8 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
   function parseElement() {
     skip();
 
+    // TODO: check if just string value
+    // TODO: check if function is passed
     parseElementStart();
 
     // function parse children
