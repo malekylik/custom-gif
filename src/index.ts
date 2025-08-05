@@ -37,7 +37,13 @@ let skipableSymbol = new Set<string>(['\n', ' ']);
 
 // let skipableSymbol = new Set<string>(['\n', ' ']);
 
-type ParsedElement = {
+type ParsedTextElement = {
+  type: 'text',
+  value: string,
+}
+
+type ParsedHTMLElement = {
+  type: 'element',
   tag: 'div' | 'span' | string | undefined;
   properties: unknown[];
   bindings: [];
@@ -45,11 +51,16 @@ type ParsedElement = {
   children: ParsedElement[];
 }
 
+type ParsedElement =
+  | ParsedHTMLElement
+  | ParsedTextElement;
+
 // TODO: add error handling
 // shoudn't go into infinit loop
 function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): ParsedElement {
   const root: ParsedElement = {
-    tag: undefined,
+    type: 'element',
+    tag: 'div',
     properties: [],
     bindings: [],
     events: [],
@@ -62,7 +73,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
 
   console.log(values);
 
-  parseElement();
+  parseChildren();
 
   return root;
 
@@ -90,6 +101,12 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     while (currentCharIndex < currentTemplateString.length && skipableSymbol.has(currentTemplateString[currentCharIndex])) {
       currentCharIndex++;
     }
+  }
+
+  function isParsingStrEnd() {
+    const currentTemplateString = templateParts[currentTemplateStringIndex];
+
+     return currentCharIndex >= currentTemplateString.length;
   }
 
   function parseElementTag(): string {
@@ -224,28 +241,52 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     while (true) {
       skip();
 
-      if (getCurrentChar() === elementStart && getCurrentChar(2) !== intermediateStart) {
+      if (isParsingStrEnd()) {
+        break;
+      }
+
+      if (getCurrentChar(2) === intermediateStart) {
+        break;
+      } else if (getCurrentChar() === elementStart) {
         const parent = currentParsingElement;
 
         currentParsingElement = {
+          type: 'element',
           tag: undefined,
           properties: [],
           bindings: [],
           events: [],
           children: [],
-        }
+        };
 
         parent.children.push(currentParsingElement);
 
         parseElement();
 
         currentParsingElement = parent;
+      // TODO: check if we face template value
       } else {
-        break;
+        const v = parseStrChilrend();
+
+        currentParsingElement.children.push({
+          type: 'text',
+          value: v,
+        });
       }
     }
 
     skip();
+  }
+
+  function parseStrChilrend() {
+      let start = currentCharIndex;
+      let currentTemplateString = templateParts[currentTemplateStringIndex];
+
+      while (currentCharIndex < currentTemplateString.length && (currentTemplateString[currentCharIndex] !== elementStart)) {
+        currentCharIndex++;
+      }
+
+      return currentTemplateString.slice(start, currentCharIndex);
   }
 
   function parseElementEnd() {
@@ -281,7 +322,12 @@ function parsedToStr(root: ParsedElement): string {
 
   return result;
 
-  function elementToStr() {
+  function elementToStr(): void {
+      if (currentElement.type === 'text') {
+        result += `${new Array(level + 1).join(' ')}${currentElement.value}\n`;
+        return;
+      }
+
       result += `${new Array(level).join(' ')}${elementStart}${currentElement.tag}`;
 
       result += intermediateEnd;
@@ -302,6 +348,10 @@ function parsedToStr(root: ParsedElement): string {
   }
 
   function renderChildren() {
+    if (currentElement.type === 'text') {
+      return;
+    }
+
     level += 1;
 
     let savedElement = currentElement;
@@ -389,15 +439,17 @@ function toEvent(f: Function): string {
 
 //   `;
 
+// TODO: check case 
+// <span> asdf ${vv} adf </span>
+
 html`
 
   <div  >   
-    <div class="some class shit"></div>
+    <div class="some class shit">example text</div>
     <span input="input-value" onClick="${toEvent(() => 5)}">
     </span  >
 
   </div>
-
   `;
 
 
