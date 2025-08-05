@@ -45,7 +45,7 @@ type ParsedTextElement = {
 type ParsedHTMLElement = {
   type: 'element',
   tag: 'div' | 'span' | string | undefined;
-  properties: unknown[];
+  properties: Array<[string, unknown]>;
   bindings: [];
   events: [],
   children: ParsedElement[];
@@ -85,6 +85,10 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     return values[currentValueIndex];
   }
 
+  function advanceTemplateValueIndex(): void {
+    currentValueIndex += 1;
+  }
+
   function advanceIndex(advance = 1): void {
     currentCharIndex += advance;
   }
@@ -106,7 +110,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
   function isParsingStrEnd() {
     const currentTemplateString = templateParts[currentTemplateStringIndex];
 
-     return currentCharIndex >= currentTemplateString.length;
+     return currentCharIndex >= currentTemplateString.length && currentTemplateStringIndex >= templateParts.length - 1;
   }
 
   function parseElementTag(): string {
@@ -171,7 +175,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
 
       const attibValue = parseAttribValue();
 
-      currentParsingElement.properties.push([[attribName, attibValue]]);
+      currentParsingElement.properties.push([attribName, attibValue]);
 
       skip();
     }
@@ -211,6 +215,8 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
 
       const templateValue = getNextTemplateValue();
 
+      advanceTemplateValueIndex();
+
       end();
 
       return templateValue;
@@ -245,7 +251,14 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
         break;
       }
 
-      if (getCurrentChar(2) === intermediateStart) {
+      if (isNextTemplateValue()) {
+        const templateValue = getNextTemplateValue();
+
+        currentParsingElement.properties.push(['children', templateValue]);
+
+        advanceTemplateStringIndex();
+        advanceTemplateValueIndex();
+      } else if (getCurrentChar(2) === intermediateStart) {
         break;
       } else if (getCurrentChar() === elementStart) {
         const parent = currentParsingElement;
@@ -431,6 +444,10 @@ function toEvent(f: Function): string {
   return f as unknown as string;
 }
 
+function toChildren(f: Function): string {
+  return f as unknown as string;
+}
+
 // html`
 
 
@@ -448,7 +465,7 @@ html`
     <div class="some class shit">example text</div>
     <span input="input-value" onClick="${toEvent(() => 5)}">
     </span  >
-
+    <ul>  ${toChildren(() => Math.random())}  </ul>
   </div>
   `;
 
