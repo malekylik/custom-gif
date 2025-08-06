@@ -37,6 +37,7 @@ let skipableSymbol = new Set<string>(['\n', ' ']);
 
 let eventNames = new Set<string>(['onClick']);
 
+// TODO: think to make more standart
 const childrenAttribName: 'children' = 'children';
 
 // let skipableSymbol = new Set<string>(['\n', ' ']);
@@ -353,10 +354,13 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
   }
 }
 
-function parsedToStr(root: ParsedElement): string {
+function parsedToStr(root: ParsedElement, onBindings?: (getSelector: () => string, bindings: [string, Function][]) => void, onEvents?: (getSelector: () => string, events: [string, Function][]) => void): string {
   let result = '';
   let currentElement: ParsedElement | null = root;
   let level = 1;
+
+  const templateId = getParseId();
+  const idGetter = getNewId();
 
   elementToStr();
 
@@ -368,31 +372,50 @@ function parsedToStr(root: ParsedElement): string {
         return;
       }
 
+      let selectorString: null | string = null;
+      const getSelector = () => {
+        if (selectorString === null) {
+          selectorString = `parsed-element-${templateId}-${idGetter()}`;
+        }
+
+        return `[${selectorString}]`;
+      };
+
       const bindingText = '@{reactive binding}';
       const eventHandlerText = '@{event handler}';
 
       result += `${new Array(level).join(' ')}${elementStart}${currentElement.tag}`;
 
-      const strandartProperties = currentElement.properties.filter(([attribName]) => attribName !== childrenAttribName).sort(([a], [b]) => a.charCodeAt(0) - b.charCodeAt(0));
       const strandartBindings = currentElement.bindings.filter(([attribName]) => attribName !== childrenAttribName).sort(([a], [b]) => a.charCodeAt(0) - b.charCodeAt(0));
       const strandartEvents = currentElement.events.toSorted(([a], [b]) => a.charCodeAt(0) - b.charCodeAt(0));
 
+      const strandartProperties = currentElement.properties.filter(([attribName]) => attribName !== childrenAttribName).sort(([a], [b]) => a.charCodeAt(0) - b.charCodeAt(0));
       if (strandartProperties.length > 0) {
         const propertiesSerilization = strandartProperties.map(([attribName, attribValue]) => `${attribName}="${String(attribValue)}"`).join(' ');
 
         result += ` ${propertiesSerilization}`;
       }
 
-      if (strandartBindings.length > 0) {
+      if (currentElement.bindings.length > 0 && onBindings) {
+          onBindings(getSelector, currentElement.bindings);
+      } else if (strandartBindings.length > 0) {
         const propertiesSerilization = strandartBindings.map(([attribName]) => `${attribName}="${bindingText}"`).join(' ');
 
         result += ` ${propertiesSerilization}`;
       }
 
       if (strandartEvents.length > 0) {
-        const propertiesSerilization = strandartEvents.map(([attribName]) => `${attribName}="${bindingText}"`).join(' ');
+        if (onEvents) {
+          onEvents(getSelector, strandartEvents);
+        } else {
+          const propertiesSerilization = strandartEvents.map(([attribName]) => `${attribName}="${eventHandlerText}"`).join(' ');
 
-        result += ` ${propertiesSerilization}`;
+          result += ` ${propertiesSerilization}`;
+        }
+      }
+
+      if (selectorString) {
+          result += ` ${selectorString}`;
       }
 
       result += intermediateEnd;
@@ -403,7 +426,7 @@ function parsedToStr(root: ParsedElement): string {
 
       const childrenBinding = currentElement.bindings.find(([attribName]) => attribName === childrenAttribName);
       const childrenProperty = currentElement.properties.find(([attribName]) => attribName === childrenAttribName);
-      if (childrenBinding) {
+      if (childrenBinding && !onBindings) {
         result += bindingText;
       } else if (childrenProperty) {
         result += String(childrenProperty[1]);
@@ -448,50 +471,78 @@ function html(templateParts: TemplateStringsArray, ...values: unknown[]): { elem
   console.log(tree);
   console.log(strTree);
 
-  const templateId = getParseId();
-  const idGetter = getNewId();
-
-  console.log('html', values, templateParts);
+  // console.log('html', values, templateParts);
   const container = document.createElement('div');
   let dispose = () => {};
 
-  let signalsToUpdate: Array<{ selector: string; signal: ReadSignal<unknown> }> = [];
+  let bindingToUpdate: Array<{ selector: string; binding: [string, Function] }> = [];
+  let eventsToUpdate: Array<{ selector: string; event: [string, Function] }> = [];
+  let childrenToUpdate: Array<{ selector: string; child: Function }> = [];
 
-  let resultHtml = templateParts.length > 0 ? templateParts[0] : '';
+  // let resultHtml = templateParts.length > 0 ? templateParts[0] : '';
 
-  for (let i = 1; i < templateParts.length; i++) {
-    const value = values[i - 1];
-    if (typeof value === 'function') {
-      const selector = `parsed-element-${templateId}-${idGetter()}`;
+  // for (let i = 1; i < templateParts.length; i++) {
+  //   const value = values[i - 1];
+  //   if (typeof value === 'function') {
+  //     const selector = `parsed-element-${templateId}-${idGetter()}`;
 
-      resultHtml = resultHtml.slice(0, resultHtml.length - 2) + ` class="${selector}" >`;
+  //     resultHtml = resultHtml.slice(0, resultHtml.length - 2) + ` class="${selector}" >`;
 
-      signalsToUpdate.push({ selector, signal: value as ReadSignal<unknown> });
+  //     signalsToUpdate.push({ selector, signal: value as ReadSignal<unknown> });
 
-      resultHtml += templateParts[i];
-    } else {
-      resultHtml += String(value) + templateParts[i];
+  //     resultHtml += templateParts[i];
+  //   } else {
+  //     resultHtml += String(value) + templateParts[i];
+  //   }
+  // }
+
+  // console.log('result html', resultHtml);
+
+  // let strTree = parsedToStr(tree);
+  const onBindings = (getSelector: () => string, bindings: [string, Function][]) => {
+    const childrenBinding = bindings.find(([attribName]) => attribName === childrenAttribName);
+    const standartBinding = bindings.filter(([attribName]) => attribName !== childrenAttribName);
+
+    if (childrenBinding) {
+      childrenToUpdate.push({ selector: getSelector(), child: childrenBinding[1] });
     }
-  }
 
-  console.log('result html', resultHtml);
+    if (standartBinding.length > 0) {
+      standartBinding.forEach((binding) => {
+        bindingToUpdate.push({ selector: getSelector(), binding: binding });
+      });
+    }
+  };
+  const onEvents = (getSelector: () => string, events: [string, Function][]) => {
+    if (events.length > 0) {
+      events.forEach((event) => {
+        eventsToUpdate.push({ selector: getSelector(), event: event });
+      });
+    }
+  };
+
+  const resultHtml = parsedToStr(tree, onBindings, onEvents);
 
   container.innerHTML = resultHtml;
 
-  if (signalsToUpdate.length > 0) {
+  if (childrenToUpdate.length > 0 || bindingToUpdate.length > 0 || eventsToUpdate.length) {
     root((_dispose) => {
+      const elementMap: Map<string, Element> = new Map();
+
       dispose = _dispose;
 
-      for (let i = 0; i < signalsToUpdate.length; i++) {
-        const signalToUpdate = signalsToUpdate[0];
-        let elemet = container.querySelector('.' + signalToUpdate.selector);
+      for (let i = 0; i < childrenToUpdate.length; i++) {
+        const childToUpdate = childrenToUpdate[i];
+        let element = elementMap.has(childToUpdate.selector) ? elementMap.get(childToUpdate.selector) : container.querySelector(childToUpdate.selector);
 
-        if (elemet) {
+        elementMap.set(childToUpdate.selector, element);
+
+        if (element) {
           effect(() => {
-            elemet.innerHTML = String(signalToUpdate.signal());
+            element.innerHTML = String(childToUpdate.child());
           });
         } else {
-          console.warn('Error during parsing template: cannot find element with id ' + signalToUpdate.selector);
+          console.warn('Error during parsing template: cannot find element with id ' + childToUpdate.selector);
         }
       }
     });
@@ -504,282 +555,267 @@ function toEvent(f: Function): string {
   return f as unknown as string;
 }
 
-function toChildren(f: Function): string {
-  return f as unknown as string;
-}
-
 // html`
 
-
-//       <a onClick="${toEvent(() => 5)}"></a>
-
-
+//   <div  >   
+//     <div class="some class shit">example text</div>
+//     <span input="input-value" onClick="${toEvent(() => 5)}">
+//     </span  >
+//     <ul>  ${toChildren(() => Math.random())}  </ul>
+//     <li>  ${true}  </li>
+//   </div>
 //   `;
 
-// TODO: check case 
-// <span> asdf ${vv} adf </span>
 
-html`
+const listen = <T extends Element> (element: T, type: string, callback: () => void) => {
+  element.addEventListener(type, callback);
+  // Called when the effect is re-run or finally disposed.
+  onDispose(() => element.removeEventListener(type, callback));
+};
 
-  <div  >   
-    <div class="some class shit">example text</div>
-    <span input="input-value" onClick="${toEvent(() => 5)}">
-    </span  >
-    <ul>  ${toChildren(() => Math.random())}  </ul>
-    <li>  ${true}  </li>
-  </div>
-  `;
+function getGifMeta(props: { totalFrameNumber: ReadSignal<number>; currentFrameNumber: ReadSignal<number>; isPlay: WriteSignal<boolean>; renderNext: ReadSignal<() => Promise<void>> }): { element: HTMLElement; dispose: () => void; } {
+  return root((dispose) => {
+    const isSetting = signal(false);
 
+    const gifMetaData = document.createElement('div');
 
-// const listen = <T extends Element> (element: T, type: string, callback: () => void) => {
-//   element.addEventListener(type, callback);
-//   // Called when the effect is re-run or finally disposed.
-//   onDispose(() => element.removeEventListener(type, callback));
-// };
+    const view = html`
+      <div>
+        <div onClick="${toEvent(props.currentFrameNumber)}">${() => `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`}</div>
+        <div>
+          <button class="gif-meta-button-play">Stop</button>
+          <button class="gif-meta-button-next">Next</button>
+        </div>
+      </div>
+    `;
 
-// function getGifMeta(props: { totalFrameNumber: ReadSignal<number>; currentFrameNumber: ReadSignal<number>; isPlay: WriteSignal<boolean>; renderNext: ReadSignal<() => Promise<void>> }): { element: HTMLElement; dispose: () => void; } {
-//   return root((dispose) => {
-//     const isSetting = signal(false);
+    gifMetaData.appendChild(view.element);
 
-//     const gifMetaData = document.createElement('div');
+    const playButton = gifMetaData.querySelector('.gif-meta-button-play');
+    effect(() => { playButton.textContent = props.isPlay() ? 'Stop' : 'Play'; });
+    effect(() => {
+      listen(playButton, 'click', () => {
+        props.isPlay.set((v) => !v);
+      })
+    });
 
-//     const view = html`
-//       <div>
-//         <div onClick="${toEvent(props.currentFrameNumber)}">${() => `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`}</div>
-//         <div>
-//           <button class="gif-meta-button-play">Stop</button>
-//           <button class="gif-meta-button-next">Next</button>
-//         </div>
-//       </div>
-//     `;
+    const nextButton: HTMLButtonElement = gifMetaData.querySelector('.gif-meta-button-next');
+    effect(() => { nextButton.disabled = props.isPlay(); });
+    effect(() => {
+      listen(nextButton, 'click', () => {
+        if (!isSetting()) {
+          isSetting.set(true);
+          props.renderNext()().then(() => isSetting.set(false));
+        }
+      })
+    });
 
-//     gifMetaData.appendChild(view.element);
+    return ({ element: gifMetaData, dispose: () => { dispose(); view.dispose(); } });
+  });
+}
 
-//     const playButton = gifMetaData.querySelector('.gif-meta-button-play');
-//     effect(() => { playButton.textContent = props.isPlay() ? 'Stop' : 'Play'; });
-//     effect(() => {
-//       listen(playButton, 'click', () => {
-//         props.isPlay.set((v) => !v);
-//       })
-//     });
+function handleFiles() {
+  const reader = new FileReader();
+  reader.onload = function (e: ProgressEvent<FileReader>): void {
+    const arrayBuffer = e.target.result as ArrayBuffer;
 
-//     const nextButton: HTMLButtonElement = gifMetaData.querySelector('.gif-meta-button-next');
-//     effect(() => { nextButton.disabled = props.isPlay(); });
-//     effect(() => {
-//       listen(nextButton, 'click', () => {
-//         if (!isSetting()) {
-//           isSetting.set(true);
-//           props.renderNext()().then(() => isSetting.set(false));
-//         }
-//       })
-//     });
+    const parsedGifData = parseGif(arrayBuffer);
 
-//     return ({ element: gifMetaData, dispose: () => { dispose(); view.dispose(); } });
-//   });
-// }
+    if (parsedGifData) {
+      const gif = createGifEntity(parsedGifData);
 
-// function handleFiles() {
-//   const reader = new FileReader();
-//   reader.onload = function (e: ProgressEvent<FileReader>): void {
-//     const arrayBuffer = e.target.result as ArrayBuffer;
+      createLZWFuncFromWasm(gif.gif)
+        .then((lzw_uncompress) => {
+          const container = document.createElement('div');
 
-//     const parsedGifData = parseGif(arrayBuffer);
+          const glGifVisualizerContainer = document.createElement('div');
+          const glGifVisualizer = document.createElement('canvas');
 
-//     if (parsedGifData) {
-//       const gif = createGifEntity(parsedGifData);
+          const isPlay = signal(false);
+          const currentFrameNumber = signal(1);
+          const totalFrameNumber = signal(gif.gif.images.length);
+          const renderNext = signal(() => Promise.resolve());
+          const gifMetaElement = getGifMeta({ isPlay, renderNext, currentFrameNumber, totalFrameNumber });
 
-//       createLZWFuncFromWasm(gif.gif)
-//         .then((lzw_uncompress) => {
-//           const container = document.createElement('div');
+          const effectListContent = document.createElement('div');
+          const effectListData = document.createElement('div');
+          const effectEditContainer = document.createElement('div');
+          let effectEditor: HTMLDivElement | null;
 
-//           const glGifVisualizerContainer = document.createElement('div');
-//           const glGifVisualizer = document.createElement('canvas');
+          effectListContent.append(effectListData);
+          effectListContent.append(effectEditContainer);
 
-//           const isPlay = signal(false);
-//           const currentFrameNumber = signal(1);
-//           const totalFrameNumber = signal(gif.gif.images.length);
-//           const renderNext = signal(() => Promise.resolve());
-//           const gifMetaElement = getGifMeta({ isPlay, renderNext, currentFrameNumber, totalFrameNumber });
+          function getEffectName(effectId: number): string | null {
+            if (effectId === MadnessEffectId) {
+              return 'Madness Effect';
+            }
 
-//           const effectListContent = document.createElement('div');
-//           const effectListData = document.createElement('div');
-//           const effectEditContainer = document.createElement('div');
-//           let effectEditor: HTMLDivElement | null;
+            if (effectId === BlackAndWhiteEffectId) {
+              return 'Black And White Effect';
+            }
 
-//           effectListContent.append(effectListData);
-//           effectListContent.append(effectEditContainer);
+            return null;
+          }
 
-//           function getEffectName(effectId: number): string | null {
-//             if (effectId === MadnessEffectId) {
-//               return 'Madness Effect';
-//             }
+          function addEffectNumberListener(fromInput: HTMLInputElement, li: HTMLElement, effect: Effect, setValue: (v: number) => void, index: number): void {
+            fromInput.addEventListener('input', () => {
+              const valueS = fromInput.value;
+              if (!isNaN(Number(valueS))) {
+                const value = Number(valueS);
+                setValue(value);
+                li.innerHTML = getEffectDesc(effect, index);
+              }
+            });
+          }
 
-//             if (effectId === BlackAndWhiteEffectId) {
-//               return 'Black And White Effect';
-//             }
+          function createBlackAndWhiteEditorElement(effect: GLBlackAndWhiteEffect, li: HTMLElement, index: number): HTMLElement {
+            const container = document.createElement('div');
 
-//             return null;
-//           }
+            container.innerHTML = `<div>
+              <div>
+                <span>From</span>
+                <input class="from-input" value="${effect.getFrom()}" />
+              </div>
+              <div>
+                <span>To</span>
+                <input class="to-input" value="${effect.getTo()}" />
+              </div>
+            </div>
+            `;
 
-//           function addEffectNumberListener(fromInput: HTMLInputElement, li: HTMLElement, effect: Effect, setValue: (v: number) => void, index: number): void {
-//             fromInput.addEventListener('input', () => {
-//               const valueS = fromInput.value;
-//               if (!isNaN(Number(valueS))) {
-//                 const value = Number(valueS);
-//                 setValue(value);
-//                 li.innerHTML = getEffectDesc(effect, index);
-//               }
-//             });
-//           }
+            const fromInput: HTMLInputElement = container.querySelector('.from-input');
+            addEffectNumberListener(fromInput, li, effect, v => effect.setFrom(v), index);
 
-//           function createBlackAndWhiteEditorElement(effect: GLBlackAndWhiteEffect, li: HTMLElement, index: number): HTMLElement {
-//             const container = document.createElement('div');
+            const toInput: HTMLInputElement = container.querySelector('.to-input');
+            addEffectNumberListener(toInput, li, effect, v => effect.setTo(v), index);
 
-//             container.innerHTML = `<div>
-//               <div>
-//                 <span>From</span>
-//                 <input class="from-input" value="${effect.getFrom()}" />
-//               </div>
-//               <div>
-//                 <span>To</span>
-//                 <input class="to-input" value="${effect.getTo()}" />
-//               </div>
-//             </div>
-//             `;
+            return container;
+          }
 
-//             const fromInput: HTMLInputElement = container.querySelector('.from-input');
-//             addEffectNumberListener(fromInput, li, effect, v => effect.setFrom(v), index);
+          function createMadnessEditorElement(effect: GLMadnessEffect, li: HTMLElement, index: number): HTMLElement {
+            const container = document.createElement('div');
 
-//             const toInput: HTMLInputElement = container.querySelector('.to-input');
-//             addEffectNumberListener(toInput, li, effect, v => effect.setTo(v), index);
+            container.innerHTML = `<div>
+              <div>
+                <span>From</span>
+                <input class="from-input" value="${effect.getFrom()}" />
+              </div>
+              <div>
+                <span>To</span>
+                <input class="to-input" value="${effect.getTo()}" />
+              </div>
+              <div>
+                <span>Alpha</span>
+                <input class="alpha-input" value="${effect.getAlpha()}" />
+              </div>
+            </div>
+            `;
 
-//             return container;
-//           }
+            const fromInput: HTMLInputElement = container.querySelector('.from-input');
+            addEffectNumberListener(fromInput, li, effect, v => effect.setFrom(v), index);
 
-//           function createMadnessEditorElement(effect: GLMadnessEffect, li: HTMLElement, index: number): HTMLElement {
-//             const container = document.createElement('div');
+            const toInput: HTMLInputElement = container.querySelector('.to-input');
+            addEffectNumberListener(toInput, li, effect, v => effect.setTo(v), index);
 
-//             container.innerHTML = `<div>
-//               <div>
-//                 <span>From</span>
-//                 <input class="from-input" value="${effect.getFrom()}" />
-//               </div>
-//               <div>
-//                 <span>To</span>
-//                 <input class="to-input" value="${effect.getTo()}" />
-//               </div>
-//               <div>
-//                 <span>Alpha</span>
-//                 <input class="alpha-input" value="${effect.getAlpha()}" />
-//               </div>
-//             </div>
-//             `;
+            const alphaInput: HTMLInputElement = container.querySelector('.alpha-input');
+            addEffectNumberListener(alphaInput, li, effect, v => effect.setAlpha(v), index);
 
-//             const fromInput: HTMLInputElement = container.querySelector('.from-input');
-//             addEffectNumberListener(fromInput, li, effect, v => effect.setFrom(v), index);
+            return container;
+          }
 
-//             const toInput: HTMLInputElement = container.querySelector('.to-input');
-//             addEffectNumberListener(toInput, li, effect, v => effect.setTo(v), index);
+          function getEffectEditorComponent(effect: Effect, li: HTMLElement, index: number): HTMLElement | null {
+            const container = document.createElement('div');
 
-//             const alphaInput: HTMLInputElement = container.querySelector('.alpha-input');
-//             addEffectNumberListener(alphaInput, li, effect, v => effect.setAlpha(v), index);
+            if (isMadnessEffect(effect)) {
+              container.append(createMadnessEditorElement(effect, li, index));
+            }
 
-//             return container;
-//           }
+            if (isBlackAndWhiteEffect(effect)) {
+              container.append(createBlackAndWhiteEditorElement(effect, li, index));
+            }
 
-//           function getEffectEditorComponent(effect: Effect, li: HTMLElement, index: number): HTMLElement | null {
-//             const container = document.createElement('div');
+            return container;
+          }
 
-//             if (isMadnessEffect(effect)) {
-//               container.append(createMadnessEditorElement(effect, li, index));
-//             }
+          function upodateEffectListListeners(effectListData: HTMLDivElement, effects: Effect[]) {
+            const lis = effectListData.querySelectorAll('li');
 
-//             if (isBlackAndWhiteEffect(effect)) {
-//               container.append(createBlackAndWhiteEditorElement(effect, li, index));
-//             }
+            lis.forEach((li, i) => {
+              li.addEventListener('click', () => {
+                const effect = effects[i];
 
-//             return container;
-//           }
+                if (effectEditor) {
+                  effectEditContainer.removeChild(effectEditor);
+                  effectEditor = null;
+                }
 
-//           function upodateEffectListListeners(effectListData: HTMLDivElement, effects: Effect[]) {
-//             const lis = effectListData.querySelectorAll('li');
+                effectEditor = document.createElement('div');
+                effectEditor.innerHTML = `<span>Editing: ${getEffectName(effect.getId())}</span>`;
 
-//             lis.forEach((li, i) => {
-//               li.addEventListener('click', () => {
-//                 const effect = effects[i];
+                const editorElement = getEffectEditorComponent(effect, li, i);
 
-//                 if (effectEditor) {
-//                   effectEditContainer.removeChild(effectEditor);
-//                   effectEditor = null;
-//                 }
+                if (editorElement) {
+                  effectEditor.append(editorElement);
+                }
 
-//                 effectEditor = document.createElement('div');
-//                 effectEditor.innerHTML = `<span>Editing: ${getEffectName(effect.getId())}</span>`;
+                effectEditContainer.append(effectEditor);
+              });
+            })
+          }
 
-//                 const editorElement = getEffectEditorComponent(effect, li, i);
+          const getEffectDesc = (effect: Effect, index: number): string => `${index + 1}. ${getEffectName(effect.getId()) || 'Unknown Effect'} - from: ${effect.getFrom()}; to: ${effect.getTo()}`;
+          const getEffectListContent = (effects: Effect[]): string => effects.length === 0 ? 'No effects' : '<ul>' +(effects.map((effect, i) => `<li> ${getEffectDesc(effect, i)} </li>`).join('\n')) + '</ul>';
 
-//                 if (editorElement) {
-//                   effectEditor.append(editorElement);
-//                 }
+          effectListData.innerHTML = getEffectListContent([]);
+          upodateEffectListListeners(effectListData, []);
 
-//                 effectEditContainer.append(effectEditor);
-//               });
-//             })
-//           }
+          glGifVisualizerContainer.append(glGifVisualizer);
+          glGifVisualizerContainer.append(gifMetaElement.element);
 
-//           const getEffectDesc = (effect: Effect, index: number): string => `${index + 1}. ${getEffectName(effect.getId()) || 'Unknown Effect'} - from: ${effect.getFrom()}; to: ${effect.getTo()}`;
-//           const getEffectListContent = (effects: Effect[]): string => effects.length === 0 ? 'No effects' : '<ul>' +(effects.map((effect, i) => `<li> ${getEffectDesc(effect, i)} </li>`).join('\n')) + '</ul>';
+          container.append(glGifVisualizerContainer);
+          container.append(effectListContent);
 
-//           effectListData.innerHTML = getEffectListContent([]);
-//           upodateEffectListListeners(effectListData, []);
+          renderer.addGifToRender(gif, glGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'GL' })
+            .then((descriptor) => {
+              renderer.onEffectAdded(descriptor, (data) => {
+                effectListData.innerHTML = getEffectListContent(data.effects);
+                upodateEffectListListeners(effectListData, data.effects);
+              });
 
-//           glGifVisualizerContainer.append(glGifVisualizer);
-//           glGifVisualizerContainer.append(gifMetaElement.element);
+              renderer.addEffectToGif(descriptor, 2, 30, data => createMadnessEffect(data));
+              renderer.addEffectToGif(descriptor, 25, 45, data => createBlackAndWhiteEffect(data));
 
-//           container.append(glGifVisualizerContainer);
-//           container.append(effectListContent);
+              // TODO: call inside root - ?
+              effect(() => {
+                if (isPlay()) {
+                  if (!renderer.autoplayStart(descriptor)) {
+                    // TODO: hm use onError ?
+                    console.warn('Error to stop');
+                  }
+                } else {
+                  renderer.autoplayEnd(descriptor);
+                }
+              });
+              isPlay.set(true);
 
-//           renderer.addGifToRender(gif, glGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'GL' })
-//             .then((descriptor) => {
-//               renderer.onEffectAdded(descriptor, (data) => {
-//                 effectListData.innerHTML = getEffectListContent(data.effects);
-//                 upodateEffectListListeners(effectListData, data.effects);
-//               });
+              renderNext.set(() => () => renderer.setFrame(descriptor, (renderer.getCurrentFrame(descriptor) + 1) % gif.gif.images.length));
 
-//               renderer.addEffectToGif(descriptor, 2, 30, data => createMadnessEffect(data));
-//               renderer.addEffectToGif(descriptor, 25, 45, data => createBlackAndWhiteEffect(data));
+              renderer.onFrameRender(descriptor, (data) => {
+                currentFrameNumber.set(data.frameNumber + 1);
+              })
+          });
 
-//               // TODO: call inside root - ?
-//               effect(() => {
-//                 if (isPlay()) {
-//                   if (!renderer.autoplayStart(descriptor)) {
-//                     // TODO: hm use onError ?
-//                     console.warn('Error to stop');
-//                   }
-//                 } else {
-//                   renderer.autoplayEnd(descriptor);
-//                 }
-//               });
-//               isPlay.set(true);
+          main.append(container);
 
-//               renderNext.set(() => () => renderer.setFrame(descriptor, (renderer.getCurrentFrame(descriptor) + 1) % gif.gif.images.length));
+          console.log('new gif: ', gif);
 
-//               renderer.onFrameRender(descriptor, (data) => {
-//                 currentFrameNumber.set(data.frameNumber + 1);
-//               })
-//           });
+          gifs.push(gif);
+        });
+    }
+  }
+  reader.readAsArrayBuffer(this.files[0]);
+}
 
-//           main.append(container);
+fileInput.addEventListener('change', handleFiles, false);
 
-//           console.log('new gif: ', gif);
-
-//           gifs.push(gif);
-//         });
-//     }
-//   }
-//   reader.readAsArrayBuffer(this.files[0]);
-// }
-
-// fileInput.addEventListener('change', handleFiles, false);
-
-// main.append(fileInput);
+main.append(fileInput);
