@@ -1,6 +1,6 @@
 import { ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
 import { html, toEvent } from "../../parsing";
-import { Component } from "../utils";
+import { Component, toComponent } from "../utils";
 
 export type GifMetaDataProps = {
     totalFrameNumber: ReadSignal<number>;
@@ -30,6 +30,6 @@ export function GifMetaData(props: GifMetaDataProps): Component {
       </div>
     `;
 
-    return ({ element: view.element, dispose: () => { dispose(); view.dispose(); } });
+    return toComponent(view.element, () => { dispose(); view.dispose()});
   });
 }

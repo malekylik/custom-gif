@@ -1,5 +1,5 @@
 import { effect, onDispose, root } from "@maverick-js/signals";
-import { Component } from "../components/utils";
+import { Component, isComponent, toComponent } from "../components/utils";
 
 let parseId = 0;
 
@@ -509,12 +509,25 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
             if (isChildComponent(childToUpdate.child)) {
                 const child = childToUpdate.child();
 
-                if (child) {
-                    element.appendChild(child.element);
-                } else {
+                if (isComponent(child)) {
+                    // For now just clear
                     element.innerHTML = '';
+                    element.appendChild(child.element);
+                } else if (child === null) {
+                    // TODO: it should call dispose
+                    element.innerHTML = '';
+                } else if (Array.isArray(child)) {
+                    // TODO: it should call dispose
+                    element.innerHTML = '';
+                    // TODO: check how improve
+                    child.forEach((v) => {
+                        element.appendChild(v.element);
+                    });
+                } else {
+                    element.innerHTML = String(child);
                 }
             } else {
+                // TODO: probably can be removed
                 element.innerHTML = String(childToUpdate.child());
             }
           });
@@ -569,19 +582,19 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
     });
   }
 
-  return { element: container, dispose };
+  return toComponent(container, dispose);
 }
 
 export function toEvent(f: Function): string {
   return f as unknown as string;
 }
 
-export function toChild(f: () => Component | null): string {
+export function toChild(f: () => Component | Array<Component> | string | number | boolean | null): string {
     (f as any).__child = true;
 
   return f as unknown as string;
 }
 
-export function isChildComponent(f: Function): f is () => Component | null {
+export function isChildComponent(f: Function): f is () => Component | Array<Component> | string | number | boolean | null {
     return (f as any).__child;
 }

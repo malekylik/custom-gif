@@ -34,8 +34,9 @@ function handleFiles() {
           const isPlay = signal(false);
           const currentFrameNumber = signal(1);
           const totalFrameNumber = signal(gif.gif.images.length);
+          const effects = signal([]);
           const renderNext = signal(() => Promise.resolve());
-          const gifVisualizer = GifVisualizer({ isPlay, renderNext, currentFrameNumber, totalFrameNumber });
+          const gifVisualizer = GifVisualizer({ isPlay, renderNext, currentFrameNumber, totalFrameNumber, effects: effects });
 
           const effectListContent = document.createElement('div');
           const effectListData = document.createElement('div');
@@ -175,6 +176,7 @@ function handleFiles() {
           renderer.addGifToRender(gif, gifVisualizer.getCanvas(), { uncompress: lzw_uncompress, algorithm: 'GL' })
             .then((descriptor) => {
               renderer.onEffectAdded(descriptor, (data) => {
+                setTimeout(() => effects.set([...data.effects]), 2000);
                 effectListData.innerHTML = getEffectListContent(data.effects);
                 upodateEffectListListeners(effectListData, data.effects);
               });

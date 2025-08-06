@@ -1,9 +1,10 @@
 import { html, toChild } from "../../parsing";
-import { Component } from "../utils";
+import { Component, toComponent } from "../utils";
 import { root } from "@maverick-js/signals";
 import { GifMetaData, GifMetaDataProps } from "../GifMetaData/GifMetaData";
+import { GifEffectData, GifEffectDataProps } from "../GifEffectData/GifEffectData";
 
-type GifVisualizerProps = GifMetaDataProps;
+type GifVisualizerProps = GifMetaDataProps & GifEffectDataProps;
 
 export type GifVisualizerComponent = Component & {
     getCanvas: () => HTMLCanvasElement;
@@ -15,9 +16,13 @@ export function GifVisualizer(props: GifVisualizerProps): GifVisualizerComponent
       <div>
         <canvas></canvas>
         <span>${toChild(() => GifMetaData(props))}</span>
+        <span>${toChild(() => GifEffectData(props))}</span>
       </div>
     `;
 
-    return ({ element: view.element, dispose: () => { dispose(); view.dispose(); }, getCanvas: () => view.element.querySelector('canvas'), });
+    const component = toComponent(view.element, () => { dispose(); view.dispose()}) as GifVisualizerComponent;
+    component.getCanvas = () => view.element.querySelector('canvas');
+
+    return component;
   });
 }
