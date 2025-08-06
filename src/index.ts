@@ -37,6 +37,8 @@ let skipableSymbol = new Set<string>(['\n', ' ']);
 
 let eventNames = new Set<string>(['onClick']);
 
+let simpleAttribNames = new Set<string>(['disabled']);
+
 // TODO: think to make more standart
 const childrenAttribName: 'children' = 'children';
 
@@ -464,6 +466,7 @@ function parsedToStr(root: ParsedElement, onBindings?: (getSelector: () => strin
   }
 }
 
+// TODO: every new event listener type should be added
 function html(templateParts: TemplateStringsArray, ...values: unknown[]): { element: HTMLElement; dispose: () => void; } {
   let tree = parseHTML(templateParts, values);
   let strTree = parsedToStr(tree);
@@ -471,34 +474,13 @@ function html(templateParts: TemplateStringsArray, ...values: unknown[]): { elem
   console.log(tree);
   console.log(strTree);
 
-  // console.log('html', values, templateParts);
   const container = document.createElement('div');
   let dispose = () => {};
 
-  let bindingToUpdate: Array<{ selector: string; binding: [string, Function] }> = [];
+  let bindingsToUpdate: Array<{ selector: string; binding: [string, Function] }> = [];
   let eventsToUpdate: Array<{ selector: string; event: [string, Function] }> = [];
   let childrenToUpdate: Array<{ selector: string; child: Function }> = [];
 
-  // let resultHtml = templateParts.length > 0 ? templateParts[0] : '';
-
-  // for (let i = 1; i < templateParts.length; i++) {
-  //   const value = values[i - 1];
-  //   if (typeof value === 'function') {
-  //     const selector = `parsed-element-${templateId}-${idGetter()}`;
-
-  //     resultHtml = resultHtml.slice(0, resultHtml.length - 2) + ` class="${selector}" >`;
-
-  //     signalsToUpdate.push({ selector, signal: value as ReadSignal<unknown> });
-
-  //     resultHtml += templateParts[i];
-  //   } else {
-  //     resultHtml += String(value) + templateParts[i];
-  //   }
-  // }
-
-  // console.log('result html', resultHtml);
-
-  // let strTree = parsedToStr(tree);
   const onBindings = (getSelector: () => string, bindings: [string, Function][]) => {
     const childrenBinding = bindings.find(([attribName]) => attribName === childrenAttribName);
     const standartBinding = bindings.filter(([attribName]) => attribName !== childrenAttribName);
@@ -509,7 +491,7 @@ function html(templateParts: TemplateStringsArray, ...values: unknown[]): { elem
 
     if (standartBinding.length > 0) {
       standartBinding.forEach((binding) => {
-        bindingToUpdate.push({ selector: getSelector(), binding: binding });
+        bindingsToUpdate.push({ selector: getSelector(), binding: binding });
       });
     }
   };
@@ -525,11 +507,11 @@ function html(templateParts: TemplateStringsArray, ...values: unknown[]): { elem
 
   container.innerHTML = resultHtml;
 
-  if (childrenToUpdate.length > 0 || bindingToUpdate.length > 0 || eventsToUpdate.length) {
+  if (childrenToUpdate.length > 0 || bindingsToUpdate.length > 0 || eventsToUpdate.length) {
     root((_dispose) => {
       const elementMap: Map<string, Element> = new Map();
 
-      dispose = _dispose;
+      dispose = () => { _dispose(); };
 
       for (let i = 0; i < childrenToUpdate.length; i++) {
         const childToUpdate = childrenToUpdate[i];
@@ -545,6 +527,50 @@ function html(templateParts: TemplateStringsArray, ...values: unknown[]): { elem
           console.warn('Error during parsing template: cannot find element with id ' + childToUpdate.selector);
         }
       }
+
+      for (let i = 0; i < bindingsToUpdate.length; i++) {
+        const binding = bindingsToUpdate[i];
+        let element = elementMap.has(binding.selector) ? elementMap.get(binding.selector) : container.querySelector(binding.selector);
+
+        elementMap.set(binding.selector, element);
+
+        if (element) {
+          effect(() => {
+            const value = binding.binding[1]();
+
+            if (simpleAttribNames.has(binding.binding[0])) {
+              if (value) {
+                element.setAttribute(binding.binding[0], String(value));
+              } else {
+                element.removeAttribute(binding.binding[0]);
+              }
+            } else {
+              element.setAttribute(binding.binding[0], String(value));
+            }
+          });
+        } else {
+          console.warn('Error during parsing template: cannot find element with id ' + binding.selector);
+        }
+      }
+
+      // TODO: verify everything clear correctly
+      for (let i = 0; i < eventsToUpdate.length; i++) {
+        const event = eventsToUpdate[i];
+        let element = elementMap.has(event.selector) ? elementMap.get(event.selector) : container.querySelector(event.selector);
+
+        elementMap.set(event.selector, element);
+
+        if (element) {
+          if (event.event[0] === 'onClick') {
+            const callback = (e: Event) => { event.event[1](e); };
+
+            element.addEventListener('click', callback);
+            onDispose(() => element.removeEventListener('click', callback));
+          }
+        } else {
+          console.warn('Error during parsing template: cannot find element with id ' + event.selector);
+        }
+      }
     });
   }
 
@@ -555,60 +581,30 @@ function toEvent(f: Function): string {
   return f as unknown as string;
 }
 
-// html`
-
-//   <div  >   
-//     <div class="some class shit">example text</div>
-//     <span input="input-value" onClick="${toEvent(() => 5)}">
-//     </span  >
-//     <ul>  ${toChildren(() => Math.random())}  </ul>
-//     <li>  ${true}  </li>
-//   </div>
-//   `;
-
-
-const listen = <T extends Element> (element: T, type: string, callback: () => void) => {
-  element.addEventListener(type, callback);
-  // Called when the effect is re-run or finally disposed.
-  onDispose(() => element.removeEventListener(type, callback));
-};
-
 function getGifMeta(props: { totalFrameNumber: ReadSignal<number>; currentFrameNumber: ReadSignal<number>; isPlay: WriteSignal<boolean>; renderNext: ReadSignal<() => Promise<void>> }): { element: HTMLElement; dispose: () => void; } {
   return root((dispose) => {
     const isSetting = signal(false);
 
     const gifMetaData = document.createElement('div');
 
+    const nextHandler = () => {
+      if (!isSetting()) {
+          isSetting.set(true);
+          props.renderNext()().then(() => isSetting.set(false));
+      }
+    };
+
     const view = html`
       <div>
-        <div onClick="${toEvent(props.currentFrameNumber)}">${() => `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`}</div>
+        <div>${() => `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`}</div>
         <div>
-          <button class="gif-meta-button-play">Stop</button>
-          <button class="gif-meta-button-next">Next</button>
+          <button onClick="${toEvent(() => props.isPlay.set((v) => !v))}">${() => props.isPlay() ? 'Stop' : 'Play'}</button>
+          <button disabled="${() => props.isPlay()}" onClick="${toEvent(nextHandler)}">Next</button>
         </div>
       </div>
     `;
 
     gifMetaData.appendChild(view.element);
-
-    const playButton = gifMetaData.querySelector('.gif-meta-button-play');
-    effect(() => { playButton.textContent = props.isPlay() ? 'Stop' : 'Play'; });
-    effect(() => {
-      listen(playButton, 'click', () => {
-        props.isPlay.set((v) => !v);
-      })
-    });
-
-    const nextButton: HTMLButtonElement = gifMetaData.querySelector('.gif-meta-button-next');
-    effect(() => { nextButton.disabled = props.isPlay(); });
-    effect(() => {
-      listen(nextButton, 'click', () => {
-        if (!isSetting()) {
-          isSetting.set(true);
-          props.renderNext()().then(() => isSetting.set(false));
-        }
-      })
-    });
 
     return ({ element: gifMetaData, dispose: () => { dispose(); view.dispose(); } });
   });
