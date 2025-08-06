@@ -55,6 +55,14 @@ type ParsedElement =
   | ParsedHTMLElement
   | ParsedTextElement;
 
+
+/**
+ * TODO: doesnt support:
+ * 1. comments
+ * 2. <span> some text ${toChildren(() => 'value')} </span>
+ * 3. <span> some text ${() => 'value'} </span>
+ * 4. self closign elements <span />
+ */
 // TODO: add error handling
 // shoudn't go into infinit loop
 function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): ParsedElement {
@@ -127,8 +135,6 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
   function parseElement() {
     skip();
 
-    // TODO: check if just string value
-    // TODO: check if function is passed
     parseElementStart();
 
     // function parse children
