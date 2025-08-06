@@ -45,9 +45,9 @@ type ParsedTextElement = {
 type ParsedHTMLElement = {
   type: 'element',
   tag: 'div' | 'span' | string | undefined;
-  properties: Array<[string, unknown]>;
-  bindings: [];
-  events: [],
+  properties: Array<[string, string | number | boolean]>;
+  bindings: Array<[string, Function]>;
+  events: Array<[string, Function]>,
   children: ParsedElement[];
 }
 
@@ -173,9 +173,17 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
 
       advanceIndex();
 
-      const attibValue = parseAttribValue();
+      const atribValue = parseAttribValue();
 
-      currentParsingElement.properties.push([attribName, attibValue]);
+      if (atribValue === toEvent) {
+        currentParsingElement.events.push([attribName, atribValue as Function]);
+      } else if (typeof atribValue === 'function') {
+        currentParsingElement.bindings.push([attribName, atribValue]);
+      } else if (typeof atribValue === 'number' || typeof atribValue === 'string' || typeof atribValue === 'boolean') {
+        currentParsingElement.properties.push([attribName, atribValue]);
+      } else {
+        console.warn('Error during parseAttribs: unknown atrib value type');
+      }
 
       skip();
     }
@@ -254,7 +262,13 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
       if (isNextTemplateValue()) {
         const templateValue = getNextTemplateValue();
 
-        currentParsingElement.properties.push(['children', templateValue]);
+        if (typeof templateValue === 'function') {
+          currentParsingElement.bindings.push(['children', templateValue]);
+        } else if (typeof templateValue === 'number' || typeof templateValue === 'string' || typeof templateValue === 'boolean') {
+          currentParsingElement.properties.push(['children', templateValue]);
+        } else {
+          console.warn('Error during parseChildren: unknown atrib value type');
+        }
 
         advanceTemplateStringIndex();
         advanceTemplateValueIndex();
