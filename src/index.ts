@@ -69,6 +69,7 @@ type ParsedElement =
  * 2. <span> some text ${toChildren(() => 'value')} </span>
  * 3. <span> some text ${() => 'value'} </span>
  * 4. self closign elements <span />
+ * 5. <span> some text ${toChildren(() => another component)} </span>
  */
 // TODO: add error handling
 // shoudn't go into infinit loop
@@ -466,6 +467,7 @@ function parsedToStr(root: ParsedElement, onBindings?: (getSelector: () => strin
   }
 }
 
+// use lit-html extension for full experions
 // TODO: every new event listener type should be added
 function html(templateParts: TemplateStringsArray, ...values: unknown[]): { element: HTMLElement; dispose: () => void; } {
   let tree = parseHTML(templateParts, values);
@@ -598,7 +600,7 @@ function getGifMeta(props: { totalFrameNumber: ReadSignal<number>; currentFrameN
       <div>
         <div>${() => `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`}</div>
         <div>
-          <button onClick="${toEvent(() => props.isPlay.set((v) => !v))}">${() => props.isPlay() ? 'Stop' : 'Play'}</button>
+          <button onClick="${() => props.isPlay.set((v) => !v)}">${() => props.isPlay() ? 'Stop' : 'Play'}</button>
           <button disabled="${() => props.isPlay()}" onClick="${toEvent(nextHandler)}">Next</button>
         </div>
       </div>
