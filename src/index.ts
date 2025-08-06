@@ -35,6 +35,10 @@ let intermediateEnd: '>' = '>';
 let elementEnd: '/>' = '/>';
 let skipableSymbol = new Set<string>(['\n', ' ']);
 
+let eventNames = new Set<string>(['onClick']);
+
+const childrenAttribName: 'children' = 'children';
+
 // let skipableSymbol = new Set<string>(['\n', ' ']);
 
 type ParsedTextElement = {
@@ -179,14 +183,18 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
 
       advanceIndex();
 
-      const atribValue = parseAttribValue();
+      const attribValue = parseAttribValue();
 
-      if (atribValue === toEvent) {
-        currentParsingElement.events.push([attribName, atribValue as Function]);
-      } else if (typeof atribValue === 'function') {
-        currentParsingElement.bindings.push([attribName, atribValue]);
-      } else if (typeof atribValue === 'number' || typeof atribValue === 'string' || typeof atribValue === 'boolean') {
-        currentParsingElement.properties.push([attribName, atribValue]);
+      if (eventNames.has(attribName)) {
+        if (typeof attribValue !== 'function') {
+          console.warn(`Error during parseAttribs: event handler should be of type function, please use ${toEvent.name}`);
+        } else {
+          currentParsingElement.events.push([attribName, attribValue]);
+        }
+      } else if (typeof attribValue === 'function') {
+        currentParsingElement.bindings.push([attribName, attribValue]);
+      } else if (typeof attribValue === 'number' || typeof attribValue === 'string' || typeof attribValue === 'boolean') {
+        currentParsingElement.properties.push([attribName, attribValue]);
       } else {
         console.warn('Error during parseAttribs: unknown atrib value type');
       }
@@ -269,9 +277,9 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
         const templateValue = getNextTemplateValue();
 
         if (typeof templateValue === 'function') {
-          currentParsingElement.bindings.push(['children', templateValue]);
+          currentParsingElement.bindings.push([childrenAttribName, templateValue]);
         } else if (typeof templateValue === 'number' || typeof templateValue === 'string' || typeof templateValue === 'boolean') {
-          currentParsingElement.properties.push(['children', templateValue]);
+          currentParsingElement.properties.push([childrenAttribName, templateValue]);
         } else {
           console.warn('Error during parseChildren: unknown atrib value type');
         }
@@ -345,7 +353,6 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
   }
 }
 
-// TODO: implement and check with trees
 function parsedToStr(root: ParsedElement): string {
   let result = '';
   let currentElement: ParsedElement | null = root;
@@ -361,7 +368,32 @@ function parsedToStr(root: ParsedElement): string {
         return;
       }
 
+      const bindingText = '@{reactive binding}';
+      const eventHandlerText = '@{event handler}';
+
       result += `${new Array(level).join(' ')}${elementStart}${currentElement.tag}`;
+
+      const strandartProperties = currentElement.properties.filter(([attribName]) => attribName !== childrenAttribName).sort(([a], [b]) => a.charCodeAt(0) - b.charCodeAt(0));
+      const strandartBindings = currentElement.bindings.filter(([attribName]) => attribName !== childrenAttribName).sort(([a], [b]) => a.charCodeAt(0) - b.charCodeAt(0));
+      const strandartEvents = currentElement.events.toSorted(([a], [b]) => a.charCodeAt(0) - b.charCodeAt(0));
+
+      if (strandartProperties.length > 0) {
+        const propertiesSerilization = strandartProperties.map(([attribName, attribValue]) => `${attribName}="${String(attribValue)}"`).join(' ');
+
+        result += ` ${propertiesSerilization}`;
+      }
+
+      if (strandartBindings.length > 0) {
+        const propertiesSerilization = strandartBindings.map(([attribName]) => `${attribName}="${bindingText}"`).join(' ');
+
+        result += ` ${propertiesSerilization}`;
+      }
+
+      if (strandartEvents.length > 0) {
+        const propertiesSerilization = strandartEvents.map(([attribName]) => `${attribName}="${bindingText}"`).join(' ');
+
+        result += ` ${propertiesSerilization}`;
+      }
 
       result += intermediateEnd;
 
@@ -369,7 +401,15 @@ function parsedToStr(root: ParsedElement): string {
         result += '\n';
       }
 
-      renderChildren();
+      const childrenBinding = currentElement.bindings.find(([attribName]) => attribName === childrenAttribName);
+      const childrenProperty = currentElement.properties.find(([attribName]) => attribName === childrenAttribName);
+      if (childrenBinding) {
+        result += bindingText;
+      } else if (childrenProperty) {
+        result += String(childrenProperty[1]);
+      } else {
+        renderChildren();
+      }
 
       if (currentElement.children.length > 0) {
         result += new Array(level).join(' ');
@@ -486,6 +526,7 @@ html`
     <span input="input-value" onClick="${toEvent(() => 5)}">
     </span  >
     <ul>  ${toChildren(() => Math.random())}  </ul>
+    <li>  ${true}  </li>
   </div>
   `;
 
