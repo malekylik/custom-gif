@@ -2,7 +2,7 @@ import { ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
 import { html, toEvent } from "../../parsing";
 import { Component } from "../utils";
 
-type GifMetaDataProps = {
+export type GifMetaDataProps = {
     totalFrameNumber: ReadSignal<number>;
     currentFrameNumber: ReadSignal<number>;
     isPlay: WriteSignal<boolean>;

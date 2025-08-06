@@ -1,4 +1,5 @@
 import { effect, onDispose, root } from "@maverick-js/signals";
+import { Component } from "../components/utils";
 
 let parseId = 0;
 
@@ -505,7 +506,17 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
 
         if (element) {
           effect(() => {
-            element.innerHTML = String(childToUpdate.child());
+            if (isChildComponent(childToUpdate.child)) {
+                const child = childToUpdate.child();
+
+                if (child) {
+                    element.appendChild(child.element);
+                } else {
+                    element.innerHTML = '';
+                }
+            } else {
+                element.innerHTML = String(childToUpdate.child());
+            }
           });
         } else {
           console.warn('Error during parsing template: cannot find element with id ' + childToUpdate.selector);
@@ -563,4 +574,14 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
 
 export function toEvent(f: Function): string {
   return f as unknown as string;
+}
+
+export function toChild(f: () => Component | null): string {
+    (f as any).__child = true;
+
+  return f as unknown as string;
+}
+
+export function isChildComponent(f: Function): f is () => Component | null {
+    return (f as any).__child;
 }

@@ -7,6 +7,7 @@ import { BlackAndWhiteEffectId, createBlackAndWhiteEffect, GLBlackAndWhiteEffect
 import { Effect } from './rendering/api/effect';
 import { effect, signal } from '@maverick-js/signals';
 import { GifMetaData } from './ui/components/GifMetaData/GifMetaData';
+import { GifVisualizer } from './ui/components/GifVisualizer/GifVisualizer';
 
 const main = document.getElementById('main');
 
@@ -30,14 +31,11 @@ function handleFiles() {
         .then((lzw_uncompress) => {
           const container = document.createElement('div');
 
-          const glGifVisualizerContainer = document.createElement('div');
-          const glGifVisualizer = document.createElement('canvas');
-
           const isPlay = signal(false);
           const currentFrameNumber = signal(1);
           const totalFrameNumber = signal(gif.gif.images.length);
           const renderNext = signal(() => Promise.resolve());
-          const gifMetaElement = GifMetaData({ isPlay, renderNext, currentFrameNumber, totalFrameNumber });
+          const gifVisualizer = GifVisualizer({ isPlay, renderNext, currentFrameNumber, totalFrameNumber });
 
           const effectListContent = document.createElement('div');
           const effectListData = document.createElement('div');
@@ -171,13 +169,10 @@ function handleFiles() {
           effectListData.innerHTML = getEffectListContent([]);
           upodateEffectListListeners(effectListData, []);
 
-          glGifVisualizerContainer.append(glGifVisualizer);
-          glGifVisualizerContainer.append(gifMetaElement.element);
+          container.append(gifVisualizer.element);
+          // container.append(effectListContent);
 
-          container.append(glGifVisualizerContainer);
-          container.append(effectListContent);
-
-          renderer.addGifToRender(gif, glGifVisualizer, { uncompress: lzw_uncompress, algorithm: 'GL' })
+          renderer.addGifToRender(gif, gifVisualizer.getCanvas(), { uncompress: lzw_uncompress, algorithm: 'GL' })
             .then((descriptor) => {
               renderer.onEffectAdded(descriptor, (data) => {
                 effectListData.innerHTML = getEffectListContent(data.effects);
