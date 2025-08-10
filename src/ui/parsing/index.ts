@@ -505,18 +505,36 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
         elementMap.set(childToUpdate.selector, element);
 
         if (element) {
-          effect(() => {
+          const getChildrenEffect = () => {
+            // TODO: check that it works correctly
+            let prevChild: Component | Array<Component> | string | number | boolean | null = null;
+
+            const clearChild = (child: Component | Array<Component> | string | number | boolean | null): void => {
+                  if (isComponent(child)) {
+                    child.dispose();
+                  }
+            }
+
+            return () => {
             if (isChildComponent(childToUpdate.child)) {
                 const child = childToUpdate.child();
 
                 if (isComponent(child)) {
+                    clearChild(prevChild);
+
                     // For now just clear
                     element.innerHTML = '';
                     element.appendChild(child.element);
                 } else if (child === null) {
-                    // TODO: it should call dispose
+                    clearChild(prevChild);
                     element.innerHTML = '';
                 } else if (Array.isArray(child)) {
+                    clearChild(prevChild);
+
+                    if (Array.isArray(prevChild)) {
+                      prevChild.forEach(clearChild);
+                    }
+
                     // TODO: it should call dispose
                     element.innerHTML = '';
                     // TODO: check how improve
@@ -526,11 +544,16 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
                 } else {
                     element.innerHTML = String(child);
                 }
+
+                prevChild = child;
             } else {
                 // TODO: probably can be removed
                 element.innerHTML = String(childToUpdate.child());
             }
-          });
+          }
+        }
+
+          effect(getChildrenEffect());
         } else {
           console.warn('Error during parsing template: cannot find element with id ' + childToUpdate.selector);
         }

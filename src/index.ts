@@ -176,7 +176,7 @@ function handleFiles() {
           renderer.addGifToRender(gif, gifVisualizer.getCanvas(), { uncompress: lzw_uncompress, algorithm: 'GL' })
             .then((descriptor) => {
               renderer.onEffectAdded(descriptor, (data) => {
-                setTimeout(() => effects.set([...data.effects]), 2000);
+                effects.set([...data.effects]);
                 effectListData.innerHTML = getEffectListContent(data.effects);
                 upodateEffectListListeners(effectListData, data.effects);
               });
