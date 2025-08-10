@@ -556,6 +556,8 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
           effect(getChildrenEffect());
         } else {
           console.warn('Error during parsing template: cannot find element with id ' + childToUpdate.selector);
+          console.warn('Error for template\n' + strTree);
+          console.warn('Error for result template\n' + resultHtml);
         }
       }
 

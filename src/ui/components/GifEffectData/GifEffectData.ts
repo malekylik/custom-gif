@@ -1,9 +1,9 @@
-import { ReadSignal, root } from "@maverick-js/signals";
-import { html, toChild } from "../../parsing";
+import { ReadSignal, root, signal } from "@maverick-js/signals";
+import { html, toChild, toEvent } from "../../parsing";
 import { Component, toComponent } from "../utils";
 import { Effect as GifEffect } from '../../../rendering/api/effect';
-import { MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
-import { BlackAndWhiteEffectId } from "../../../rendering/gl/effects/black-and-white-effect ";
+import { isMadnessEffect, MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
+import { BlackAndWhiteEffectId, isBlackAndWhiteEffect } from "../../../rendering/gl/effects/black-and-white-effect ";
 
 export type GifEffectDataProps = { effects: ReadSignal<GifEffect[]> };
 
@@ -11,15 +11,26 @@ const getEffectDesc = (effect: GifEffect, index: number): string => `${index + 1
 
 export function GifEffectData(props: GifEffectDataProps): Component {
   return root((dispose) => {
+    const effectEditorComponent = signal<Component | string | null>(null);
+
+    const closeEditor = () => effectEditorComponent.set(null);
+
     const list = html`
       <ul>
-        ${toChild(() => props.effects().map((v, i) => html`<li>${getEffectDesc(v, i)}</li>`))}
+        ${toChild(() => props.effects().map((v, i) => html`<li onClick="${toEvent(() => {
+          effectEditorComponent.set(getEffectEditorComponent(v, closeEditor));
+        })}">${getEffectDesc(v, i)}</li>`))}
       </ul>
     `;
 
     const view = html`
-      <div>
-        ${toChild(() => props.effects().length === 0 ? 'No effects' : list)}
+    <div>
+        <div>
+          ${toChild(() => props.effects().length === 0 ? 'No effects' : list)}
+        </div>
+        <div>
+          ${toChild(() => effectEditorComponent())}
+        </div>
       </div>
     `;
 
@@ -34,6 +45,20 @@ function getEffectName(effectId: number): string | null {
 
   if (effectId === BlackAndWhiteEffectId) {
     return 'Black And White Effect';
+  }
+
+  return null;
+}
+
+function getEffectEditorComponent(effect: GifEffect, closeEditor: () => void): Component | null {
+  if (isMadnessEffect(effect)) {
+    return html`<div><div>madness effect editor'</div><button onClick="${toEvent(closeEditor)}">close</button></div>`;
+    // container.append(createMadnessEditorElement(effect, li, index));
+  }
+
+  if (isBlackAndWhiteEffect(effect)) {
+    return html`<div><div>black and white effect editor</div><button onClick="${toEvent(closeEditor)}">close</button></div>`;
+    // container.append(createBlackAndWhiteEditorElement(effect, li, index));
   }
 
   return null;
