@@ -4,6 +4,7 @@ import { Component, toComponent } from "../utils";
 import { Effect as GifEffect } from '../../../rendering/api/effect';
 import { isMadnessEffect, MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
 import { BlackAndWhiteEffectId, isBlackAndWhiteEffect } from "../../../rendering/gl/effects/black-and-white-effect ";
+import { BlackAndWhiteGifEffectEditor } from "../effects/BlackAndWhiteGifEffectEditor/BlackAndWhiteGifEffectEditor";
 
 export type GifEffectDataProps = { effects: ReadSignal<GifEffect[]> };
 
@@ -57,7 +58,10 @@ function getEffectEditorComponent(effect: GifEffect, closeEditor: () => void): C
   }
 
   if (isBlackAndWhiteEffect(effect)) {
-    return html`<div><div>black and white effect editor</div><button onClick="${toEvent(closeEditor)}">close</button></div>`;
+    return html`<div>
+      <div>${toChild(() => BlackAndWhiteGifEffectEditor({ effect }))}</div>
+      <button onClick="${toEvent(closeEditor)}">close</button>
+      </div>`;
     // container.append(createBlackAndWhiteEditorElement(effect, li, index));
   }
 

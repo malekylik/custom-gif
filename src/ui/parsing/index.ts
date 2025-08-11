@@ -166,6 +166,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
       const attribName = parseAttribName();
 
       if (getCurrentChar() !== '=') {
+        debugger;
         console.warn('Error during parseAttribs 1');
       }
 
