@@ -1,6 +1,6 @@
 import { ReadSignal, root, signal } from "@maverick-js/signals";
 import { html, toChild, toEvent } from "../../parsing";
-import { Component, toComponent } from "../utils";
+import { Component, isComponent, toComponent } from "../utils";
 import { Effect as GifEffect } from '../../../rendering/api/effect';
 import { isMadnessEffect, MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
 import { BlackAndWhiteEffectId, isBlackAndWhiteEffect } from "../../../rendering/gl/effects/black-and-white-effect ";
@@ -16,6 +16,12 @@ export function GifEffectData(props: GifEffectDataProps): Component {
     let currentEditorName: string | null = null;
 
     const closeEditor = () => {
+      const currentComponent = effectEditorComponent();
+
+      if (isComponent(currentComponent)) {
+        currentComponent.dispose();
+      }
+
       currentEditorName = null;
       effectEditorComponent.set(null);
     };
