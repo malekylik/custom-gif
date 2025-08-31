@@ -13,12 +13,24 @@ const getEffectDesc = (effect: GifEffect, index: number): string => `${index + 1
 export function GifEffectData(props: GifEffectDataProps): Component {
   return root((dispose) => {
     const effectEditorComponent = signal<Component | string | null>(null);
+    let currentEditorName: string | null = null;
 
-    const closeEditor = () => effectEditorComponent.set(null);
+    const closeEditor = () => {
+      currentEditorName = null;
+      effectEditorComponent.set(null);
+    };
 
     const list = html`
       <ul>
         ${toChild(() => props.effects().map((v, i) => html`<li onClick="${toEvent(() => {
+          const newEditorName = getEffectDesc(v, i);
+
+          if (currentEditorName === newEditorName) {
+            return;
+          }
+
+          currentEditorName = newEditorName;
+
           effectEditorComponent.set(getEffectEditorComponent(v, closeEditor));
         })}">${getEffectDesc(v, i)}</li>`))}
       </ul>
@@ -53,7 +65,10 @@ function getEffectName(effectId: number): string | null {
 
 function getEffectEditorComponent(effect: GifEffect, closeEditor: () => void): Component | null {
   if (isMadnessEffect(effect)) {
-    return html`<div><div>madness effect editor'</div><button onClick="${toEvent(closeEditor)}">close</button></div>`;
+    return html`<div>
+      <div>madness effect editor</div>
+      <button onClick="${toEvent(closeEditor)}">close</button>
+    </div>`;
     // container.append(createMadnessEditorElement(effect, li, index));
   }
 
@@ -61,7 +76,7 @@ function getEffectEditorComponent(effect: GifEffect, closeEditor: () => void): C
     return html`<div>
       <div>${toChild(() => BlackAndWhiteGifEffectEditor({ effect }))}</div>
       <button onClick="${toEvent(closeEditor)}">close</button>
-      </div>`;
+    </div>`;
     // container.append(createBlackAndWhiteEditorElement(effect, li, index));
   }
 
