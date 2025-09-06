@@ -24,11 +24,11 @@ export function BlackAndWhiteGifEffectEditor(props: BlackAndWhiteGifEffectEditor
             <div>
               <div>
                 <span>From</span>
-                <input class="from-input" value="${effect.getFrom()}"></input>
+                <input class="from-input" value="${effect.getFrom()}"/>
               </div>
               <div>
                 <span>To</span>
-                <input class="to-input" value="${effect.getTo()}"></input>
+                <input class="to-input" value="${effect.getTo()}"/>
               </div>
             </div>
     `;

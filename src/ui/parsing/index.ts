@@ -157,6 +157,10 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
       return parseElementStartResult.error;
     }
 
+    if (parseElementStartResult.value.selfClosing) {
+      return null;
+    }
+
     const parseChildrenResult = parseChildren();
 
     if (parseChildrenResult) {
@@ -170,7 +174,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     }
   }
 
-  function parseElementStart(): Either<ParsingError, string> {
+  function parseElementStart(): Either<ParsingError, { selfClosing: boolean; tag: string }> {
     if (getCurrentChar() === elementStart) {
       advanceIndex();
     } else {
@@ -189,17 +193,22 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
       return { error: parseAttribsResult };
     }
 
+    let selfClosing = false;
+
     if (getCurrentChar() === intermediateEnd) {
       advanceIndex();
+    } else if (getCurrentChar(2) === elementEnd) {
+      selfClosing = true;
+      advanceIndex(2);
     } else {
-      return { error: createError(`Error during parseElementStart: expect end of opening element "${intermediateEnd}", but got "${getCurrentChar()}"`) };
+      return { error: createError(`Error during parseElementStart: expect end of opening element "${intermediateEnd}" or "${elementEnd}", but got "${getCurrentChar()}"`) };
     }
 
-    return { value: tag };
+    return { value: { selfClosing, tag } };
   }
 
   function parseAttribs(): null | ParsingError {
-    while (getCurrentChar() !== intermediateEnd) {
+    while (getCurrentChar() !== intermediateEnd && getCurrentChar(2) !== elementEnd) {
       skip();
 
       const attribName = parseAttribName();
