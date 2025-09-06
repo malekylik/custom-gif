@@ -28,7 +28,7 @@ export function BlackAndWhiteGifEffectEditor(props: BlackAndWhiteGifEffectEditor
               </div>
               <div>
                 <span>To</span>
-                <input class="to-input" value="${effect.getTo()}"/></input>
+                <input class="to-input" value="${effect.getTo()}"></input>
               </div>
             </div>
     `;
