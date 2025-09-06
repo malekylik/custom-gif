@@ -18,7 +18,7 @@ let elementStart: '<' = '<';
 let intermediateStart: '</' = '</';
 let intermediateEnd: '>' = '>';
 let elementEnd: '/>' = '/>';
-let skipableSymbol = new Set<string>(['\n', ' ']);
+let skipableSymbol = new Set<string>(['\r', '\n', ' ']);
 
 let eventNames = new Set<string>(['onClick']);
 
@@ -49,6 +49,10 @@ type ParsedElement =
 
 type ParsingError = {
   description: string;
+  line: number;
+  column: number;
+  templatesIndex: number;
+  valuesIndex: number;
 }
 
 export type ParseResult = Either<ParsingError, ParsedElement>
@@ -77,6 +81,8 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
   let currentTemplateStringIndex = 0;
   let currentCharIndex = 0;
   let currentValueIndex = 0;
+  let line = 0;
+  let debugColumn = 0;
 
   console.log(values);
 
@@ -102,6 +108,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
 
   function advanceIndex(advance = 1): void {
     currentCharIndex += advance;
+    debugColumn += advance;
   }
 
   function advanceTemplateStringIndex(): void {
@@ -109,13 +116,18 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     currentCharIndex = 0;
   }
 
-  // TODO: add counting of new line
   function skip() {
     let currentTemplateString = templateParts[currentTemplateStringIndex];
 
-    // TODO: check if we reach end of template string by skiping
     while (currentCharIndex < currentTemplateString.length && skipableSymbol.has(currentTemplateString[currentCharIndex])) {
-      currentCharIndex++;
+      // TODO: move to const
+      if (currentTemplateString[currentCharIndex] === '\n') {
+        line += 1;
+        debugColumn = 0;
+      }
+
+      // TODO: use advanceIndex
+      advanceIndex();
     }
   }
 
@@ -130,7 +142,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     let currentTemplateString = templateParts[currentTemplateStringIndex];
 
     while (currentCharIndex < currentTemplateString.length && !skipableSymbol.has(currentTemplateString[currentCharIndex]) && currentTemplateString[currentCharIndex] !== intermediateEnd) {
-      currentCharIndex++;
+      advanceIndex();
     }
 
     return currentTemplateString.slice(tagStart, currentCharIndex);
@@ -162,7 +174,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     if (getCurrentChar() === elementStart) {
       advanceIndex();
     } else {
-      return { error: { description: `Error during parseElementStart: expect start of opening element "${elementStart}", but got "${getCurrentChar()}"`} };
+      return { error: createError(`Error during parseElementStart: expect start of opening element "${elementStart}", but got "${getCurrentChar()}"`)};
     }
 
     const tag = parseElementTag();
@@ -180,7 +192,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     if (getCurrentChar() === intermediateEnd) {
       advanceIndex();
     } else {
-      return { error: { description: `Error during parseElementStart: expect end of opening element "${intermediateEnd}", but got "${getCurrentChar()}"`} };
+      return { error: createError(`Error during parseElementStart: expect end of opening element "${intermediateEnd}", but got "${getCurrentChar()}"`) };
     }
 
     return { value: tag };
@@ -193,17 +205,22 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
       const attribName = parseAttribName();
 
       if (getCurrentChar() !== '=') {
-        debugger;
-        return { description: `Error during parseElementEnd: invalid char between attrib name and value; expect "=", but got "${getCurrentChar()}"`};
+        return createError(`Error during parseAttribs: invalid char between attrib name and value; expect "=", but got "${getCurrentChar()}"`);
       }
 
       advanceIndex();
 
-      const attribValue = parseAttribValue();
+      const attribValueResult = parseAttribValue();
+
+      if (isError(attribValueResult)) {
+        return attribValueResult.error;
+      }
+
+      const attribValue = attribValueResult.value;
 
       if (eventNames.has(attribName)) {
         if (typeof attribValue !== 'function') {
-          return { description: `Error during parseAttribs: "${attribName}" event attrib; expect value to be function, but got "${typeof attribValue}"`};
+          return createError( `Error during parseAttribs: "${attribName}" event attrib; expect value to be function, but got "${typeof attribValue}"`);
         } else {
           currentParsingElement.events.push([attribName, attribValue]);
         }
@@ -212,7 +229,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
       } else if (typeof attribValue === 'number' || typeof attribValue === 'string' || typeof attribValue === 'boolean') {
         currentParsingElement.properties.push([attribName, attribValue]);
       } else {
-        return { description: `Error during parseAttribs: unknown atrib value type`};
+        return createError(`Error during parseAttribs: unknown atrib value type`);
       }
 
       skip();
@@ -223,8 +240,8 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     let tagStart = currentCharIndex;
     let currentTemplateString = templateParts[currentTemplateStringIndex];
 
-    while (currentCharIndex < currentTemplateString.length && currentTemplateString[currentCharIndex] !== '=') {
-      currentCharIndex++;
+    while (currentCharIndex < currentTemplateString.length && currentTemplateString[currentCharIndex] !== '=' && !skipableSymbol.has(currentTemplateString[currentCharIndex])) {
+      advanceIndex();
     }
 
     return currentTemplateString.slice(tagStart, currentCharIndex);
@@ -235,15 +252,15 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
       let currentTemplateString = templateParts[currentTemplateStringIndex];
 
       while (currentCharIndex < currentTemplateString.length && (currentTemplateString[currentCharIndex] !== '"')) {
-        currentCharIndex++;
+        advanceIndex();
       }
 
       return currentTemplateString.slice(tagStart, currentCharIndex);
   }
 
-  function parseAttribValue() {
+  function parseAttribValue(): Either<ParsingError, unknown> {
     if (getCurrentChar() !== '"') {
-      return { description: `Error during parseAttribValue: value should be enclosing in '"', but got "${getCurrentChar()}"`};
+      return { error: createError(`Error during parseAttribValue: value should be enclosing in '"', but got "${getCurrentChar()}"`) };
     }
 
     advanceIndex();
@@ -255,22 +272,18 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
 
       advanceTemplateValueIndex();
 
-      end();
-
-      return templateValue;
+      return end() ?? { value: templateValue };
     } else {
       // we just have a string value, just parse it
 
       let attibValue = parseStrAttribValue();
 
-      end();
-
-      return attibValue;
+      return  end() ?? { value: attibValue };
     }
 
-    function end() {
+    function end(): Either<ParsingError, unknown> {
       if (getCurrentChar() !== '"') {
-        return { description: `Error during parseAttribValue: value should be enclosing in '"', but got "${getCurrentChar()}"`};
+        return { error: createError(`Error during parseAttribValue: value should be enclosing in '"', but got "${getCurrentChar()}"`)};
       }
 
       advanceIndex();
@@ -297,7 +310,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
         } else if (typeof templateValue === 'number' || typeof templateValue === 'string' || typeof templateValue === 'boolean') {
           currentParsingElement.properties.push([childrenAttribName, templateValue]);
         } else {
-          return { description: 'Error during parseChildren: unknown atrib value type' };
+          return createError('Error during parseChildren: unknown atrib value type');
         }
 
         advanceTemplateStringIndex();
@@ -344,7 +357,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
       let currentTemplateString = templateParts[currentTemplateStringIndex];
 
       while (currentCharIndex < currentTemplateString.length && (currentTemplateString[currentCharIndex] !== elementStart)) {
-        currentCharIndex++;
+        advanceIndex();
       }
 
       return currentTemplateString.slice(start, currentCharIndex);
@@ -354,13 +367,13 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     if (getCurrentChar(2) === intermediateStart) {
       advanceIndex(2);
     } else {
-      return { description: `Error during parseElementEnd: expect start of closing element "${intermediateStart}", but got "${getCurrentChar(2)}"`};
+      return createError(`Error during parseElementEnd: expect start of closing element "${intermediateStart}", but got "${getCurrentChar(2)}"`);
     }
 
     const closingTag = parseElementTag();
 
     if (closingTag !== currentParsingElement.tag) {
-      return { description: `Error during parseElementEnd: expect closing element to be "${currentParsingElement.tag}", but got "${closingTag}"` };
+      return createError(`Error during parseElementEnd: expect closing element to be "${currentParsingElement.tag}", but got "${closingTag}"` );
     }
 
     skip();
@@ -368,8 +381,15 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     if (getCurrentChar() === intermediateEnd) {
       advanceIndex();
     } else {
-      return { description: `Error during parseElementEnd: expect end of closing element "${intermediateEnd}", but got "${getCurrentChar()}"`};
+      return createError(`Error during parseElementEnd: expect end of closing element "${intermediateEnd}", but got "${getCurrentChar()}"`);
     }
+  }
+
+  function createError(description: string): ParsingError {
+    return ({
+        description,
+        line: line, templatesIndex: currentTemplateStringIndex, column: debugColumn, valuesIndex: currentValueIndex,
+    });
   }
 }
 
@@ -496,9 +516,33 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
     }
 
     resultTemplate[(templateParts.length - 1) * 2 + 0] = templateParts[templateParts.length - 1];
+    const resultTemplateStr = resultTemplate.join('');
 
-    console.warn('Error for template\n' + resultTemplate.join(''));
-    console.warn('html parsing error: ', tree.error);
+    console.warn('Error for template\n' + resultTemplateStr);
+    console.warn('html parsing error: ', tree.error.description);
+
+    // TODO: add color
+    const lines = resultTemplateStr.split('\n');
+    if (tree.error.line < lines.length) {
+      const pointError: string[] = [];
+
+      const predictColumnStart = tree.error.column - 15;
+      const predictColumnEnd = tree.error.column + 15;
+
+      console.warn(`Error at line - ${tree.error.line} column - ${tree.error.column}`);
+
+      if (tree.error.line !== 0) {
+        console.warn(`${tree.error.line - 1}: ${lines[tree.error.line - 1]}`);
+      }
+
+      console.warn(`${tree.error.line}: ${lines[tree.error.line].slice(0, predictColumnStart) + '%c' + lines[tree.error.line].slice(predictColumnStart)}`, 'color: red');
+
+      if (tree.error.line < lines.length - 1) {
+        console.warn(`${tree.error.line + 1}: ${lines[tree.error.line + 1]}`);
+      }
+
+      console.warn(`Error at line - ${lines[tree.error.line].slice(predictColumnStart, predictColumnEnd)}`);
+    }
 
 
     return { element: document.createElement('div'), dispose: () => {} };
