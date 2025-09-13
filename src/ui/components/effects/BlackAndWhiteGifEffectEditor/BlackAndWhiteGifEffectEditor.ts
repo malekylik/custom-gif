@@ -1,34 +1,52 @@
-import { ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
+import { root } from "@maverick-js/signals";
 import { Component, toComponent } from "../../utils";
 import { html, toEvent } from "../../../../ui/parsing";
-import { Effect } from "../../../../rendering/api/effect";
 
 export type BlackAndWhiteGifEffectEditorProps = {
-    effect: Effect
+  fromValue: () => number;
+  setFromValue: (n: number) => void;
+  toValue: () => number;
+  setToValue: (n: number) => void;
 };
 
 export function BlackAndWhiteGifEffectEditor(props: BlackAndWhiteGifEffectEditorProps): Component {
   return root((dispose) => {
-    const { effect } = props;
+    const {
+      fromValue, setFromValue,
+      toValue, setToValue,
+    } = props;
 
-    // const isSetting = signal(false);
+    function onInputNumber(action: (n: number) => void, error: (s: string) => void) {
+      return (event: InputEvent) => {
+          const valueS = (event.target as any).value;
+          if (!isNaN(Number(valueS))) {
+            const value = Number(valueS);
+            action(value)
+          } else {
+            error(valueS)
+          }
+      }
+    }
 
-    // const nextHandler = () => {
-    //   if (!isSetting()) {
-    //       isSetting.set(true);
-    //       props.renderNext()().then(() => isSetting.set(false));
-    //   }
-    // };
+    const onInputFrom = onInputNumber(
+      (v: number) => { v = Math.max(1, v); setFromValue(v); },
+      () => { setFromValue(fromValue()); }
+    );
+
+    const onInputTo = onInputNumber(
+      (v: number) => { v = Math.max(1, v); setToValue(v); },
+      () => { setToValue(toValue()); }
+    );
 
     const view = html`
             <div>
               <div>
                 <span>From</span>
-                <input class="from-input" value="${effect.getFrom()}"/>
+                <input onInput="${toEvent(onInputFrom)}" class="from-input" value="${() => fromValue()}"/>
               </div>
               <div>
                 <span>To</span>
-                <input class="to-input" value="${effect.getTo()}"/>
+                <input onInput="${toEvent(onInputTo)}" class="to-input" value="${() => toValue()}"/>
               </div>
             </div>
     `;

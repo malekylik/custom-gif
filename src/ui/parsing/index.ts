@@ -20,9 +20,13 @@ let intermediateEnd: '>' = '>';
 let elementEnd: '/>' = '/>';
 let skipableSymbol = new Set<string>(['\r', '\n', ' ']);
 
-let eventNames = new Set<string>(['onClick']);
+
+const onClickName: 'onClick' = 'onClick'
+const onInputName: 'onInput' = 'onInput'
+let eventNames = new Set<string>([onClickName, onInputName]);
 
 let simpleAttribNames = new Set<string>(['disabled']);
+let defaultValueAttribNames = new Set<string>(['value']);
 
 // TODO: think to make more standart
 const childrenAttribName: 'children' = 'children';
@@ -619,40 +623,39 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
             }
 
             return () => {
-            if (isChildComponent(childToUpdate.child)) {
-                const child = childToUpdate.child();
+              if (isChildComponent(childToUpdate.child)) {
+                  const child = childToUpdate.child();
 
-                if (isComponent(child)) {
-                    clearChild(prevChild);
+                  if (isComponent(child)) {
+                      clearChild(prevChild);
 
-                    // For now just clear
-                    element.innerHTML = '';
-                    element.appendChild(child.element);
-                } else if (child === null) {
-                    clearChild(prevChild);
-                    element.innerHTML = '';
-                } else if (Array.isArray(child)) {
-                    clearChild(prevChild);
+                      // For now just clear
+                      element.innerHTML = '';
+                      element.appendChild(child.element);
+                  } else if (child === null) {
+                      clearChild(prevChild);
+                      element.innerHTML = '';
+                  } else if (Array.isArray(child)) {
+                      clearChild(prevChild);
 
-                    if (Array.isArray(prevChild)) {
-                      prevChild.forEach(clearChild);
-                    }
+                      if (Array.isArray(prevChild)) {
+                        prevChild.forEach(clearChild);
+                      }
 
-                    // TODO: it should call dispose
-                    element.innerHTML = '';
-                    // TODO: check how improve
-                    child.forEach((v) => {
-                        element.appendChild(v.element);
-                    });
-                } else {
-                    element.innerHTML = String(child);
-                }
+                      element.innerHTML = '';
+                      // TODO: check how improve
+                      child.forEach((v) => {
+                          element.appendChild(v.element);
+                      });
+                  } else {
+                      element.innerHTML = String(child);
+                  }
 
-                prevChild = child;
-            } else {
-                // TODO: probably can be removed
-                element.innerHTML = String(childToUpdate.child());
-            }
+                  prevChild = child;
+              } else {
+                  // TODO: probably can be removed
+                  element.innerHTML = String(childToUpdate.child());
+              }
           }
         }
 
@@ -680,6 +683,8 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
               } else {
                 element.removeAttribute(binding.binding[0]);
               }
+            } else if (defaultValueAttribNames.has(binding.binding[0])) {
+              (element as any)[binding.binding[0]] = String(value);
             } else {
               element.setAttribute(binding.binding[0], String(value));
             }
@@ -697,10 +702,17 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
         elementMap.set(event.selector, element);
 
         if (element) {
-          if (event.event[0] === 'onClick') {
-            const callback = (e: Event) => { event.event[1](e); };
+          if (event.event[0] === onClickName) {
+            const callback = (e: PointerEvent) => { event.event[1](e); };
 
             element.addEventListener('click', callback);
+            onDispose(() => element.removeEventListener('click', callback));
+          }
+
+          if (event.event[0] === onInputName) {
+            const callback = (e: InputEvent) => { event.event[1](e); };
+
+            element.addEventListener('input', callback);
             onDispose(() => element.removeEventListener('click', callback));
           }
         } else {
