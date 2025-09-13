@@ -17,7 +17,6 @@ import { getGLSystem, initGLSystem } from '../gl-system';
 import { BufferDrawingTarget } from '../../api/drawing-target';
 import { GLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
 import { GLFrameDrawingTargetTemporaryAllocator } from '../gl_api/gl-resource-manager';
-import { createMadnessEffect } from '../effects/madness-effect';
 import { GLEffect } from '../gl_api/gl-effect';
 
 let id = -1;

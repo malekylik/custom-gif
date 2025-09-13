@@ -21,9 +21,11 @@ let elementEnd: '/>' = '/>';
 let skipableSymbol = new Set<string>(['\r', '\n', ' ']);
 
 
-const onClickName: 'onClick' = 'onClick'
-const onInputName: 'onInput' = 'onInput'
-let eventNames = new Set<string>([onClickName, onInputName]);
+const onClickEventName: 'onClick' = 'onClick';
+const onInputEventName: 'onInput' = 'onInput';
+const onKeyDownEventName: 'onKeyDown' = 'onKeyDown';
+const onFocusOutEventName: 'onFocusOut' = 'onFocusOut';
+let eventNames = new Set<string>([onClickEventName, onInputEventName, onKeyDownEventName, onFocusOutEventName]);
 
 let simpleAttribNames = new Set<string>(['disabled']);
 let defaultValueAttribNames = new Set<string>(['value']);
@@ -675,17 +677,18 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
 
         if (element) {
           effect(() => {
-            const value = binding.binding[1]();
-
             if (simpleAttribNames.has(binding.binding[0])) {
+              const value = binding.binding[1]();
               if (value) {
                 element.setAttribute(binding.binding[0], String(value));
               } else {
                 element.removeAttribute(binding.binding[0]);
               }
             } else if (defaultValueAttribNames.has(binding.binding[0])) {
+              const value = binding.binding[1]();
               (element as any)[binding.binding[0]] = String(value);
             } else {
+              const value = binding.binding[1]();
               element.setAttribute(binding.binding[0], String(value));
             }
           });
@@ -702,18 +705,32 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
         elementMap.set(event.selector, element);
 
         if (element) {
-          if (event.event[0] === onClickName) {
+          if (event.event[0] === onClickEventName) {
             const callback = (e: PointerEvent) => { event.event[1](e); };
 
             element.addEventListener('click', callback);
             onDispose(() => element.removeEventListener('click', callback));
           }
 
-          if (event.event[0] === onInputName) {
+          if (event.event[0] === onInputEventName) {
             const callback = (e: InputEvent) => { event.event[1](e); };
 
             element.addEventListener('input', callback);
-            onDispose(() => element.removeEventListener('click', callback));
+            onDispose(() => element.removeEventListener('input', callback));
+          }
+
+          if (event.event[0] === onKeyDownEventName) {
+            const callback = (e: KeyboardEvent) => { event.event[1](e); };
+
+            element.addEventListener('keydown', callback);
+            onDispose(() => element.removeEventListener('clkeydownick', callback));
+          }
+
+          if (event.event[0] === onFocusOutEventName) {
+            const callback = (e: FocusEvent) => { event.event[1](e); };
+
+            element.addEventListener('focusout', callback);
+            onDispose(() => element.removeEventListener('focusout', callback));
           }
         } else {
           console.warn('Error during parsing template: cannot find element with id ' + event.selector);

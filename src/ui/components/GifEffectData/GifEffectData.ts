@@ -2,9 +2,11 @@ import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/sign
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, isComponent, toComponent } from "../utils";
 import { EffectId, Effect as GifEffect } from '../../../rendering/api/effect';
-import { isMadnessEffect, MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
+import { GLMadnessEffect, isMadnessEffect, MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
 import { BlackAndWhiteEffectId, isBlackAndWhiteEffect } from "../../../rendering/gl/effects/black-and-white-effect ";
 import { BlackAndWhiteGifEffectEditor } from "../effects/BlackAndWhiteGifEffectEditor/BlackAndWhiteGifEffectEditor";
+import { MadnessEffectEditor } from "../effects/MadnessEffectEditor/MadnessEffectEditor";
+import { GLEffect } from "src/rendering/gl/gl_api/gl-effect";
 
 export type GifEffectDataProps = { effects: ReadSignal<GifEffect[]> };
 
@@ -50,9 +52,10 @@ export function GifEffectData(props: GifEffectDataProps): Component {
               tos[i].set(n);
               effect.setTo(n);
             },
+            effect,
           };
 
-          effectEditorComponent.set(getEffectEditorComponent(effect, props, closeEditor));
+          effectEditorComponent.set(getEffectEditorComponent(props, closeEditor));
       };
 
       return html`<li onClick="${toEvent(onClick)}">
@@ -94,22 +97,23 @@ function getEffectName(effectId: number): string | null {
   return null;
 }
 
-type EffectEditorProps = {
+type EffectEditorProps<T = GLEffect> = {
   fromValue: () => number;
   setFromValue: (n: number) => void;
   toValue: () => number;
   setToValue: (n: number) => void;
+  effect: T;
 };
 
-function getEffectEditorComponent(effect: GifEffect, props: EffectEditorProps, closeEditor: () => void): Component | null {
-  if (isMadnessEffect(effect)) {
+function getEffectEditorComponent(props: EffectEditorProps, closeEditor: () => void): Component | null {
+  if (isMadnessEffect(props.effect)) {
     return html`<div>
-      <div>madness effect editor</div>
+      <div>${toChild(() => MadnessEffectEditor(props as EffectEditorProps<GLMadnessEffect>))}</div>
       <button onClick="${toEvent(closeEditor)}">close</button>
     </div>`;
   }
 
-  if (isBlackAndWhiteEffect(effect)) {
+  if (isBlackAndWhiteEffect(props.effect)) {
     return html`<div>
       <div>${toChild(() => BlackAndWhiteGifEffectEditor(props))}</div>
       <button onClick="${toEvent(closeEditor)}">close</button>
