@@ -20,6 +20,7 @@ export function GifMetaData(props: GifMetaDataProps): Component {
       }
     };
 
+    // TODO: fix disabled property
     const view = html`
       <div>
         <div>${() => `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`}</div>

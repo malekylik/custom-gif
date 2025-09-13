@@ -8,7 +8,7 @@ import { BlackAndWhiteGifEffectEditor } from "../effects/BlackAndWhiteGifEffectE
 import { MadnessEffectEditor } from "../effects/MadnessEffectEditor/MadnessEffectEditor";
 import { GLEffect } from "src/rendering/gl/gl_api/gl-effect";
 
-export type GifEffectDataProps = { effects: ReadSignal<GifEffect[]> };
+export type GifEffectDataProps = { effects: ReadSignal<GifEffect[]>; currentFrameNumber: ReadSignal<number>; };
 
 const getEffectDesc = (effectId: EffectId, from: number, to: number, index: number): string => `${index + 1}. ${getEffectName(effectId) || 'Unknown Effect'} - from: ${from}; to: ${to}`;
 
@@ -41,7 +41,7 @@ export function GifEffectData(props: GifEffectDataProps): Component {
 
           currentEditorName = newEditorName;
 
-          const props: EffectEditorProps = {
+          const _props: EffectEditorProps = {
             fromValue: () => froms[i](),
             setFromValue(n) {
               froms[i].set(n);
@@ -53,12 +53,13 @@ export function GifEffectData(props: GifEffectDataProps): Component {
               effect.setTo(n);
             },
             effect,
+            currentFrameNumber: props.currentFrameNumber,
           };
 
-          effectEditorComponent.set(getEffectEditorComponent(props, closeEditor));
+          effectEditorComponent.set(getEffectEditorComponent(_props, closeEditor));
       };
 
-      return html`<li onClick="${toEvent(onClick)}">
+      return html`<li onClick="${toEvent(onClick)}" style="${() => effect.shouldBeApplied(props.currentFrameNumber()) ? 'color: green' : ''}">
         ${getEffectDesc(effect.getId(), froms[i](), tos[i](), i)}
       </li>`;
     }
@@ -103,6 +104,7 @@ type EffectEditorProps<T = GLEffect> = {
   toValue: () => number;
   setToValue: (n: number) => void;
   effect: T;
+  currentFrameNumber: ReadSignal<number>;
 };
 
 function getEffectEditorComponent(props: EffectEditorProps, closeEditor: () => void): Component | null {
