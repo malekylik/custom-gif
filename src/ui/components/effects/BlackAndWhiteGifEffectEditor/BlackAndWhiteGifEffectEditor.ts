@@ -29,6 +29,7 @@ export function BlackAndWhiteGifEffectEditor(props: BlackAndWhiteGifEffectEditor
 
     const view = html`
             <div>
+              <span>Editing Black And White Effect</span>
               <div>
                 <span>From</span>
                 <input onKeyDown="${toEvent((e: KeyboardEvent) => { if (e.key === 'Enter') { onInputFrom(e) } })}" onFocusOut="${toEvent(onInputFrom)}" class="from-input" value="${() => fromValue()}"/>

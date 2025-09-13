@@ -39,6 +39,7 @@ export function MadnessEffectEditor(props: MadnessEffectEditorProps): Component 
 
     const view = html`
             <div>
+              <span>Editing Madness Effect</span>
               <div>
                 <span>From</span>
                 <input onKeyDown="${toEvent((e: KeyboardEvent) => { if (e.key === 'Enter') { onInputFrom(e) } })}" onFocusOut="${toEvent(onInputFrom)}" class="from-input" value="${() => fromValue()}"/>
