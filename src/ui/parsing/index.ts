@@ -18,8 +18,11 @@ let elementStart: '<' = '<';
 let intermediateStart: '</' = '</';
 let intermediateEnd: '>' = '>';
 let elementEnd: '/>' = '/>';
-let skipableSymbol = new Set<string>(['\r', '\n', ' ']);
 
+let commentsStart: '<!--' = '<!--';
+let commentsEnd: '-->' = '-->';
+
+let skipableSymbol = new Set<string>(['\r', '\n', ' ']);
 
 const onClickEventName: 'onClick' = 'onClick';
 const onInputEventName: 'onInput' = 'onInput';
@@ -132,8 +135,28 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
         debugColumn = 0;
       }
 
-      // TODO: use advanceIndex
       advanceIndex();
+    }
+  }
+
+  function skipComments() {
+    let currentTemplateString = templateParts[currentTemplateStringIndex];
+
+    while ((currentCharIndex < currentTemplateString.length || isNextTemplateValue()) && getCurrentChar(3) !== commentsEnd) {
+      // TODO: move to const
+      if (currentTemplateString[currentCharIndex] === '\n') {
+        line += 1;
+        debugColumn = 0;
+      }
+
+      if (isNextTemplateValue()) {
+        advanceTemplateStringIndex();
+        advanceTemplateValueIndex();
+
+        currentTemplateString = templateParts[currentTemplateStringIndex];
+      } else {
+        advanceIndex();
+      }
     }
   }
 
@@ -330,6 +353,12 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
 
         advanceTemplateStringIndex();
         advanceTemplateValueIndex();
+      } else if (getCurrentChar(4) === commentsStart) {
+        advanceIndex(4);
+
+        skipComments();
+
+        advanceIndex(3);
       } else if (getCurrentChar(2) === intermediateStart) {
         break;
       } else if (getCurrentChar() === elementStart) {

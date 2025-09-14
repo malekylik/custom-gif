@@ -1,6 +1,6 @@
 import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
 import { html, toChild, toEvent } from "../../parsing";
-import { Component, isComponent, toComponent } from "../utils";
+import { Component, toComponent } from "../utils";
 import { EffectId, Effect as GifEffect } from '../../../rendering/api/effect';
 import { GLMadnessEffect, isMadnessEffect, MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
 import { BlackAndWhiteEffectId, isBlackAndWhiteEffect } from "../../../rendering/gl/effects/black-and-white-effect ";
