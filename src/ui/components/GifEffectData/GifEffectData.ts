@@ -8,9 +8,9 @@ import { BlackAndWhiteGifEffectEditor } from "../effects/BlackAndWhiteGifEffectE
 import { MadnessEffectEditor } from "../effects/MadnessEffectEditor/MadnessEffectEditor";
 import { GLEffect } from "src/rendering/gl/gl_api/gl-effect";
 
-export type GifEffectDataProps = { effects: ReadSignal<GifEffect[]>; currentFrameNumber: ReadSignal<number>; };
+export type GifEffectDataProps = { effects: ReadSignal<GifEffect[]>; currentFrameNumber: ReadSignal<number>; rerender: () => void };
 
-const getEffectDesc = (effectId: EffectId, from: number, to: number, index: number): string => `${index + 1}. ${getEffectName(effectId) || 'Unknown Effect'} - from: ${from}; to: ${to}`;
+const getEffectDesc = (effectId: EffectId, from: number, to: number, index: number): string => `${index + 1}. ${getEffectName(effectId) || 'Unknown Effect'} - from: ${from + 1}; to: ${to + 1}`;
 
 export function GifEffectData(props: GifEffectDataProps): Component {
   return root((dispose) => {
@@ -46,14 +46,17 @@ export function GifEffectData(props: GifEffectDataProps): Component {
             setFromValue(n) {
               froms[i].set(n);
               effect.setFrom(n);
+              props.rerender();
             },
             toValue: () => tos[i](),
             setToValue(n) {
               tos[i].set(n);
               effect.setTo(n);
+              props.rerender();
             },
             effect,
             currentFrameNumber: props.currentFrameNumber,
+            rerender: () => props.rerender(),
           };
 
           effectEditorComponent.set(getEffectEditorComponent(_props, closeEditor));
@@ -103,6 +106,7 @@ type EffectEditorProps<T = GLEffect> = {
   setFromValue: (n: number) => void;
   toValue: () => number;
   setToValue: (n: number) => void;
+  rerender: () => void;
   effect: T;
   currentFrameNumber: ReadSignal<number>;
 };

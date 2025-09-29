@@ -18,12 +18,12 @@ export function BlackAndWhiteGifEffectEditor(props: BlackAndWhiteGifEffectEditor
     } = props;
 
     const onInputFrom = onInputNumber(
-      (v: number) => { v = Math.max(1, v); setFromValue(v); },
+      (v: number) => { v = Math.max(0, v - 1); setFromValue(v); },
       () => { setFromValue(fromValue()); }
     );
 
     const onInputTo = onInputNumber(
-      (v: number) => { v = Math.max(1, v); setToValue(v); },
+      (v: number) => { v = Math.max(0, v - 1); setToValue(v); },
       () => { setToValue(toValue()); }
     );
 
@@ -32,11 +32,11 @@ export function BlackAndWhiteGifEffectEditor(props: BlackAndWhiteGifEffectEditor
               <span>Editing Black And White Effect</span>
               <div>
                 <span>From</span>
-                <input onKeyDown="${toEvent((e: KeyboardEvent) => { if (e.key === 'Enter') { onInputFrom(e) } })}" onFocusOut="${toEvent(onInputFrom)}" class="from-input" value="${() => fromValue()}"/>
+                <input onKeyDown="${toEvent((e: KeyboardEvent) => { if (e.key === 'Enter') { onInputFrom(e) } })}" onFocusOut="${toEvent(onInputFrom)}" class="from-input" value="${() => fromValue() + 1}"/>
               </div>
               <div>
                 <span>To</span>
-                <input onKeyDown="${toEvent((e: KeyboardEvent) => { if (e.key === 'Enter') { onInputTo(e) } })}" onFocusOut="${toEvent(onInputTo)}" class="to-input" value="${() => toValue()}"/>
+                <input onKeyDown="${toEvent((e: KeyboardEvent) => { if (e.key === 'Enter') { onInputTo(e) } })}" onFocusOut="${toEvent(onInputTo)}" class="to-input" value="${() => toValue() + 1}"/>
               </div>
             </div>
     `;

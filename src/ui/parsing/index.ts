@@ -93,7 +93,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
   let line = 0;
   let debugColumn = 0;
 
-  console.log(values);
+  // console.log(values);
 
   const res = parseChildren();
 
@@ -594,8 +594,8 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
 
   let strTree = parsedToStr(tree.value);
 
-  console.log(tree);
-  console.log(strTree);
+  // console.log(tree);
+  // console.log(strTree);
 
   const container = document.createElement('div');
   let dispose = () => {};
