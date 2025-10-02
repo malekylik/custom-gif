@@ -62,7 +62,7 @@ export function GifEffectData(props: GifEffectDataProps): Component {
           effectEditorComponent.set(getEffectEditorComponent(_props, closeEditor));
       };
 
-      return html`<li onClick="${toEvent(onClick)}" style="${() => effect.shouldBeApplied(props.currentFrameNumber()) ? 'color: green' : ''}">
+      return html`<li onClick="${toEvent(onClick)}" style="${() => effect.shouldBeApplied(props.currentFrameNumber() - 1) ? 'color: green' : ''}">
         ${getEffectDesc(effect.getId(), froms[i](), tos[i](), i)}
       </li>`;
     }

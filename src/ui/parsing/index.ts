@@ -22,7 +22,10 @@ let elementEnd: '/>' = '/>';
 let commentsStart: '<!--' = '<!--';
 let commentsEnd: '-->' = '-->';
 
-let skipableSymbol = new Set<string>(['\r', '\n', ' ']);
+const stringEnd: '\n' = '\n';
+const returnCursor: '\r' = '\r';
+
+let skipableSymbol = new Set<string>([returnCursor, stringEnd, ' ']);
 
 const onClickEventName: 'onClick' = 'onClick';
 const onInputEventName: 'onInput' = 'onInput';
@@ -69,14 +72,10 @@ export type ParseResult = Either<ParsingError, ParsedElement>
 
 /**
  * TODO: doesnt support:
- * 1. comments
- * 2. <span> some text ${toChildren(() => 'value')} </span>
- * 3. <span> some text ${() => 'value'} </span>
- * 4. self closign elements <span />
- * 5. <span> some text ${toChildren(() => another component)} </span>
+ * 1. <span> some text ${toChildren(() => 'value')} </span>
+ * 2. <span> some text ${() => 'value'} </span>
+ * 3. <span> some text ${toChildren(() => another component)} </span>
  */
-// TODO: add error handling
-// shoudn't go into infinit loop
 function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): ParseResult {
   const root: ParsedElement = {
     type: 'element',
@@ -129,8 +128,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     let currentTemplateString = templateParts[currentTemplateStringIndex];
 
     while (currentCharIndex < currentTemplateString.length && skipableSymbol.has(currentTemplateString[currentCharIndex])) {
-      // TODO: move to const
-      if (currentTemplateString[currentCharIndex] === '\n') {
+      if (currentTemplateString[currentCharIndex] === stringEnd) {
         line += 1;
         debugColumn = 0;
       }
@@ -143,8 +141,7 @@ function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): Pars
     let currentTemplateString = templateParts[currentTemplateStringIndex];
 
     while ((currentCharIndex < currentTemplateString.length || isNextTemplateValue()) && getCurrentChar(3) !== commentsEnd) {
-      // TODO: move to const
-      if (currentTemplateString[currentCharIndex] === '\n') {
+      if (currentTemplateString[currentCharIndex] === stringEnd) {
         line += 1;
         debugColumn = 0;
       }
@@ -547,7 +544,7 @@ function parsedToStr(root: ParsedElement, onBindings?: (getSelector: () => strin
   }
 }
 
-// TODO: every new event listener type should be added
+// every new event listener type should be added
 export function html(templateParts: TemplateStringsArray, ...values: unknown[]): Component {
   let tree: ParseResult = parseHTML(templateParts, values);
 
@@ -565,11 +562,8 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
     console.warn('Error for template\n' + resultTemplateStr);
     console.warn('html parsing error: ', tree.error.description);
 
-    // TODO: add color
     const lines = resultTemplateStr.split('\n');
     if (tree.error.line < lines.length) {
-      const pointError: string[] = [];
-
       const predictColumnStart = tree.error.column - 15;
       const predictColumnEnd = tree.error.column + 15;
 
@@ -644,7 +638,6 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
 
         if (element) {
           const getChildrenEffect = () => {
-            // TODO: check that it works correctly
             let prevChild: Component | Array<Component> | string | number | boolean | null = null;
 
             const clearChild = (child: Component | Array<Component> | string | number | boolean | null): void => {
@@ -674,7 +667,7 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
                       }
 
                       element.innerHTML = '';
-                      // TODO: check how improve
+                      // TODO: check how improve, probably we need something like key to not remove all children, but only necessary
                       child.forEach((v) => {
                           element.appendChild(v.element);
                       });
@@ -726,7 +719,6 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
         }
       }
 
-      // TODO: verify everything clear correctly
       for (let i = 0; i < eventsToUpdate.length; i++) {
         const event = eventsToUpdate[i];
         let element = elementMap.has(event.selector) ? elementMap.get(event.selector) : container.querySelector(event.selector);
