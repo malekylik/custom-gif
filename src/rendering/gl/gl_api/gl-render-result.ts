@@ -23,7 +23,7 @@ export function createGLRenderResult(gl: WebGL2RenderingContext, texture: IGLTex
         gl.bindRenderbuffer(gl.RENDERBUFFER, rbo);
         gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, texture.getWidth(), texture.getHeight());
         gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-    
+
         gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, rbo);
 
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.getGLTexture(), 0);

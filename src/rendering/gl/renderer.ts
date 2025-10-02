@@ -110,7 +110,6 @@ export class BasicRenderer implements Renderer {
 
     return new Promise((resolve) => {
       if (frame > -1 && frame < gif.gifEntity.gif.images.length) {
-        if (frame !== gif.currentFrame) {
           gif.timer.clear();
 
           gif.timer.once(() => {
@@ -129,9 +128,6 @@ export class BasicRenderer implements Renderer {
 
             this.notifyFrameSubscribers(descriptor);
           });
-        } else {
-          resolve();
-        }
       } else {
         resolve();
       }
@@ -199,6 +195,12 @@ export class BasicRenderer implements Renderer {
     const gif = this.gifs[descriptor.id];
 
     return gif.currentFrame;
+  }
+
+  dispose(): void {
+    this.gifs.forEach((gif) => {
+      gif.timer.clear();
+    });
   }
 
   private drawToTexture(gif: RendererEntity, frame: number): void {
