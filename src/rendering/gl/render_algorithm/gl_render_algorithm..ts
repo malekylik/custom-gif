@@ -155,9 +155,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       this.prevFrame = this.disposalPrevFrame;
   }
 
-  drawToScreen(effects: GLEffect[]): void {
+  drawToScreen(effects: GLEffect[], currentFrame: number): void {
     getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
-      let newResult = this.postProcessing(this.currentFrame, allocator, effects);
+      let newResult = this.postProcessing(this.currentFrame, allocator, effects, currentFrame);
 
       if (this.drawer.getNumberOfDrawCalls(newResult.texture) % 2 === 1) {
         newResult = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
@@ -184,13 +184,13 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     getGLSystem(this.id).resouceManager.startFrame();
   }
 
-  private postProcessing(frame: RenderResult, allocator: GLFrameDrawingTargetTemporaryAllocator, effects: GLEffect[]): RenderResult {
+  private postProcessing(frame: RenderResult, allocator: GLFrameDrawingTargetTemporaryAllocator, effects: GLEffect[], currentFrame: number): RenderResult {
     let newResult = frame;
 
     for (let i = 0; i < effects.length; i++) {
       const effect = effects[i];
 
-      newResult = effect.apply(this.drawer, getGLSystem(this.id).shaderManager, newResult, allocator);
+      newResult = effect.apply(this.drawer, getGLSystem(this.id).shaderManager, newResult, allocator, currentFrame);
     }
 
     return newResult;

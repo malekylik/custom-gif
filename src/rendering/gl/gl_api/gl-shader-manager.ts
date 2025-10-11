@@ -11,6 +11,7 @@ import MixTextureFragText from '../shader_assets/mixTextures.frag';
 import TextureAlpha from '../shader_assets/textureAlpha.frag';
 import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
 import MadnessEffectText from '../shader_assets/madness.frag';
+import DarkingEffectText from '../shader_assets/darking.frag';
 
 export interface GLShaderManager extends ShaderManager {
     dispose(): void;
@@ -88,6 +89,10 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
 
         if (programId === ShaderPromgramId.Mandess) {
             return { vertText: MadnessVertText, fragText: MadnessEffectText };
+        }
+
+        if (programId === ShaderPromgramId.Darking) {
+            return { vertText: MainVertText, fragText: DarkingEffectText };
         }
 
         return { vertText: '', fragText: '' };

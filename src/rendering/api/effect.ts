@@ -12,7 +12,7 @@ export function getEffectId(): EffectId {
 }
 
 export interface Effect {
-   apply(drawer: Drawer, shaderManager: ShaderManager, frame: RenderResult, allocator: FrameDrawingTargetTemporaryAllocator): RenderResult;
+   apply(drawer: Drawer, shaderManager: ShaderManager, frame: RenderResult, allocator: FrameDrawingTargetTemporaryAllocator, currentFrame: number): RenderResult;
 
    // TODO: should be part of effect interface ?
    shouldBeApplied(frameNumber: number): boolean;

@@ -7,6 +7,8 @@ import { createBlackAndWhiteEffect } from './rendering/gl/effects/black-and-whit
 import { effect, root, signal } from '@maverick-js/signals';
 import { GifVisualizer } from './ui/components/GifVisualizer/GifVisualizer';
 import { attactComponent } from './ui/parsing/dom_utils';
+import { createDarkingEffect } from './rendering/gl/effects/darking-effect ';
+import { DarkingDirection } from './rendering/gl/render-pass/darking-pass';
 
 const main = document.getElementById('main');
 
@@ -63,6 +65,7 @@ function handleFiles() {
 
                 renderer.addEffectToGif(descriptor, 2, 30, data => createMadnessEffect(data));
                 renderer.addEffectToGif(descriptor, 25, 45, data => createBlackAndWhiteEffect(data));
+                renderer.addEffectToGif(descriptor, 0, 9, data => createDarkingEffect(data, DarkingDirection.in));
 
                 effect(() => {
                   if (isPlay()) {

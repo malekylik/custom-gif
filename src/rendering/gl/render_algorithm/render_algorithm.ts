@@ -4,7 +4,7 @@ import { Effect } from 'src/rendering/api/effect';
 
 export interface RenderAlgorithm {
   drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): void;
-  drawToScreen(effects: Effect[]): void;
+  drawToScreen(effects: Effect[], currentFrame: number): void;
   restorePrevDisposal(): void;
   saveDisposalPrev(): void;
   getCanvasPixels(buffer: ArrayBufferView): void;

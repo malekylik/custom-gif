@@ -243,7 +243,7 @@ export class BasicRenderer implements Renderer {
   private drawToScreen(gif: RendererEntity): void {
     const effects = gif.effects.filter(effect => effect.shouldBeApplied(gif.currentFrame));
 
-    gif.algorithm.drawToScreen(effects);
+    gif.algorithm.drawToScreen(effects, gif.currentFrame);
   }
 
   private _drawFrame(gif: RendererEntity, frame: number): void {
