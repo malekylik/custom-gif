@@ -65,7 +65,7 @@ function handleFiles() {
 
                 renderer.addEffectToGif(descriptor, 2, 30, data => createMadnessEffect(data));
                 renderer.addEffectToGif(descriptor, 25, 45, data => createBlackAndWhiteEffect(data));
-                renderer.addEffectToGif(descriptor, 0, 9, data => createDarkingEffect(data, DarkingDirection.in));
+                renderer.addEffectToGif(descriptor, 0, 0, data => createDarkingEffect(data, DarkingDirection.in));
 
                 effect(() => {
                   if (isPlay()) {
