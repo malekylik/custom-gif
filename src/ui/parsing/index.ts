@@ -31,7 +31,8 @@ const onClickEventName: 'onClick' = 'onClick';
 const onInputEventName: 'onInput' = 'onInput';
 const onKeyDownEventName: 'onKeyDown' = 'onKeyDown';
 const onFocusOutEventName: 'onFocusOut' = 'onFocusOut';
-let eventNames = new Set<string>([onClickEventName, onInputEventName, onKeyDownEventName, onFocusOutEventName]);
+const onChangeEventName: 'onChange' = 'onChange';
+let eventNames = new Set<string>([onClickEventName, onInputEventName, onKeyDownEventName, onFocusOutEventName, onChangeEventName]);
 
 let simpleAttribNames = new Set<string>(['disabled']);
 let defaultValueAttribNames = new Set<string>(['value']);
@@ -752,6 +753,13 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
 
             element.addEventListener('focusout', callback);
             onDispose(() => element.removeEventListener('focusout', callback));
+          }
+
+          if (event.event[0] === onChangeEventName) {
+            const callback = (e: Event) => { event.event[1](e); };
+
+            element.addEventListener('change', callback);
+            onDispose(() => element.removeEventListener('change', callback));
           }
         } else {
           console.warn('Error during parsing template: cannot find element with id ' + event.selector);

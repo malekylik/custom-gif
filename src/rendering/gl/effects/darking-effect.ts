@@ -9,6 +9,8 @@ import { DarkingDirection, DarkingRenderPass } from "../render-pass/darking-pass
 import { RGBA } from "./utils/rgba";
 
 export interface GLDarkingEffect extends GLEffect {
+    setDirection(direction: DarkingDirection): void;
+    getDirection(): DarkingDirection;
 }
 
 export const DarkingEffectId = getEffectId();
@@ -58,6 +60,14 @@ export function createDarkingEffect(data: { screenWidth: number, screenHeight: n
 
     setTo(to) {
       data.to = to;
+    },
+
+    getDirection(): DarkingDirection {
+      return props.direction;
+    },
+
+    setDirection(direction: DarkingDirection) {
+      props.direction = direction;
     },
   };
 }

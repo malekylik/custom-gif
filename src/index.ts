@@ -7,7 +7,7 @@ import { createBlackAndWhiteEffect } from './rendering/gl/effects/black-and-whit
 import { effect, root, signal } from '@maverick-js/signals';
 import { GifVisualizer } from './ui/components/GifVisualizer/GifVisualizer';
 import { attactComponent } from './ui/parsing/dom_utils';
-import { createDarkingEffect } from './rendering/gl/effects/darking-effect ';
+import { createDarkingEffect } from './rendering/gl/effects/darking-effect';
 import { DarkingDirection } from './rendering/gl/render-pass/darking-pass';
 import { WhiteRGBA } from './rendering/gl/effects/utils/rgba';
 

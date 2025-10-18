@@ -9,3 +9,11 @@ export function onInputNumber(action: (n: number) => void, error: (s: string) =>
       }
   }
 }
+
+export function onSelectChange(action: (newValue: string) => void) {
+  return (event: Event) => {
+      const value = (event.target as any).value;
+      action(value);
+  }
+}
+
