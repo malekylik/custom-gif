@@ -5,6 +5,7 @@ precision mediump float;
 uniform sampler2D targetTexture;
 uniform float animationProgress;
 uniform float direction;
+uniform vec3 color;
 
 in vec2 texCoord;
 
@@ -14,6 +15,6 @@ void main()
 {
   vec4 tex = texture(targetTexture, texCoord);
   float normilizedAnimationProgress = abs(direction - clamp(animationProgress, 0.0, 1.0));
-  vec3 color = vec3(tex.rgb) * normilizedAnimationProgress;
-  fragColor = vec4(color, tex.a);
+  vec3 _color = mix(vec3(tex.rgb), color, animationProgress);
+  fragColor = vec4(_color, tex.a);
 }

@@ -9,6 +9,7 @@ import { GifVisualizer } from './ui/components/GifVisualizer/GifVisualizer';
 import { attactComponent } from './ui/parsing/dom_utils';
 import { createDarkingEffect } from './rendering/gl/effects/darking-effect ';
 import { DarkingDirection } from './rendering/gl/render-pass/darking-pass';
+import { WhiteRGBA } from './rendering/gl/effects/utils/rgba';
 
 const main = document.getElementById('main');
 
@@ -55,6 +56,12 @@ function handleFiles() {
 
             renderer.addGifToRender(gif, gifVisualizer.getCanvas(), { uncompress: lzw_uncompress, algorithm: 'GL' })
               .then((descriptor) => {
+                rerender = () => {
+                  if (!isPlay()) {
+                    renderer.setFrame(descriptor, renderer.getCurrentFrame(descriptor));
+                  }
+                };
+
                 renderer.onEffectAdded(descriptor, (data) => {
                   effects.set([...data.effects]);
                 });
@@ -65,7 +72,7 @@ function handleFiles() {
 
                 renderer.addEffectToGif(descriptor, 2, 30, data => createMadnessEffect(data));
                 renderer.addEffectToGif(descriptor, 25, 45, data => createBlackAndWhiteEffect(data));
-                renderer.addEffectToGif(descriptor, 0, 0, data => createDarkingEffect(data, DarkingDirection.in));
+                renderer.addEffectToGif(descriptor, 1, 4, data => createDarkingEffect(data, { direction: DarkingDirection.in, color: WhiteRGBA }));
 
                 effect(() => {
                   if (isPlay()) {
@@ -79,12 +86,6 @@ function handleFiles() {
                 isPlay.set(true);
 
                 renderNext.set(() => () => renderer.setFrame(descriptor, (renderer.getCurrentFrame(descriptor) + 1) % gif.gif.images.length));
-
-                rerender = () => {
-                  if (!isPlay()) {
-                    renderer.setFrame(descriptor, renderer.getCurrentFrame(descriptor));
-                  }
-                };
             });
 
             main.append(container);

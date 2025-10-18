@@ -40,7 +40,7 @@ export class GifAlphaRenderPass<MemoryInput> implements RenderPass<MemoryInput, 
 
         this.gpuProgram.setUniform1f(this.drawer.getGL(), 'TransperancyIndex', globals.transperancyIndex);
         this.gpuProgram.setUniform1f(this.drawer.getGL(), 'ScreenHeight', globals.screenHeight);
-        this.gpuProgram.setUniform1fv(this.drawer.getGL(), 'Rect', globals.alphaSquarCoord[0], globals.alphaSquarCoord[1], globals.alphaSquarCoord[2], globals.alphaSquarCoord[3]);
+        this.gpuProgram.setUniform4fv(this.drawer.getGL(), 'Rect', globals.alphaSquarCoord[0], globals.alphaSquarCoord[1], globals.alphaSquarCoord[2], globals.alphaSquarCoord[3]);
 
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'IndexTexture', textures.gifFrame);
 
