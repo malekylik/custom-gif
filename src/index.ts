@@ -3,7 +3,7 @@ import { BasicRenderer } from './rendering/gl/renderer';
 import { createLZWFuncFromWasm } from './parsing/lzw/factory/uncompress_factory_wasm';
 import { createGifEntity, GifEntity } from './parsing/new_gif/gif_entity';
 import { createMadnessEffect } from './rendering/gl/effects/madness-effect';
-import { createBlackAndWhiteEffect } from './rendering/gl/effects/black-and-white-effect ';
+import { createBlackAndWhiteEffect } from './rendering/gl/effects/black-and-white-effect';
 import { effect, root, signal } from '@maverick-js/signals';
 import { GifVisualizer } from './ui/components/GifVisualizer/GifVisualizer';
 import { attactComponent } from './ui/parsing/dom_utils';
