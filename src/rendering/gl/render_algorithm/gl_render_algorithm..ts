@@ -33,8 +33,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   private disposalPrevFrame: RenderResult;
   private prevFrame: RenderResult;
 
-  private uncompressedData: Uint8Array;
   private vboToTexture: GLVBO;
+
+  private uncompressedData: Uint8Array;
   private lzw_uncompress: FactoryOut;
   private gl: WebGL2RenderingContext;
   private drawer: GLDrawer;
@@ -240,5 +241,23 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     if (this.prevFrame) {
       this.prevFrame.readResultToBuffer(buffer);
     }
+  }
+
+  dispose(): void {
+    // TODO: seems like not everything is disposed. Investigate later
+    this.vboToTexture.dispose(this.drawer.getGL());
+
+    this.currentFrame.texture.dispose(this.gl);
+    this.disposalPrevFrame.texture.dispose(this.gl);
+    this.prevFrame.texture.dispose(this.gl);
+
+    this.gifFrameTexture.dispose(this.gl);
+    this.colorTableTexture.dispose(this.gl);
+
+    getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.currentFrameBuffer);
+    getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.disposalPrevFrameBuffer);
+    getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.prevFrameBuffer);
+
+    getGLSystem(this.id).shaderManager.dispose();
   }
 }

@@ -9,4 +9,5 @@ export interface RenderAlgorithm {
   saveDisposalPrev(): void;
   getCanvasPixels(buffer: ArrayBufferView): void;
   getPrevCanvasPixels(buffer: ArrayBufferView): void;
+  dispose(): void;
 }

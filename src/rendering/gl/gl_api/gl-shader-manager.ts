@@ -22,7 +22,7 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
      * Thinking about deleting that are not in use anymore
      * Probably ref_couting will work
      */
-    const shaders: Map<number, GLProgram> = new Map();
+    let shaders: Map<number, GLProgram> = new Map();
 
     return {
         getProgram(programId) {
@@ -59,6 +59,7 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
 
         dispose() {
             shaders.values().forEach(shader => shader.dispose(gl));
+            shaders = null;
         },
     };
 

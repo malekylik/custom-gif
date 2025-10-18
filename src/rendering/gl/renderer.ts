@@ -200,6 +200,7 @@ export class BasicRenderer implements Renderer {
   dispose(): void {
     this.gifs.forEach((gif) => {
       gif.timer.clear();
+      gif.algorithm.dispose();
     });
   }
 

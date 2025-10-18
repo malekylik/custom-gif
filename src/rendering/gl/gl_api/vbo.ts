@@ -80,6 +80,10 @@ export class GLVBO {
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW)
   }
 
+  dispose(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
+    gl.deleteBuffer(this.vbo);
+  }
+
   private setAttribPointer(gl: WebGLRenderingContext | WebGL2RenderingContext, index: number): void {
     if (index >= 0 && index < this.layout.length) {
       const layoutItem = this.layout[index];
