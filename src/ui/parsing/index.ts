@@ -660,18 +660,24 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
                   } else if (child === null) {
                       clearChild(prevChild);
                       element.innerHTML = '';
-                  } else if (Array.isArray(child)) {
-                      clearChild(prevChild);
-
+                  } else if (isChildComponent(childToUpdate.child) && Array.isArray(child)) {
                       if (Array.isArray(prevChild)) {
-                        prevChild.forEach(clearChild);
-                      }
+                        const toDelete = prevChild.filter(c => child.findIndex(newC => c === newC) === -1);
 
-                      element.innerHTML = '';
-                      // TODO: check how improve, probably we need something like key to not remove all children, but only necessary
-                      child.forEach((v) => {
+                        toDelete.forEach((c) => {
+                          clearChild(c);
+                          element.removeChild(c.element);
+                        });
+                        child.forEach((c) => {
+                          element.appendChild(c.element);
+                        })
+                      } else {
+                        clearChild(prevChild);
+                        element.innerHTML = '';
+                        child.forEach((v) => {
                           element.appendChild(v.element);
-                      });
+                        });
+                      }
                   } else {
                       element.innerHTML = String(child);
                   }
