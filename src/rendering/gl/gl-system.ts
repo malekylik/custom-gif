@@ -10,6 +10,10 @@ export function initGLSystem(gl: WebGL2RenderingContext, systemName: string): vo
     );
 }
 
+export function disposeGLSystem(systemName: string): void {
+    glResources.delete(systemName);
+}
+
 export function getGLSystem(systemName: string) {
     return glResources.get(systemName);
 }

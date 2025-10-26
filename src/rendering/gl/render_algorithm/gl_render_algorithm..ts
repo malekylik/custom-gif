@@ -13,7 +13,7 @@ import { GifRenderPass } from '../render-pass/gif-frame-pass';
 import { CopyRenderResultRenderPass } from '../render-pass/copy-render-result-pass';
 import { RenderResult } from '../../api/render-result';
 import { createGLDrawer, GLDrawer } from '../gl_api/gl-drawer';
-import { getGLSystem, initGLSystem } from '../gl-system';
+import { disposeGLSystem, getGLSystem, initGLSystem } from '../gl-system';
 import { BufferDrawingTarget } from '../../api/drawing-target';
 import { GLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
 import { GLFrameDrawingTargetTemporaryAllocator } from '../gl_api/gl-resource-manager';
@@ -259,5 +259,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.prevFrameBuffer);
 
     getGLSystem(this.id).shaderManager.dispose();
+
+    disposeGLSystem(this.id);
   }
 }
