@@ -6,12 +6,33 @@ import { createGifEntity, GifEntity } from "../../../parsing/new_gif/gif_entity"
 import { createLZWFuncFromWasm } from "../../../parsing/lzw/factory/uncompress_factory_wasm";
 import { BasicRenderer } from "../../../rendering/gl/renderer";
 import { GifVisualizer } from "../GifVisualizer/GifVisualizer";
+import { AllEffectList } from "../AllEffectList/AllEffectList";
+import { createMadnessEffect, MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
+import { createDarkingEffect, DarkingEffectId } from "../../../rendering/gl/effects/darking-effect";
+import { BlackAndWhiteEffectId, createBlackAndWhiteEffect } from "../../../rendering/gl/effects/black-and-white-effect";
+import { Effect } from "../../../rendering/api/effect";
+import { DarkingDirection } from "../../../../src/rendering/gl/render-pass/darking-pass";
+import { BlackRGBA } from "../../../../src/rendering/gl/effects/utils/rgba";
 
 export type AppComponent = Component;
 
 export function App(props: {}): AppComponent {
     let gifs: GifEntity[] = [];
     const gifList = signal<Component[]>([]);
+
+    const selectedEffect = signal(null);
+
+    const selectEffect = (effectId: number): void => {
+        selectedEffect.set(effectId);
+    };
+
+    const getEffectFactory = (effectId: number): (data: { screenWidth: number; screenHeight: number; from: number; to: number; }) => Effect | null => {
+        if (effectId === MadnessEffectId) return (data) => createMadnessEffect(data);
+        else if (effectId === DarkingEffectId) return (data) => createDarkingEffect(data, { direction: DarkingDirection.in, color: BlackRGBA });
+        else if (effectId === BlackAndWhiteEffectId) return (data) => createBlackAndWhiteEffect(data);
+
+        return null;
+    }
 
     const fileChange = async (e: Event): Promise<void> => {
         const fileDescriptor = ((e.target as any).files as FileList).item(0);
@@ -22,11 +43,10 @@ export function App(props: {}): AppComponent {
         if (parsedGifData) {
             const gif = createGifEntity(parsedGifData);
             gifs.push(gif);
-            const lzw_uncompress = await createLZWFuncFromWasm(gif.gif);
-
-            const renderer = new BasicRenderer();
 
             root(async (dispose) => {
+                const renderer = new BasicRenderer();
+                const lzw_uncompress = await createLZWFuncFromWasm(gif.gif);
                 let close = () => {};
                 let rerender = () => {};
 
@@ -35,7 +55,11 @@ export function App(props: {}): AppComponent {
                 const totalFrameNumber = signal(gif.gif.images.length);
                 const effects = signal([]);
                 const renderNext = signal(() => Promise.resolve());
-                const gifVisualizer = GifVisualizer({ isPlay, renderNext, currentFrameNumber, totalFrameNumber, effects: effects, rerender: () => rerender(), onClose: () => close() });
+                const gifVisualizer = GifVisualizer({
+                    isPlay, renderNext, currentFrameNumber, totalFrameNumber, effects: effects,
+                    rerender: () => rerender(), onClose: () => close(),
+                    isEffectSelectedToAdd: () => selectedEffect() !== null, addSelectedEffect: () => { const factor = getEffectFactory(selectedEffect()); renderer.addEffectToGif(descriptor, 0, 1, data => factor(data)) }
+                });
 
                 close = () => {
                     renderer.dispose();
@@ -89,12 +113,14 @@ export function App(props: {}): AppComponent {
         <div>
             <input type="file" onChange="${toEvent(fileChange)}" />
         </div>
-        <div>${toChild(() => gifList())}</div>
+        <div style="display: flex">
+            <div style="min-width: 80%">${toChild(() => gifList())}</div>
+            <div>${toChild(() => AllEffectList({ selectedEffect, selectEffect: selectEffect }))}</div>
+        </div>
       </div>
     `;
 
     const component = toComponent(view.element, () => { dispose(); view.dispose()}) as AppComponent;
-    // component.getCanvas = () => view.element.querySelector('canvas');
 
     return component;
   });

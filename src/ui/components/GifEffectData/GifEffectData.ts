@@ -4,7 +4,13 @@ import { Component, toComponent } from "../utils";
 import { EffectId, Effect as GifEffect } from '../../../rendering/api/effect';
 import { EffectEditorProps, getEffectEditorComponent, getEffectName } from "./utils";
 
-export type GifEffectDataProps = { effects: ReadSignal<GifEffect[]>; currentFrameNumber: ReadSignal<number>; rerender: () => void };
+export type GifEffectDataProps = {
+  effects: ReadSignal<GifEffect[]>;
+  currentFrameNumber: ReadSignal<number>;
+  rerender: () => void;
+  isEffectSelectedToAdd: () => boolean;
+  addSelectedEffect: () => void;
+};
 
 const getEffectDesc = (effectId: EffectId, from: number, to: number, index: number): string => `${index + 1}. ${getEffectName(effectId) || 'Unknown Effect'} - from: ${from + 1}; to: ${to + 1}`;
 
@@ -64,17 +70,19 @@ export function GifEffectData(props: GifEffectDataProps): Component {
     }
 
 
-    const list = html`
+    const list = () => html`
       <ul>
-        ${toChild(() => props.effects().map(listItem))}
+        ${toChild(() =>
+          props.effects().map(listItem))}
       </ul>
     `;
 
     const view = html`
     <div>
         <div>
-          ${toChild(() => props.effects().length === 0 ? 'No effects' : list)}
+          ${toChild(() => props.effects().length === 0 ? 'No effects' : list())}
         </div>
+        <button disabled="${() => !props.isEffectSelectedToAdd()}" onClick="${() => props.addSelectedEffect()}">Add Effect</button>
         <div>
           ${toChild(() => effectEditorComponent())}
         </div>
