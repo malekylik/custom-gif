@@ -45,7 +45,7 @@ export function App(props: {}): AppComponent {
             gifs.push(gif);
 
             root(async (dispose) => {
-                const renderer = new BasicRenderer();
+                let renderer = new BasicRenderer();
                 const lzw_uncompress = await createLZWFuncFromWasm(gif.gif);
                 let close = () => {};
                 let rerender = () => {};
@@ -63,6 +63,7 @@ export function App(props: {}): AppComponent {
 
                 close = () => {
                     renderer.dispose();
+                    renderer = null;
                     dispose();
                     gifList.set(gifList().filter(c => c !== gifVisualizer));
                     gifs = gifs.filter(_g => _g !== gif);
