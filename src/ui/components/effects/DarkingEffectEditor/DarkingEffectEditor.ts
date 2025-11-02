@@ -25,6 +25,10 @@ export function DarkingEffectEditor(props: DarkingEffectEditorProps): Component 
 
     const direction = signal(effect.getDirection(), { dirty(prev, nexy) { return true; } });
 
+    const red = signal(effect.getColor().r * 255, { dirty(prev, nexy) { return true; } });
+    const green = signal(effect.getColor().g * 255, { dirty(prev, nexy) { return true; } });
+    const blue = signal(effect.getColor().b * 255, { dirty(prev, nexy) { return true; } });
+
     const onInputFrom = onInputNumber(
       (v: number) => { v = Math.max(0, v - 1); setFromValue(v); },
       () => { setFromValue(fromValue()); }
@@ -37,6 +41,19 @@ export function DarkingEffectEditor(props: DarkingEffectEditorProps): Component 
 
     const inChangeDirection = onSelectChange(
       (newValue) => { direction.set(newValue === 'in' ? DarkingDirection.in : DarkingDirection.out); effect.setDirection(direction()); rerender() }
+    );
+
+    const onInputRed = onInputNumber(
+      (v: number) => { v = Math.min(Math.max(0, v), 255); red.set(v); effect.getColor().r = v / 255; rerender() },
+      () => { red.set(red()); }
+    );
+    const onInputGreen = onInputNumber(
+      (v: number) => { v = Math.min(Math.max(0, v), 255); green.set(v); effect.getColor().g = v / 255; rerender() },
+      () => { green.set(green()); }
+    );
+    const onInputBlue = onInputNumber(
+      (v: number) => { v = Math.min(Math.max(0, v), 255); blue.set(v); effect.getColor().b = v / 255; rerender() },
+      () => { blue.set(blue()); }
     );
 
     const view = html`
@@ -58,6 +75,28 @@ export function DarkingEffectEditor(props: DarkingEffectEditorProps): Component 
                   <option value="in">In</option>
                   <option value="out">Out</option>
                 </select>
+              </div>
+              <div>
+                <span>
+                  Color
+                </span>
+                <div style="display: flex">
+                  <span>
+                    <span>Red:</span>
+                    <input onKeyDown="${toEvent((e: KeyboardEvent) => { if (e.key === 'Enter') { onInputRed(e) } })}" onFocusOut="${toEvent(onInputRed)}" class="from-input" value="${() => red()}"/>
+                  </span>
+                  <span>
+                    <span>Green:</span>
+                    <input onKeyDown="${toEvent((e: KeyboardEvent) => { if (e.key === 'Enter') { onInputGreen(e) } })}" onFocusOut="${toEvent(onInputGreen)}" class="from-input" value="${() => green()}"/>
+                  </span>
+                  <span>
+                    <span>Blue:</span>
+                    <input onKeyDown="${toEvent((e: KeyboardEvent) => { if (e.key === 'Enter') { onInputBlue(e) } })}" onFocusOut="${toEvent(onInputBlue)}" class="from-input" value="${() => blue()}"/>
+                  </span>
+                  <span style="display: flex; align-items: end;">
+                    <span style="${() => `display: inline-block; width: 50px; height: 30px; background-color: rgb(${red()}, ${green()}, ${blue()})`}"></span>
+                  </span>
+                </div>
               </div>
             </div>
     `;

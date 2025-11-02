@@ -31,6 +31,17 @@ export class RGBA extends Array {
         this[3] = v;
     }
 
+    copy(): RGBA {
+        const copy = new RGBA();
+
+        copy.r = this.r;
+        copy.g = this.g;
+        copy.b = this.b;
+        copy.a = this.a;
+
+        return copy;
+    }
+
     constructor () {
         super(4);
 
@@ -41,11 +52,15 @@ export class RGBA extends Array {
     }
 }
 
-export const BlackRGBA = new RGBA();
+export const getBlackRGBA = () => new RGBA();
 
-export const WhiteRGBA = new RGBA();
+export const getWhiteRGBA = () => {
+    const WhiteRGBA = new RGBA();
 
-WhiteRGBA.r = 1.0;
-WhiteRGBA.g = 1.0;
-WhiteRGBA.b = 1.0;
-WhiteRGBA.a = 1.0;
+    WhiteRGBA.r = 1.0;
+    WhiteRGBA.g = 1.0;
+    WhiteRGBA.b = 1.0;
+    WhiteRGBA.a = 1.0;
+
+    return WhiteRGBA;
+}

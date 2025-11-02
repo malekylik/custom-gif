@@ -12,7 +12,7 @@ import { createDarkingEffect, DarkingEffectId } from "../../../rendering/gl/effe
 import { BlackAndWhiteEffectId, createBlackAndWhiteEffect } from "../../../rendering/gl/effects/black-and-white-effect";
 import { Effect } from "../../../rendering/api/effect";
 import { DarkingDirection } from "../../../../src/rendering/gl/render-pass/darking-pass";
-import { BlackRGBA } from "../../../../src/rendering/gl/effects/utils/rgba";
+import { getBlackRGBA } from "../../../../src/rendering/gl/effects/utils/rgba";
 
 export type AppComponent = Component;
 
@@ -28,7 +28,7 @@ export function App(props: {}): AppComponent {
 
     const getEffectFactory = (effectId: number): (data: { screenWidth: number; screenHeight: number; from: number; to: number; }) => Effect | null => {
         if (effectId === MadnessEffectId) return (data) => createMadnessEffect(data);
-        else if (effectId === DarkingEffectId) return (data) => createDarkingEffect(data, { direction: DarkingDirection.in, color: BlackRGBA });
+        else if (effectId === DarkingEffectId) return (data) => createDarkingEffect(data, { direction: DarkingDirection.in, color: getBlackRGBA() });
         else if (effectId === BlackAndWhiteEffectId) return (data) => createBlackAndWhiteEffect(data);
 
         return null;
@@ -86,10 +86,6 @@ export function App(props: {}): AppComponent {
                 renderer.onFrameRender(descriptor, (data) => {
                     currentFrameNumber.set(data.frameNumber + 1);
                 });
-
-                // renderer.addEffectToGif(descriptor, 2, 30, data => createMadnessEffect(data));
-                // renderer.addEffectToGif(descriptor, 25, 45, data => createBlackAndWhiteEffect(data));
-                // renderer.addEffectToGif(descriptor, 1, 4, data => createDarkingEffect(data, { direction: DarkingDirection.in, color: WhiteRGBA }));
 
                 effect(() => {
                     if (isPlay()) {

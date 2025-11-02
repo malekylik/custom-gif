@@ -72,10 +72,11 @@ export type ParseResult = Either<ParsingError, ParsedElement>
 
 
 /**
- * TODO: doesnt support:
+ * TODO: doesn't support:
  * 1. <span> some text ${toChildren(() => 'value')} </span>
  * 2. <span> some text ${() => 'value'} </span>
  * 3. <span> some text ${toChildren(() => another component)} </span>
+ * 4. style="display: inline-block; width: 50px; height: 30px; background-color: rgb(${red()}, ${green()}, ${blue()})", but style="${() => `display: inline-block; width: 50px; height: 30px; background-color: rgb(${red()}, ${green()}, ${blue()})`}"
  */
 function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): ParseResult {
   const root: ParsedElement = {
@@ -648,6 +649,7 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
             }
 
             return () => {
+              // TODO: it's not recursivly dispose every child, fix
               if (isChildComponent(childToUpdate.child)) {
                   const child = childToUpdate.child();
 

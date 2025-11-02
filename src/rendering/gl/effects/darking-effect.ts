@@ -6,11 +6,14 @@ import { GLShaderManager } from "../gl_api/gl-shader-manager";
 import { Effect, getEffectId } from "../../api/effect";
 import { calculateAnimationProgress } from "./utils/uitls";
 import { DarkingDirection, DarkingRenderPass } from "../render-pass/darking-pass";
-import { RGBA } from "./utils/rgba";
+import { getBlackRGBA, RGBA } from "./utils/rgba";
 
 export interface GLDarkingEffect extends GLEffect {
     setDirection(direction: DarkingDirection): void;
     getDirection(): DarkingDirection;
+
+    getColor(): RGBA;
+    setColor(color: RGBA): void;
 }
 
 export const DarkingEffectId = getEffectId();
@@ -20,6 +23,9 @@ export function isDarkingEffect(effect: Effect): effect is GLDarkingEffect {
 }
 
 export function createDarkingEffect(data: { screenWidth: number, screenHeight: number, from: number, to: number }, props: { direction: DarkingDirection, color?: RGBA }): GLDarkingEffect {
+  props.direction = props.direction ?? DarkingDirection.in;
+  props.color = props.color ?? getBlackRGBA();
+
   return {
     apply(drawer: GLDrawer, shaderManager: GLShaderManager, frame: RenderResult, allocator: GLFrameDrawingTargetTemporaryAllocator, currentFrame: number) {
       const animationProgress = calculateAnimationProgress(data.from, data.to, currentFrame);
@@ -68,6 +74,14 @@ export function createDarkingEffect(data: { screenWidth: number, screenHeight: n
 
     setDirection(direction: DarkingDirection) {
       props.direction = direction;
+    },
+
+    getColor() {
+      return props.color;
+    },
+
+    setColor(color: RGBA) {
+      props.color = color;
     },
   };
 }

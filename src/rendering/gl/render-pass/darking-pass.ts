@@ -8,7 +8,7 @@ import { GLDrawer } from '../gl_api/gl-drawer';
 
 import { GLShaderManager } from '../gl_api/gl-shader-manager';
 import { ShaderPromgramId } from '../../api/shader-manager';
-import { BlackRGBA, RGBA } from '../effects/utils/rgba';
+import { RGBA } from '../effects/utils/rgba';
 
 export enum DarkingDirection {
     out = 0.0,
@@ -25,8 +25,8 @@ type DarkingPassGlobals = {
      * 0.0 mean - "out"  animation
      * 1.0 mean - "in" animation
      */
-    direction?: DarkingDirection;
-    color?: RGBA;
+    direction: DarkingDirection;
+    color: RGBA;
 }
 
 export class DarkingRenderPass<MemoryInput> implements RenderPass<MemoryInput, DarkingPassGlobals, DarkingPassTextures> {
@@ -45,13 +45,12 @@ export class DarkingRenderPass<MemoryInput> implements RenderPass<MemoryInput, D
 
     execute(args: RenderPassArgs<MemoryInput, DarkingPassGlobals, DarkingPassTextures>): RenderResult {
         const { textures, drawingTarget } = args;
-        const color = args.globals.color ?? BlackRGBA;
-
+        const color = args.globals.color;
 
         this.gpuProgram.useProgram(this.drawer.getGL());
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
         this.gpuProgram.setUniform1f(this.drawer.getGL(), 'animationProgress', args.globals.animationProgress ?? 1.0);
-        this.gpuProgram.setUniform1f(this.drawer.getGL(), 'direction', args.globals.direction ?? DarkingDirection.in);
+        this.gpuProgram.setUniform1f(this.drawer.getGL(), 'direction', args.globals.direction);
         this.gpuProgram.setUniform3fv(this.drawer.getGL(), 'color', color.r, color.g, color.b);
 
         this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER, this.drawer.getNumberOfDrawCalls(textures.targetTexture));
