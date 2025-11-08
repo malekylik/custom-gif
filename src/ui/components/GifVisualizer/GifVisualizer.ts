@@ -18,7 +18,7 @@ export function GifVisualizer(props: GifVisualizerProps): GifVisualizerComponent
       <div style="border-bottom: 1px solid black; padding-top: 5px;">
         <div style="position: relative; display: flex; justify-content: center; margin-bottom: 5px;">
             <canvas></canvas>
-          <div style="position: absolute; top: 5px; right: 5px;">
+          <div style="position: absolute; top: 0; right: 5px;">
             <button onClick="${toEvent(() => props.onClose())}">close</button>
           </div>
         </div>
