@@ -11,6 +11,7 @@ import MixTextureFragText from '../shader_assets/mixTextures.frag';
 import TextureAlpha from '../shader_assets/textureAlpha.frag';
 import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
 import MadnessEffectText from '../shader_assets/madness.frag';
+import DarkingEffectText from '../shader_assets/darking.frag';
 
 export interface GLShaderManager extends ShaderManager {
     dispose(): void;
@@ -21,7 +22,7 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
      * Thinking about deleting that are not in use anymore
      * Probably ref_couting will work
      */
-    const shaders: Map<number, GLProgram> = new Map();
+    let shaders: Map<number, GLProgram> = new Map();
 
     return {
         getProgram(programId) {
@@ -58,6 +59,7 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
 
         dispose() {
             shaders.values().forEach(shader => shader.dispose(gl));
+            shaders = null;
         },
     };
 
@@ -88,6 +90,10 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
 
         if (programId === ShaderPromgramId.Mandess) {
             return { vertText: MadnessVertText, fragText: MadnessEffectText };
+        }
+
+        if (programId === ShaderPromgramId.Darking) {
+            return { vertText: MainVertText, fragText: DarkingEffectText };
         }
 
         return { vertText: '', fragText: '' };

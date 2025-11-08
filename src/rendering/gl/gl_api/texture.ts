@@ -80,6 +80,8 @@ export interface IGLTexture {
   activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext, textureUnit?: number): void;
   
   getGLTexture(): WebGLTexture;
+
+  dispose(gl: WebGLRenderingContext | WebGL2RenderingContext): void;
 }
 
 export class GLTexture implements IGLTexture {
@@ -156,6 +158,10 @@ export class GLTexture implements IGLTexture {
   getHeight(): number {
     return this.height;
   }
+
+  dispose(gl: WebGLRenderingContext | WebGL2RenderingContext) {
+    gl.deleteTexture(this.texture);
+  }
 }
 
 export class NoopGLTexture implements IGLTexture {
@@ -177,5 +183,8 @@ export class NoopGLTexture implements IGLTexture {
 
   getHeight(): number {
     return -1;
+  }
+
+  dispose() {
   }
 }

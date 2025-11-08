@@ -105,6 +105,13 @@ export class BasicRenderer implements Renderer {
     this.notifyEffectSubscribers(descriptor, effect, from, to);
   }
 
+  removeEffectFromGif(descriptor: RendererGifDescriptor, effect: Effect) {
+    const gif = this.gifs[descriptor.id];
+    gif.effects = gif.effects.filter(e => e !== effect);
+
+    this.notifyEffectSubscribers(descriptor, effect, effect.getFrom(), effect.getTo());
+  }
+
   setFrame(descriptor: RendererGifDescriptor, frame: number): Promise<void> {
     const gif = this.gifs[descriptor.id];
 
@@ -200,6 +207,7 @@ export class BasicRenderer implements Renderer {
   dispose(): void {
     this.gifs.forEach((gif) => {
       gif.timer.clear();
+      gif.algorithm.dispose();
     });
   }
 
@@ -243,7 +251,7 @@ export class BasicRenderer implements Renderer {
   private drawToScreen(gif: RendererEntity): void {
     const effects = gif.effects.filter(effect => effect.shouldBeApplied(gif.currentFrame));
 
-    gif.algorithm.drawToScreen(effects);
+    gif.algorithm.drawToScreen(effects, gif.currentFrame);
   }
 
   private _drawFrame(gif: RendererEntity, frame: number): void {

@@ -77,7 +77,21 @@ export class GLProgram {
     }
   }
 
-  setUniform1fv(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, x: number, y: number, z: number, w: number): void {
+  setUniform3fv(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, x: number, y: number, z: number): void {
+    let cache = this.getCache(gl, location);
+    let value = cache.value as unknown as Float32Array;
+
+    if (!value || (value[0] !== x || value[1] !== y, value[2] !== z)) {
+      value = new Float32Array(3);
+      value[0] = x;
+      value[1] = y;
+      value[2] = z;
+
+      gl.uniform3fv(cache.location, value);
+    }
+  }
+
+  setUniform4fv(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, x: number, y: number, z: number, w: number): void {
     let cache = this.getCache(gl, location);
     let value = cache.value as unknown as Float32Array;
 

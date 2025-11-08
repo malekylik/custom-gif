@@ -13,3 +13,16 @@ export function isComponent(c: unknown): c is Component {
     return c !== null && typeof c === 'object' && (c as __Component).__component;
 }
 
+export function readFile(file: File): Promise<ArrayBuffer> {
+  const reader = new FileReader();
+
+  return new Promise((r) => {
+    reader.onload = function (e: ProgressEvent<FileReader>): void {
+        const arrayBuffer = e.target.result as ArrayBuffer;
+        r(arrayBuffer);
+    }
+
+    reader.readAsArrayBuffer(file);
+  });
+}
+

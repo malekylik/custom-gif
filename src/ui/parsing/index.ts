@@ -31,7 +31,8 @@ const onClickEventName: 'onClick' = 'onClick';
 const onInputEventName: 'onInput' = 'onInput';
 const onKeyDownEventName: 'onKeyDown' = 'onKeyDown';
 const onFocusOutEventName: 'onFocusOut' = 'onFocusOut';
-let eventNames = new Set<string>([onClickEventName, onInputEventName, onKeyDownEventName, onFocusOutEventName]);
+const onChangeEventName: 'onChange' = 'onChange';
+let eventNames = new Set<string>([onClickEventName, onInputEventName, onKeyDownEventName, onFocusOutEventName, onChangeEventName]);
 
 let simpleAttribNames = new Set<string>(['disabled']);
 let defaultValueAttribNames = new Set<string>(['value']);
@@ -71,10 +72,11 @@ export type ParseResult = Either<ParsingError, ParsedElement>
 
 
 /**
- * TODO: doesnt support:
+ * TODO: doesn't support:
  * 1. <span> some text ${toChildren(() => 'value')} </span>
  * 2. <span> some text ${() => 'value'} </span>
  * 3. <span> some text ${toChildren(() => another component)} </span>
+ * 4. style="display: inline-block; width: 50px; height: 30px; background-color: rgb(${red()}, ${green()}, ${blue()})", but style="${() => `display: inline-block; width: 50px; height: 30px; background-color: rgb(${red()}, ${green()}, ${blue()})`}"
  */
 function parseHTML(templateParts: TemplateStringsArray, values: unknown[]): ParseResult {
   const root: ParsedElement = {
@@ -626,9 +628,19 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
 
   if (childrenToUpdate.length > 0 || bindingsToUpdate.length > 0 || eventsToUpdate.length) {
     root((_dispose) => {
-      const elementMap: Map<string, Element> = new Map();
+      const clearChild = (child: Component | Array<Component> | string | number | boolean | null): void => {
+            if (isComponent(child)) {
+              child.dispose();
+            }
+      }
 
-      dispose = () => { _dispose(); };
+      const elementMap: Map<string, Element> = new Map();
+      let activeChildren: Array<Component> = [];
+
+      dispose = () => {
+        activeChildren.forEach(clearChild);
+        _dispose();
+      };
 
       for (let i = 0; i < childrenToUpdate.length; i++) {
         const childToUpdate = childrenToUpdate[i];
@@ -640,13 +652,8 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
           const getChildrenEffect = () => {
             let prevChild: Component | Array<Component> | string | number | boolean | null = null;
 
-            const clearChild = (child: Component | Array<Component> | string | number | boolean | null): void => {
-                  if (isComponent(child)) {
-                    child.dispose();
-                  }
-            }
-
             return () => {
+              // TODO: it's not recursivly dispose every child, fix
               if (isChildComponent(childToUpdate.child)) {
                   const child = childToUpdate.child();
 
@@ -659,20 +666,34 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
                   } else if (child === null) {
                       clearChild(prevChild);
                       element.innerHTML = '';
-                  } else if (Array.isArray(child)) {
-                      clearChild(prevChild);
-
+                  } else if (isChildComponent(childToUpdate.child) && Array.isArray(child)) {
                       if (Array.isArray(prevChild)) {
-                        prevChild.forEach(clearChild);
-                      }
+                        const toDelete = prevChild.filter(c => child.findIndex(newC => c === newC) === -1);
 
-                      element.innerHTML = '';
-                      // TODO: check how improve, probably we need something like key to not remove all children, but only necessary
-                      child.forEach((v) => {
+                        toDelete.forEach((c) => {
+                          clearChild(c);
+                          element.removeChild(c.element);
+                        });
+                        child.forEach((c) => {
+                          element.appendChild(c.element);
+                        })
+                      } else {
+                        clearChild(prevChild);
+                        element.innerHTML = '';
+                        child.forEach((v) => {
                           element.appendChild(v.element);
-                      });
+                        });
+                      }
                   } else {
                       element.innerHTML = String(child);
+                  }
+
+                  if (isComponent(prevChild)) {
+                    activeChildren = activeChildren.filter(children => children !== prevChild);
+                  }
+
+                  if (isComponent(child)) {
+                    activeChildren.push(child);
                   }
 
                   prevChild = child;
@@ -730,28 +751,40 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
             const callback = (e: PointerEvent) => { event.event[1](e); };
 
             element.addEventListener('click', callback);
-            onDispose(() => element.removeEventListener('click', callback));
+            onDispose(() =>
+              element.removeEventListener('click', callback));
           }
 
           if (event.event[0] === onInputEventName) {
             const callback = (e: InputEvent) => { event.event[1](e); };
 
             element.addEventListener('input', callback);
-            onDispose(() => element.removeEventListener('input', callback));
+            onDispose(() =>
+              element.removeEventListener('input', callback));
           }
 
           if (event.event[0] === onKeyDownEventName) {
             const callback = (e: KeyboardEvent) => { event.event[1](e); };
 
             element.addEventListener('keydown', callback);
-            onDispose(() => element.removeEventListener('clkeydownick', callback));
+            onDispose(() =>
+              element.removeEventListener('keydown', callback));
           }
 
           if (event.event[0] === onFocusOutEventName) {
             const callback = (e: FocusEvent) => { event.event[1](e); };
 
             element.addEventListener('focusout', callback);
-            onDispose(() => element.removeEventListener('focusout', callback));
+            onDispose(() =>
+              element.removeEventListener('focusout', callback));
+          }
+
+          if (event.event[0] === onChangeEventName) {
+            const callback = (e: Event) => { event.event[1](e); };
+
+            element.addEventListener('change', callback);
+            onDispose(() =>
+              element.removeEventListener('change', callback));
           }
         } else {
           console.warn('Error during parsing template: cannot find element with id ' + event.selector);

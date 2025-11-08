@@ -53,6 +53,10 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     new Uint8ClampedArray(buffer.buffer).set(this.prevGraphicMemory.getRawMemory().data);
   }
 
+  dispose(): void {
+    // TODO: think if we need to add logc
+  }
+
   private updateFrameData87(image: ImageDescriptor, globalColorMap: ColorMap) {
     const graphicMemory = this.graphicMemory;
     const colorMap = image.M ? image.colorMap : globalColorMap;

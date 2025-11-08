@@ -2,13 +2,14 @@ import { ResourceManager } from '../../api/resource-manager';
 import { RenderResult } from '../../api/render-result';
 import { GLTexture, IGLTexture } from '../gl_api/texture';
 import { BufferDrawingTarget } from 'src/rendering/api/drawing-target';
+import { RGBA } from '../effects/utils/rgba';
 
 export interface GPUMemory {
 
 }
 
 export type GPUGlobals = {
-    [globalName: string]: number | [number, number, number, number];
+    [globalName: string]: number | [number, number, number, number] | RGBA;
 }
 
 export interface GPUInputTexture {
