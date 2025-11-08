@@ -63,7 +63,6 @@ export function App(props: {}): AppComponent {
 
                 close = () => {
                     renderer.dispose();
-                    renderer = null;
                     dispose();
                     gifList.set(gifList().filter(c => c !== gifVisualizer));
                     gifs = gifs.filter(_g => _g !== gif);

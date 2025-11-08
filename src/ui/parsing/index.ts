@@ -628,9 +628,19 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
 
   if (childrenToUpdate.length > 0 || bindingsToUpdate.length > 0 || eventsToUpdate.length) {
     root((_dispose) => {
-      const elementMap: Map<string, Element> = new Map();
+      const clearChild = (child: Component | Array<Component> | string | number | boolean | null): void => {
+            if (isComponent(child)) {
+              child.dispose();
+            }
+      }
 
-      dispose = () => { _dispose(); };
+      const elementMap: Map<string, Element> = new Map();
+      let activeChildren: Array<Component> = [];
+
+      dispose = () => {
+        activeChildren.forEach(clearChild);
+        _dispose();
+      };
 
       for (let i = 0; i < childrenToUpdate.length; i++) {
         const childToUpdate = childrenToUpdate[i];
@@ -641,12 +651,6 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
         if (element) {
           const getChildrenEffect = () => {
             let prevChild: Component | Array<Component> | string | number | boolean | null = null;
-
-            const clearChild = (child: Component | Array<Component> | string | number | boolean | null): void => {
-                  if (isComponent(child)) {
-                    child.dispose();
-                  }
-            }
 
             return () => {
               // TODO: it's not recursivly dispose every child, fix
@@ -682,6 +686,14 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
                       }
                   } else {
                       element.innerHTML = String(child);
+                  }
+
+                  if (isComponent(prevChild)) {
+                    activeChildren = activeChildren.filter(children => children !== prevChild);
+                  }
+
+                  if (isComponent(child)) {
+                    activeChildren.push(child);
                   }
 
                   prevChild = child;
