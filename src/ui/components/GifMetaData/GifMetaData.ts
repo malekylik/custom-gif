@@ -22,12 +22,12 @@ export function GifMetaData(props: GifMetaDataProps): Component {
 
     // TODO: fix disabled property, it wants me to just write "disabled";
     const view = html`
-      <div>
-        <div>${() => `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`}</div>
-        <div>
+      <div style="display: flex; justify-content: center;">
+        <div style="margin-right: 5px">
           <button onClick="${() => props.isPlay.set((v) => !v)}">${() => props.isPlay() ? 'Stop' : 'Play'}</button>
           <button disabled="${() => props.isPlay()}" onClick="${toEvent(nextHandler)}">Next</button>
         </div>
+        <div style="border: 1px solid black">${() => `${props.currentFrameNumber()} / ${props.totalFrameNumber()}`}</div>
       </div>
     `;
 

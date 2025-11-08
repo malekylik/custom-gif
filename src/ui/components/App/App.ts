@@ -110,8 +110,8 @@ export function App(props: {}): AppComponent {
             <input type="file" onChange="${toEvent(fileChange)}" />
         </div>
         <div style="display: flex">
-            <div style="min-width: 80%">${toChild(() => gifList())}</div>
-            <div>${toChild(() => AllEffectList({ selectedEffect, selectEffect: selectEffect }))}</div>
+            <div style="min-width: 80%; border: 1px solid black;">${toChild(() => gifList())}</div>
+            <div style="width: 100%; height: 100%; position: sticky; top: 0">${toChild(() => AllEffectList({ selectedEffect, selectEffect: selectEffect }))}</div>
         </div>
       </div>
     `;

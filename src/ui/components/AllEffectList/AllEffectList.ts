@@ -25,7 +25,7 @@ export function AllEffectList(props: AllEffectListProps): Component {
 
   return root((dispose) => {
     const view = html`
-      <div>
+      <div style="border: 1px solid black;">
         <span>Select Effect:</span>
         <ul style="padding: 0; padding-left: 15px;">
             ${toChild(() => effects().map(v =>

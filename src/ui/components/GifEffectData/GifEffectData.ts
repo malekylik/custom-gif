@@ -17,6 +17,7 @@ const getEffectDesc = (effectId: EffectId, from: number, to: number, index: numb
 export function GifEffectData(props: GifEffectDataProps): Component {
   return root((dispose) => {
     const effectEditorComponent = signal<Component | string | null>(null);
+    const selectedEffect = signal<number>(-1);
     let currentEditorName: string | null = null;
 
     let froms: WriteSignal<number>[] = [];
@@ -31,6 +32,7 @@ export function GifEffectData(props: GifEffectDataProps): Component {
     const closeEditor = () => {
       currentEditorName = null;
       effectEditorComponent.set(null);
+      selectedEffect.set(-1);
     };
 
     const listItem = (effect: GifEffect, i: number): Component => {
@@ -62,9 +64,13 @@ export function GifEffectData(props: GifEffectDataProps): Component {
           };
 
           effectEditorComponent.set(getEffectEditorComponent(_props, closeEditor));
+          selectedEffect.set(i);
       };
 
-      return html`<li onClick="${toEvent(onClick)}" style="${() => effect.shouldBeApplied(props.currentFrameNumber() - 1) ? 'color: green' : ''}">
+      const getColor = () => effect.shouldBeApplied(props.currentFrameNumber() - 1) ? 'color: green' : '';
+      const getBackgorundColor = (effectNumber: number) => selectedEffect() === effectNumber ? 'background-color: #a9dcf3' : '';
+
+      return html`<li onClick="${toEvent(onClick)}" style="${() => getColor() + '; ' + getBackgorundColor(i) + '; cursor: pointer;'}">
         ${getEffectDesc(effect.getId(), froms[i](), tos[i](), i)}
       </li>`;
     }
@@ -79,11 +85,11 @@ export function GifEffectData(props: GifEffectDataProps): Component {
 
     const view = html`
     <div>
-        <div>
+        <div style="margin-bottom: 5px">
           ${toChild(() => props.effects().length === 0 ? 'No effects' : list())}
         </div>
         <button disabled="${() => !props.isEffectSelectedToAdd()}" onClick="${() => props.addSelectedEffect()}">Add Effect</button>
-        <div>
+        <div style="border-top: 1px solid black; margin-top: 5px">
           ${toChild(() => effectEditorComponent())}
         </div>
       </div>

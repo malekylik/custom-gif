@@ -15,11 +15,17 @@ export type GifVisualizerComponent = Component & {
 export function GifVisualizer(props: GifVisualizerProps): GifVisualizerComponent {
   return root((dispose) => {
     const view = html`
-      <div>
-        <canvas></canvas>
-        <button onClick="${toEvent(() => props.onClose())}">close</button>
-        <span>${toChild(() => GifMetaData(props))}</span>
-        <span>${toChild(() => GifEffectData(props))}</span>
+      <div style="border-bottom: 1px solid black; padding-top: 5px;">
+        <div style="position: relative; display: flex; justify-content: center; margin-bottom: 5px;">
+            <canvas></canvas>
+          <div style="position: absolute; top: 5px; right: 5px;">
+            <button onClick="${toEvent(() => props.onClose())}">close</button>
+          </div>
+        </div>
+        <div>
+          <div style="border-bottom: 1px solid black">${toChild(() => GifMetaData(props))}</div>
+          <div>${toChild(() => GifEffectData(props))}</div>
+        </div>
       </div>
     `;
 
