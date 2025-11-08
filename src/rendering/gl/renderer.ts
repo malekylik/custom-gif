@@ -105,6 +105,13 @@ export class BasicRenderer implements Renderer {
     this.notifyEffectSubscribers(descriptor, effect, from, to);
   }
 
+  removeEffectFromGif(descriptor: RendererGifDescriptor, effect: Effect) {
+    const gif = this.gifs[descriptor.id];
+    gif.effects = gif.effects.filter(e => e !== effect);
+
+    this.notifyEffectSubscribers(descriptor, effect, effect.getFrom(), effect.getTo());
+  }
+
   setFrame(descriptor: RendererGifDescriptor, frame: number): Promise<void> {
     const gif = this.gifs[descriptor.id];
 

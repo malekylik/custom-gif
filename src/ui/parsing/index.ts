@@ -751,35 +751,40 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
             const callback = (e: PointerEvent) => { event.event[1](e); };
 
             element.addEventListener('click', callback);
-            onDispose(() => element.removeEventListener('click', callback));
+            onDispose(() =>
+              element.removeEventListener('click', callback));
           }
 
           if (event.event[0] === onInputEventName) {
             const callback = (e: InputEvent) => { event.event[1](e); };
 
             element.addEventListener('input', callback);
-            onDispose(() => element.removeEventListener('input', callback));
+            onDispose(() =>
+              element.removeEventListener('input', callback));
           }
 
           if (event.event[0] === onKeyDownEventName) {
             const callback = (e: KeyboardEvent) => { event.event[1](e); };
 
             element.addEventListener('keydown', callback);
-            onDispose(() => element.removeEventListener('clkeydownick', callback));
+            onDispose(() =>
+              element.removeEventListener('keydown', callback));
           }
 
           if (event.event[0] === onFocusOutEventName) {
             const callback = (e: FocusEvent) => { event.event[1](e); };
 
             element.addEventListener('focusout', callback);
-            onDispose(() => element.removeEventListener('focusout', callback));
+            onDispose(() =>
+              element.removeEventListener('focusout', callback));
           }
 
           if (event.event[0] === onChangeEventName) {
             const callback = (e: Event) => { event.event[1](e); };
 
             element.addEventListener('change', callback);
-            onDispose(() => element.removeEventListener('change', callback));
+            onDispose(() =>
+              element.removeEventListener('change', callback));
           }
         } else {
           console.warn('Error during parsing template: cannot find element with id ' + event.selector);

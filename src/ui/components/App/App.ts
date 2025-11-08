@@ -55,10 +55,15 @@ export function App(props: {}): AppComponent {
                 const totalFrameNumber = signal(gif.gif.images.length);
                 const effects = signal([]);
                 const renderNext = signal(() => Promise.resolve());
+
+                const removeSelectedEffect = (effectIndex: number) => {
+                    renderer.removeEffectFromGif(descriptor, effects()[effectIndex]);
+                };
+
                 const gifVisualizer = GifVisualizer({
                     isPlay, renderNext, currentFrameNumber, totalFrameNumber, effects: effects,
-                    rerender: () => rerender(), onClose: () => close(),
-                    isEffectSelectedToAdd: () => selectedEffect() !== null, addSelectedEffect: () => { const factor = getEffectFactory(selectedEffect()); renderer.addEffectToGif(descriptor, 0, 1, data => factor(data)) }
+                    rerender: () => rerender(), onClose: () => close(), removeSelectedEffect: removeSelectedEffect,
+                    isEffectSelectedToAdd: () => selectedEffect() !== null, addSelectedEffect: () => { const factor = getEffectFactory(selectedEffect()); renderer.addEffectToGif(descriptor, 0, 1, data => factor(data)); }
                 });
 
                 close = () => {

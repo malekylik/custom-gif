@@ -10,6 +10,7 @@ export type GifEffectDataProps = {
   rerender: () => void;
   isEffectSelectedToAdd: () => boolean;
   addSelectedEffect: () => void;
+  removeSelectedEffect: (effectIndex: number) => void;
 };
 
 const getEffectDesc = (effectId: EffectId, from: number, to: number, index: number): string => `${index + 1}. ${getEffectName(effectId) || 'Unknown Effect'} - from: ${from + 1}; to: ${to + 1}`;
@@ -33,6 +34,11 @@ export function GifEffectData(props: GifEffectDataProps): Component {
       currentEditorName = null;
       effectEditorComponent.set(null);
       selectedEffect.set(-1);
+    };
+
+    const removeEffect = () => {
+      props.removeSelectedEffect(selectedEffect());
+      closeEditor();
     };
 
     const listItem = (effect: GifEffect, i: number): Component => {
@@ -88,7 +94,13 @@ export function GifEffectData(props: GifEffectDataProps): Component {
         <div style="margin-bottom: 5px">
           ${toChild(() => props.effects().length === 0 ? 'No effects' : list())}
         </div>
-        <button disabled="${() => !props.isEffectSelectedToAdd()}" onClick="${() => props.addSelectedEffect()}">Add Effect</button>
+        <button
+          style="maring-right: 5px"
+          disabled="${() => !props.isEffectSelectedToAdd()}"
+          onClick="${() => props.addSelectedEffect()}">
+            Add Effect
+        </button>
+        <button disabled="${() => selectedEffect() === -1}" onClick="${() => removeEffect()}">Remove Effect</button>
         <div style="border-top: 1px solid black; margin-top: 5px">
           ${toChild(() => effectEditorComponent())}
         </div>
