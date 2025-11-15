@@ -13,6 +13,7 @@ type GifRenderPassTextures = {
     targetTexture: IGLTexture;
 }
 
+// gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true) probably can be used instead
 // Or NoopRenderPass
 export class FlipRenderResultsRenderPass<MemoryInput> implements RenderPass<MemoryInput, {}, GifRenderPassTextures> {
     private drawer: GLDrawer;

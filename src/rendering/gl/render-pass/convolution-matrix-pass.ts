@@ -8,50 +8,47 @@ import { GLDrawer } from '../gl_api/gl-drawer';
 
 import { GLShaderManager } from '../gl_api/gl-shader-manager';
 import { ShaderPromgramId } from '../../api/shader-manager';
-import { RGBA } from '../effects/utils/rgba';
+import { Mat3 } from '../effects/utils/mat3';
+import { mat3ToVec1 } from '../effects/utils/vec1';
 
-export enum DarkingDirection {
-    out = 0.0,
-    in = 1.0,
-}
+function computeKernelWeight(kernel: Mat3) {
+   const weight = kernel.getBuffer().reduce((prev, curr) => {
+       return prev + curr;
+   });
+   return weight <= 0 ? 1 : weight;
+ }
 
-type DarkingPassTextures = {
+type ConvolutionMatrixPassTextures = {
     targetTexture: IGLTexture;
 }
 
-type DarkingPassGlobals = {
-    animationProgress: number;
-    /**
-     * 0.0 mean - "out"  animation
-     * 1.0 mean - "in" animation
-     */
-    direction: DarkingDirection;
-    color: RGBA;
+type ConvolutionMatrixPassGlobals = {
+    kernel: Mat3; // | Mat5
 }
 
-export class DarkingRenderPass<MemoryInput> implements RenderPass<MemoryInput, DarkingPassGlobals, DarkingPassTextures> {
+export class ConvolutionMatrixRenderPass<MemoryInput> implements RenderPass<MemoryInput, ConvolutionMatrixPassGlobals, ConvolutionMatrixPassTextures> {
     private drawer: GLDrawer;
     private gpuProgram: GLProgram;
 
     constructor(drawer: GLDrawer, shaderManager: GLShaderManager) {
         this.drawer = drawer;
 
-        this.gpuProgram = shaderManager.getProgram(ShaderPromgramId.Darking);
+        this.gpuProgram = shaderManager.getProgram(ShaderPromgramId.ConvolutionMatrix);
     }
 
-    chain(f: (image: RenderResult) => RenderPass<MemoryInput, {}, DarkingPassTextures>): RenderPass<MemoryInput, {}, DarkingPassTextures> {
+    chain(f: (image: RenderResult) => RenderPass<MemoryInput, {}, ConvolutionMatrixPassTextures>): RenderPass<MemoryInput, {}, ConvolutionMatrixPassTextures> {
         throw new Error("Method not implemented.");
     }
 
-    execute(args: RenderPassArgs<MemoryInput, DarkingPassGlobals, DarkingPassTextures>): RenderResult {
+    execute(args: RenderPassArgs<MemoryInput, ConvolutionMatrixPassGlobals, ConvolutionMatrixPassTextures>): RenderResult {
         const { textures, drawingTarget } = args;
-        const color = args.globals.color;
+
+        console.log(computeKernelWeight(args.globals.kernel), computeKernelWeight(args.globals.kernel));
 
         this.gpuProgram.useProgram(this.drawer.getGL());
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
-        this.gpuProgram.setUniform1f(this.drawer.getGL(), 'animationProgress', args.globals.animationProgress ?? 1.0);
-        this.gpuProgram.setUniform1f(this.drawer.getGL(), 'direction', args.globals.direction);
-        this.gpuProgram.setUniform3f(this.drawer.getGL(), 'color', color.r, color.g, color.b);
+        this.gpuProgram.setUniform1fv(this.drawer.getGL(), 'kernel', mat3ToVec1(args.globals.kernel));
+        this.gpuProgram.setUniform1f(this.drawer.getGL(), 'kernelWeight', computeKernelWeight(args.globals.kernel));
 
         this.drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER, this.drawer.getNumberOfDrawCalls(textures.targetTexture));
 

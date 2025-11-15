@@ -13,6 +13,7 @@ import { BlackAndWhiteEffectId, createBlackAndWhiteEffect } from "../../../rende
 import { Effect } from "../../../rendering/api/effect";
 import { DarkingDirection } from "../../../../src/rendering/gl/render-pass/darking-pass";
 import { getBlackRGBA } from "../../../../src/rendering/gl/effects/utils/rgba";
+import { EdgeDetectionEffectId, createEdgeDetectionEffect } from "../../../rendering/gl/effects/edge-detection-effect";
 
 export type AppComponent = Component;
 
@@ -30,6 +31,7 @@ export function App(props: {}): AppComponent {
         if (effectId === MadnessEffectId) return (data) => createMadnessEffect(data);
         else if (effectId === DarkingEffectId) return (data) => createDarkingEffect(data, { direction: DarkingDirection.in, color: getBlackRGBA() });
         else if (effectId === BlackAndWhiteEffectId) return (data) => createBlackAndWhiteEffect(data);
+        else if (effectId === EdgeDetectionEffectId) return (data) => createEdgeDetectionEffect(data);
 
         return null;
     }

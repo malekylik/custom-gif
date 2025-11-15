@@ -16,4 +16,5 @@ export enum ShaderPromgramId {
     BlackAndWhite = 100,
     Mandess = 101,
     Darking = 102,
+    ConvolutionMatrix = 103,
 }

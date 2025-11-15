@@ -5,6 +5,7 @@ export interface GLBufferDrawingTarget extends BufferDrawingTarget {
     dispose(): void
 }
 
+// TODO: add width and height as well, and update screen each time with viewport
 export function createGLScreenDrawingTarget(gl: WebGL2RenderingContext): GLBufferDrawingTarget {
     const _drawingContext: WebGL2RenderingContext = gl;
     const noopTexture = new NoopGLTexture();
@@ -57,6 +58,7 @@ export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: n
         const frameBuffer = _drawingContext.createFramebuffer();
         _drawingContext.bindFramebuffer(_drawingContext.FRAMEBUFFER, frameBuffer);
 
+        // DO we need to read from framebuffer
         const rbo = _drawingContext.createRenderbuffer();
         _drawingContext.bindRenderbuffer(_drawingContext.RENDERBUFFER, rbo);
         _drawingContext.renderbufferStorage(_drawingContext.RENDERBUFFER, _drawingContext.DEPTH24_STENCIL8, _width, _height);

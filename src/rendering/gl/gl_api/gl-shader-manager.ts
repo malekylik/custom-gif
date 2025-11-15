@@ -12,6 +12,7 @@ import TextureAlpha from '../shader_assets/textureAlpha.frag';
 import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
 import MadnessEffectText from '../shader_assets/madness.frag';
 import DarkingEffectText from '../shader_assets/darking.frag';
+import ConvolutionMatrixText from '../shader_assets/convolutionMatrix.frag';
 
 export interface GLShaderManager extends ShaderManager {
     dispose(): void;
@@ -94,6 +95,10 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
 
         if (programId === ShaderPromgramId.Darking) {
             return { vertText: MainVertText, fragText: DarkingEffectText };
+        }
+
+        if (programId === ShaderPromgramId.ConvolutionMatrix) {
+            return { vertText: MainVertText, fragText: ConvolutionMatrixText };
         }
 
         return { vertText: '', fragText: '' };
