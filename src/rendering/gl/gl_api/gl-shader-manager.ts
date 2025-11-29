@@ -101,6 +101,10 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
             return { vertText: MainVertText, fragText: ConvolutionMatrixText };
         }
 
+        if (programId === ShaderPromgramId.GifTimeline) {
+            return { vertText: MainVertText, fragText: TextureFragText };
+        }
+
         return { vertText: '', fragText: '' };
     }
 

@@ -13,6 +13,8 @@ export enum ShaderPromgramId {
     GifAlpha = 10,
     GifFrame = 11,
 
+    GifTimeline = 12,
+
     BlackAndWhite = 100,
     Mandess = 101,
     Darking = 102,

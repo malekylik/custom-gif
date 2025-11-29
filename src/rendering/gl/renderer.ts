@@ -211,6 +211,16 @@ export class BasicRenderer implements Renderer {
     });
   }
 
+
+  getGif(descriptor: RendererGifDescriptor): GifEntity {
+    return this.gifs[descriptor.id].gifEntity;
+  }
+
+  public readCurrentFrame(descriptor: RendererGifDescriptor, buffer: ArrayBufferView<ArrayBufferLike>): void {
+    const gif = this.gifs[descriptor.id];
+    gif.algorithm.getCanvasPixels(buffer);
+  }
+
   private drawToTexture(gif: RendererEntity, frame: number): void {
     const image = gif.gifEntity.gif.images[frame];
 
