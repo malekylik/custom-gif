@@ -3,9 +3,11 @@ import { GLProgram } from './program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from './shader';
 
 import MainVertText from '../shader_assets/main.vert';
+import MainTimlineVertText from '../shader_assets/mainTimeline.vert';
 import MadnessVertText from '../shader_assets/madness.vert';
 
 import TextureFragText from '../shader_assets/texture.frag';
+import TimelineFragText from '../shader_assets/mainTimeline.frag';
 import BlackAndWhiteFragText from '../shader_assets/blanckWhiteTexture.frag';
 import MixTextureFragText from '../shader_assets/mixTextures.frag';
 import TextureAlpha from '../shader_assets/textureAlpha.frag';
@@ -102,7 +104,7 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
         }
 
         if (programId === ShaderPromgramId.GifTimeline) {
-            return { vertText: MainVertText, fragText: TextureFragText };
+            return { vertText: MainTimlineVertText, fragText: TimelineFragText };
         }
 
         return { vertText: '', fragText: '' };

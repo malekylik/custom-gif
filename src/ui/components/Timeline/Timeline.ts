@@ -8,8 +8,6 @@ import { GLTexture } from "../../../rendering/gl/gl_api/texture";
 import { getGLSystem, initGLSystem } from "../../../rendering/gl/gl-system";
 import { ShaderPromgramId } from "../../../rendering/api/shader-manager";
 import { createGLScreenDrawingTarget } from "../../../rendering/gl/gl_api/gl-drawing-target";
-import { INDECIES_COUNT_NUMBER, QUAD_WITH_TEXTURE_COORD_DATA_INVERTED, VBO_LAYOUT } from "../../../rendering/gl/consts";
-import { GLVBO } from "../../../rendering/gl/gl_api/vbo";
 
 export type TimelineDataProps = {
   renderer: BasicRenderer;
@@ -23,7 +21,7 @@ export function TimelineData(props: TimelineDataProps): Component {
 
     // TODO: fix disabled property, it wants me to just write "disabled";
     const view = html`
-      <div style="${() => `display: flex; width: 100%; height: ${height}`}">
+      <div style="${() => `display: flex; width: 100%; height: ${height}px`}">
           <canvas></canvas>
       </div>
     `;
@@ -83,15 +81,25 @@ export function TimelineData(props: TimelineDataProps): Component {
         console.log(buff1, buff2, buff3, buff4);
 
         const frame1Texture = new GLTexture(gl, gifWidth, gifHeight, buff1);
+        frame1Texture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        frame1Texture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        frame1Texture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        frame1Texture.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         const frame2Texture = new GLTexture(gl, gifWidth, gifHeight, buff2);
+        frame2Texture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        frame2Texture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        frame2Texture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        frame2Texture.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         const frame3Texture = new GLTexture(gl, gifWidth, gifHeight, buff3);
+        frame3Texture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        frame3Texture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        frame3Texture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        frame3Texture.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         const frame4Texture = new GLTexture(gl, gifWidth, gifHeight, buff4);
-
-        const vboToTexture = new GLVBO(gl, VBO_LAYOUT);
-    
-        vboToTexture.bind(gl);
-        vboToTexture.setData(gl, QUAD_WITH_TEXTURE_COORD_DATA_INVERTED);
-        vboToTexture.activateAllAttribPointers(gl);
+        frame4Texture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        frame4Texture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        frame4Texture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        frame4Texture.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
         const drawingTarget = createGLScreenDrawingTarget(drawer.getGL());
 
@@ -99,9 +107,25 @@ export function TimelineData(props: TimelineDataProps): Component {
 
         gpuProgram.useProgram(gl);
 
-        gpuProgram.setTextureUniform(gl, 'targetTexture', frame1Texture);
+        gpuProgram.setTextureUniform(gl, 'targetTexture1', frame1Texture);
+        gpuProgram.setTextureUniform(gl, 'targetTexture2', frame2Texture);
+        gpuProgram.setTextureUniform(gl, 'targetTexture3', frame3Texture);
+        gpuProgram.setTextureUniform(gl, 'targetTexture4', frame4Texture);
 
-        drawer.drawTriangles(drawingTarget, 0, INDECIES_COUNT_NUMBER, drawer.getNumberOfDrawCalls(frame1Texture));
+
+        const frameCount = 4;
+        const adjGifWidth = gifWidth * (height / gifHeight);
+        console.log('total width', width);
+        console.log('gif width', gifWidth);
+        console.log('gif width adj', adjGifWidth);
+        gpuProgram.setUniform1f(gl, 'totalWidth', width);
+        gpuProgram.setUniform1f(gl, 'timelineFrameWidth', adjGifWidth);
+        gpuProgram.setUniform1f(gl, 'offset', Math.max(1.0, Math.ceil((Math.floor(width / adjGifWidth) - frameCount) / Math.max(1.0, frameCount - 1))));
+
+
+        gl.clear(gl.COLOR_BUFFER_BIT)
+
+        drawer.drawTriangles(drawingTarget, 0, 6 * frameCount, drawer.getNumberOfDrawCalls(frame1Texture));
     }, 1000);
 
 

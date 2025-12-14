@@ -117,6 +117,18 @@ export class GLTexture implements IGLTexture {
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
   }
 
+  setTextureWrap(gl: WebGLRenderingContext | WebGL2RenderingContext, axis: WebGLRenderingContextBase["TEXTURE_WRAP_S"] | WebGLRenderingContextBase["TEXTURE_WRAP_T"], mode: WebGLRenderingContextBase['REPEAT'] | WebGLRenderingContextBase['CLAMP_TO_EDGE'] | WebGLRenderingContextBase['MIRRORED_REPEAT']): void {
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.texParameteri(gl.TEXTURE_2D, axis, mode);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
+  setTextureFilter(gl: WebGLRenderingContext | WebGL2RenderingContext, filter: WebGLRenderingContextBase["TEXTURE_MIN_FILTER"] | WebGLRenderingContextBase["TEXTURE_MAG_FILTER"], mode: WebGLRenderingContextBase['NEAREST'] | WebGLRenderingContextBase['LINEAR']): void {
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.texParameteri(gl.TEXTURE_2D, filter, mode);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
   getTextureUnit(): number {
     return this.textureUnit;
   }
