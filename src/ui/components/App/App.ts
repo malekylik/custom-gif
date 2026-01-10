@@ -51,7 +51,7 @@ export function App(props: {}): AppComponent {
                 let renderer = new BasicRenderer();
                 let renderer1 = new BasicRenderer();
                 const lzw_uncompress = await createLZWFuncFromWasm(gif.gif);
-                const lzw_uncompress_timeline = await createLZWFuncFromWasm(gif.gif);
+                const lzw_uncompress_timeline = lzw_uncompress;
                 let close = () => {};
                 let rerender = () => {};
 
