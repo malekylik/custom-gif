@@ -84,7 +84,7 @@ export function App(props: {}): AppComponent {
                         <div>
                             ${toChild(() => gifVisualizer1)}
                         </div>
-                        <div>
+                        <div style="display: none">
                             ${toChild(() => gifVisualizer2)}
                         </div>
                         <div>
