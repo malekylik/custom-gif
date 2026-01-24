@@ -88,7 +88,7 @@ export function App(props: {}): AppComponent {
                             ${toChild(() => gifVisualizer2)}
                         </div>
                         <div>
-                            ${toChild(() => TimelineData({ renderer: renderer1, descriptor: descriptor1 }))}
+                            ${toChild(() => TimelineData({ renderer: renderer1, descriptor: descriptor1, currentFrameNumber, isPlay }))}
                         </div>
                     </div>
                 `

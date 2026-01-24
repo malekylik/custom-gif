@@ -1,4 +1,4 @@
-import { root, signal } from "@maverick-js/signals";
+import { effect, ReadSignal, root, signal } from "@maverick-js/signals";
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, toComponent } from "../utils";
 import { createGLDrawer } from "../../../rendering/gl/gl_api/gl-drawer";
@@ -12,6 +12,8 @@ import { createGLScreenDrawingTarget } from "../../../rendering/gl/gl_api/gl-dra
 export type TimelineDataProps = {
   renderer: BasicRenderer;
   descriptor: RendererGifDescriptor;
+  currentFrameNumber: ReadSignal<number>;
+  isPlay: ReadSignal<boolean>;
 };
 
 let id = 0;
@@ -27,9 +29,9 @@ export function TimelineData(props: TimelineDataProps): Component {
     let frameWidth = signal(0);
     let offset = signal(0);
     let frameStart = signal(0);
-    let lastDrawResult: { first: number; length: number; nextOffset: number; nextPadding: number } = { first: 0, length: 0, nextOffset: 0, nextPadding: 0 };
     let redrawDisabled = signal(true);
-    let redraw: (currentFrame: number, startPadding: number, startOffset: number) => Promise<{ first: number; length: number; nextOffset: number; nextPadding: number }> = () => { return Promise.resolve({ first: 0, length: 0, nextOffset: 0, nextPadding: 0 }) };
+    let redraw: () => Promise<void> = () => { return Promise.resolve(); };
+    let drawNext: () => Promise<void> = () => { return Promise.resolve(); };
 
     const view = html`
       <div>
@@ -44,20 +46,10 @@ export function TimelineData(props: TimelineDataProps): Component {
         </div>
         <button disabled="${() => redrawDisabled()}" onClick="${toEvent(() => {
           redrawDisabled.set(true);
-          if (lastDrawResult.first + lastDrawResult.length >= renderer.getGif(descriptor).gif.images.length) {
-          redraw(0, 0, 0)
-          .then((v) => {
-            lastDrawResult = v;
+          drawNext()
+          .then(() => {
             redrawDisabled.set(false);
           });
-          } else {
-        redraw(lastDrawResult.first + lastDrawResult.length, lastDrawResult.nextPadding, lastDrawResult.nextOffset)
-          .then((v) => {
-            lastDrawResult = v;
-            redrawDisabled.set(false);
-          });
-          }
-
           })}">next</button>
       </div>
     `;
@@ -76,6 +68,9 @@ export function TimelineData(props: TimelineDataProps): Component {
         canvas.style.height = `${height}px`;
 
         const gl = canvas.getContext('webgl2');
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         initGLSystem(gl, glSystemId);
 
@@ -103,8 +98,10 @@ export function TimelineData(props: TimelineDataProps): Component {
         const _offset = offset;
         const _frameCount = frameCount;
 
-        redraw = async (currentFrame: number, startPadding: number, startOffset: number) => {
+        let prevDrawResult: { first: number; length: number; nextOffset: number; nextPadding: number } = { first: 0, length: 0, nextOffset: 0, nextPadding: 0 };
+        let lastDrawResult: { first: number; length: number; nextOffset: number; nextPadding: number } = prevDrawResult;
 
+        const _redraw = async (currentFrame: number, startPadding: number, startOffset: number) => {
           const offset = Math.max(1.0, Math.ceil((maxFrameInTimeline - possibleMaxFrameCount) / Math.max(1.0, possibleMaxFrameCount - 1)));
           const adjustedCurrentFrame = currentFrame
           const maxFrameInTimelineWithoutOffset = Math.min(Math.ceil((width - startPadding) / adjGifWidth), renderer.getGif(descriptor).gif.images.length - adjustedCurrentFrame);
@@ -163,6 +160,21 @@ export function TimelineData(props: TimelineDataProps): Component {
 
           drawer.drawTriangles(drawingTarget, 0, 6 * frameCount, 0);
 
+          const currentSelectedFrame = props.currentFrameNumber() - adjustedCurrentFrame - 1;
+          if (!(currentSelectedFrame < 0 || currentSelectedFrame > adjustedCurrentFrame + maxFrameInTimelineWithoutOffset)) {
+
+            const gpuProgramCurrentFrame = getGLSystem(glSystemId).shaderManager.getProgram(ShaderPromgramId.GifTimelineCurrentFrame);
+
+            gpuProgramCurrentFrame.useProgram(gl);
+
+            gpuProgramCurrentFrame.setUniform1f(gl, 'totalWidth', width);
+            gpuProgramCurrentFrame.setUniform1f(gl, 'timelineFrameWidth', adjGifWidth);
+            gpuProgramCurrentFrame.setUniform1f(gl, 'startPadding', startPadding);
+            gpuProgramCurrentFrame.setUniform1f(gl, 'startOffset', currentSelectedFrame);
+
+            drawer.drawTriangles(drawingTarget, 0, 6 * 1, 0);
+          }
+
           _offset.set(startPadding);
           _frameCount.set(maxFrameInTimelineWithoutOffset);
           frameStart.set(adjustedCurrentFrame);
@@ -171,10 +183,40 @@ export function TimelineData(props: TimelineDataProps): Component {
         }
 
         redrawDisabled.set(true);
-        redraw(lastDrawResult.first + lastDrawResult.length, lastDrawResult.nextPadding, lastDrawResult.nextOffset)
+
+        redraw = () => {
+          return _redraw(prevDrawResult.first + prevDrawResult.length, prevDrawResult.nextPadding, prevDrawResult.nextOffset).then(() => {})
+        }
+
+        drawNext = () => {
+          if (lastDrawResult.first + lastDrawResult.length >= renderer.getGif(descriptor).gif.images.length) {
+          prevDrawResult = { first: 0, length: 0, nextOffset: 0, nextPadding: 0 };
+          return _redraw(0, 0, 0)
           .then((v) => {
             lastDrawResult = v;
+          });
+          } else {
+          prevDrawResult = lastDrawResult;
+          return _redraw(lastDrawResult.first + lastDrawResult.length, lastDrawResult.nextPadding, lastDrawResult.nextOffset)
+          .then((v) => {
+            lastDrawResult = v;
+          });
+          }
+        }
+
+        redraw()
+          .then(() => {
             redrawDisabled.set(false);
+
+            effect(() => {
+              if (!props.isPlay()) {
+                props.currentFrameNumber();
+                redrawDisabled.set(true);
+                redraw().then(() => {
+                  redrawDisabled.set(false);
+                });
+              }
+            })
           });
     }, 1000);
 
