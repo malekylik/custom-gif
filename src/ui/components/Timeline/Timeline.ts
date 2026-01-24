@@ -1,4 +1,4 @@
-import { effect, ReadSignal, root, signal } from "@maverick-js/signals";
+import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, toComponent } from "../utils";
 import { createGLDrawer } from "../../../rendering/gl/gl_api/gl-drawer";
@@ -12,8 +12,9 @@ import { createGLScreenDrawingTarget } from "../../../rendering/gl/gl_api/gl-dra
 export type TimelineDataProps = {
   renderer: BasicRenderer;
   descriptor: RendererGifDescriptor;
-  currentFrameNumber: ReadSignal<number>;
+  currentFrameNumber: WriteSignal<number>;
   isPlay: ReadSignal<boolean>;
+  render: (frame: number) => void;
 };
 
 let id = 0;
@@ -23,6 +24,7 @@ export function TimelineData(props: TimelineDataProps): Component {
     const { renderer, descriptor } = props
     const height = 80;
     let glSystemId = `Timeline_${id++}`;
+    let currentTexturesRange: { start: number; length: number; lastFrameNumber: number; } = { start: 0, length: -1, lastFrameNumber: -1 };
     let frameTextures: GLTexture[] = [];
     let frameCount = signal(0);
     let canvasWidth = signal(0);
@@ -32,17 +34,29 @@ export function TimelineData(props: TimelineDataProps): Component {
     let redrawDisabled = signal(true);
     let redraw: () => Promise<void> = () => { return Promise.resolve(); };
     let drawNext: () => Promise<void> = () => { return Promise.resolve(); };
+    let setCurrentFrame = (e: MouseEvent) => {
+      if (props.isPlay()) {
+        return;
+      }
+
+      const clickFrame = ((e.offsetX - offset()) / frameWidth() + frameStart()) | 0;
+
+      if (clickFrame !== props.currentFrameNumber() - 1 && clickFrame < renderer.getGif(descriptor).gif.images.length ) {
+        props.render(clickFrame);
+      }
+
+    };
 
     const view = html`
       <div>
         <ul style="position: relative; padding: 0; height: 20px; list-style: none;">
             ${toChild(() =>
               Array.from({ length: frameCount() })
-                .map((_, i) => html`<li style="${() => "position: absolute; left: " + (frameWidth() * i + offset()) + "px"}">${frameStart () + i + 1}</li>`))
+                .map((_, i) => html`<li style="${() => "position: absolute; left: " + (frameWidth() * i + offset()) + "px"}">${frameStart() + i + 1}</li>`))
             }
           </ul>
-        <div style="${() => `display: flex; width: 100%; height: ${height}px`}">
-            <canvas></canvas>
+        <div style="${() => `display: flex; width: 100%; height: ${height}px;` + (props.isPlay() ? ' cursor: defualt': ' cursor: pointer')}">
+            <canvas onClick="${toEvent(setCurrentFrame)}"></canvas>
         </div>
         <button disabled="${() => redrawDisabled()}" onClick="${toEvent(() => {
           redrawDisabled.set(true);
@@ -105,34 +119,41 @@ export function TimelineData(props: TimelineDataProps): Component {
           const offset = Math.max(1.0, Math.ceil((maxFrameInTimeline - possibleMaxFrameCount) / Math.max(1.0, possibleMaxFrameCount - 1)));
           const adjustedCurrentFrame = currentFrame
           const maxFrameInTimelineWithoutOffset = Math.min(Math.ceil((width - startPadding) / adjGifWidth), renderer.getGif(descriptor).gif.images.length - adjustedCurrentFrame);
-          
-          const frameCount = Math.ceil((maxFrameInTimelineWithoutOffset - startOffset) / offset);
 
-          for (let i = 0; i < frameTextures.length; i++) {
-            frameTextures[i].dispose(gl);
-          }
-          frameTextures = [];
+          const frameCount = Math.ceil((maxFrameInTimelineWithoutOffset - startOffset) / offset);
 
           // 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14
           // +       +       +          +     
-
           let lastFrameNumber: number = 0;
-          for (let i = 0; i < frameCount; i++) {
-            let buff = new Uint8Array(gifSize * 4);
-            const newFrameNumber = adjustedCurrentFrame + startOffset + i * offset;
-            await renderer.setFrame(descriptor, newFrameNumber);
-            renderer.readCurrentFrame(descriptor, buff);
-            buff = buff.filter((v, i) => !Number.isInteger((i + 1) / 4)).slice(0, gifSize * gifSize * 3);
+          if (currentTexturesRange.start === adjustedCurrentFrame && currentTexturesRange.length === maxFrameInTimelineWithoutOffset) {
+            lastFrameNumber = currentTexturesRange.lastFrameNumber;
+          } else {
+            for (let i = 0; i < frameTextures.length; i++) {
+              frameTextures[i].dispose(gl);
+            }
+            frameTextures = [];
 
-            const frameTexture = new GLTexture(gl, gifWidth, gifHeight, buff);
-            frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            frameTexture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            frameTexture.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            for (let i = 0; i < frameCount; i++) {
+              let buff = new Uint8Array(gifSize * 4);
+              const newFrameNumber = adjustedCurrentFrame + startOffset + i * offset;
+              await renderer.setFrame(descriptor, newFrameNumber);
+              renderer.readCurrentFrame(descriptor, buff);
+              buff = buff.filter((v, i) => !Number.isInteger((i + 1) / 4)).slice(0, gifSize * gifSize * 3);
 
-            frameTextures.push(frameTexture);
+              const frameTexture = new GLTexture(gl, gifWidth, gifHeight, buff);
+              frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+              frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+              frameTexture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+              frameTexture.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-            lastFrameNumber = newFrameNumber;
+              frameTextures.push(frameTexture);
+
+              lastFrameNumber = newFrameNumber;
+            }
+
+            currentTexturesRange.start = adjustedCurrentFrame;
+            currentTexturesRange.length = maxFrameInTimelineWithoutOffset;
+            currentTexturesRange.lastFrameNumber = lastFrameNumber;
           }
 
           // in pixels
@@ -204,7 +225,7 @@ export function TimelineData(props: TimelineDataProps): Component {
           }
         }
 
-        redraw()
+        drawNext()
           .then(() => {
             redrawDisabled.set(false);
 
@@ -220,6 +241,6 @@ export function TimelineData(props: TimelineDataProps): Component {
           });
     }, 1000);
 
-    return toComponent(view.element, () => { dispose(); view.dispose(); getGLSystem(this.id).shaderManager.dispose(); disposeGLSystem(glSystemId); });
+    return toComponent(view.element, () => { dispose(); view.dispose(); getGLSystem(glSystemId).shaderManager.dispose(); disposeGLSystem(glSystemId); });
   });
 }

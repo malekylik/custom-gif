@@ -54,6 +54,7 @@ export function App(props: {}): AppComponent {
                 const lzw_uncompress_timeline = lzw_uncompress;
                 let close = () => {};
                 let rerender = () => {};
+                let render = (frame: number) => {};
 
                 const isPlay = signal(false);
                 const currentFrameNumber = signal(1);
@@ -88,7 +89,7 @@ export function App(props: {}): AppComponent {
                             ${toChild(() => gifVisualizer2)}
                         </div>
                         <div>
-                            ${toChild(() => TimelineData({ renderer: renderer1, descriptor: descriptor1, currentFrameNumber, isPlay }))}
+                            ${toChild(() => TimelineData({ renderer: renderer1, descriptor: descriptor1, currentFrameNumber, isPlay, render: (frame: number) => render(frame) }))}
                         </div>
                     </div>
                 `
@@ -108,6 +109,12 @@ export function App(props: {}): AppComponent {
                 rerender = () => {
                     if (!isPlay()) {
                         renderer.setFrame(descriptor, renderer.getCurrentFrame(descriptor));
+                    }
+                };
+
+                render = (frame: number) => {
+                    if (!isPlay()) {
+                        renderer.setFrame(descriptor, frame);
                     }
                 };
 
