@@ -67,6 +67,13 @@ export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: n
         _drawingContext.framebufferRenderbuffer(_drawingContext.FRAMEBUFFER, _drawingContext.DEPTH_STENCIL_ATTACHMENT, _drawingContext.RENDERBUFFER, rbo);
 
         const texture = new GLTexture(gl, _width, _height, null);
+
+        // TODO: add ability to change this
+        texture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        texture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        texture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        texture.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.getGLTexture(), 0);
 
         _drawingContext.bindFramebuffer(gl.FRAMEBUFFER, null);

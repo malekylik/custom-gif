@@ -8,6 +8,7 @@ export function createGLRenderResult(gl: WebGL2RenderingContext, texture: IGLTex
         readResultToBuffer(buffer: ArrayBufferView): void {
             const frameBuffer = attachToFrameBuffer(texture);
 
+            // TODO: Allow to read RGB only
             gl.readPixels(0, 0, texture.getWidth(), texture.getHeight(), gl.RGBA, gl.UNSIGNED_BYTE, buffer);
 
             deleteFrameBuffer(frameBuffer);

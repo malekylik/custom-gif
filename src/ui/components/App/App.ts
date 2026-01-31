@@ -1,5 +1,5 @@
 import { html, toChild, toEvent } from "../../parsing";
-import { Component, readFile, toComponent } from "../utils";
+import { Component, readFile, reScale, toComponent } from "../utils";
 import { effect, root, signal } from "@maverick-js/signals";
 import { parseGif } from "../../../parsing/gif";
 import { createGifEntity, GifEntity } from "../../../parsing/new_gif/gif_entity";
@@ -72,24 +72,20 @@ export function App(props: {}): AppComponent {
                     isEffectSelectedToAdd: () => selectedEffect() !== null, addSelectedEffect: () => { const factor = getEffectFactory(selectedEffect()); renderer.addEffectToGif(descriptor, 0, 1, data => factor(data)); }
                 });
 
-                const gifVisualizer2 = GifVisualizer({
-                    isPlay: signal(false), renderNext: signal(() => Promise.resolve()), currentFrameNumber: signal(0), totalFrameNumber, effects: signal([]),
-                    rerender: () => rerender(), onClose: () => close(), removeSelectedEffect: () => {},
-                    isEffectSelectedToAdd: () => selectedEffect() !== null, addSelectedEffect: () => { }
-                });
+                const timelineHeight = 80;
+                const adjTimelineFrameWidth = reScale(gif.gif.screenDescriptor.screenWidth, gif.gif.screenDescriptor.screenHeight, timelineHeight) | 0;
 
-                const descriptor1 = await renderer1.addGifToRender(gif, gifVisualizer2.getCanvas(), { uncompress: lzw_uncompress_timeline, algorithm: 'GL' });
+                // TODO: Allow for canvas size
+                // TODO: Allow OffscreenCanvas to be passed
+                const descriptor1 = await renderer1.addGifToRender(gif, new OffscreenCanvas(1, 1) as any, { uncompress: lzw_uncompress_timeline, algorithm: 'GL', screenDescriptor: { screenWidth: adjTimelineFrameWidth, screenHeight: timelineHeight } });
 
                 const gifVisualizer = html`
                     <div>
                         <div>
                             ${toChild(() => gifVisualizer1)}
                         </div>
-                        <div style="display: none">
-                            ${toChild(() => gifVisualizer2)}
-                        </div>
                         <div>
-                            ${toChild(() => TimelineData({ renderer: renderer1, descriptor: descriptor1, currentFrameNumber, isPlay, render: (frame: number) => render(frame) }))}
+                            ${toChild(() => TimelineData({ renderer: renderer1, descriptor: descriptor1, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame) }))}
                         </div>
                     </div>
                 `
@@ -128,11 +124,11 @@ export function App(props: {}): AppComponent {
 
                 effect(() => {
                     if (isPlay()) {
-                    if (!renderer.autoplayStart(descriptor)) {
-                        console.warn('Error to stop');
-                    }
+                        if (!renderer.autoplayStart(descriptor)) {
+                            console.warn('Error to stop');
+                        }
                     } else {
-                    renderer.autoplayEnd(descriptor);
+                        renderer.autoplayEnd(descriptor);
                     }
                 });
                 isPlay.set(true);

@@ -47,7 +47,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   private id: string;
 
-  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  private resultOutputDimension: { screenWidth: number; screenHeight: number; };
+
+  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult, resultOutputDimension?: { screenWidth: number; screenHeight: number; }) {
     const gl = canvas.getContext('webgl2');
     this.id = String(++id);
 
@@ -62,6 +64,8 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     this.screenWidth = screenWidth;
     this.screenHeight = screenHeight;
+
+    this.resultOutputDimension = resultOutputDimension;
 
     this.uncompressedData = uncompressed.out;
     this.lzw_uncompress = uncompressed.lzw_uncompress;
@@ -160,6 +164,16 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
       let newResult = this.postProcessing(this.currentFrame, allocator, effects, currentFrame);
 
+      if (this.resultOutputDimension) {
+        newResult = new CopyRenderResultRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+          .execute({
+            memory: {},
+            globals: {},
+            textures: { targetTexture: this.currentFrame.texture },
+            drawingTarget:  allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight),
+          });
+      }
+
       if (this.drawer.getNumberOfDrawCalls(newResult.texture) % 2 === 1) {
         newResult = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
           .execute({
@@ -233,7 +247,35 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   getCanvasPixels(buffer: ArrayBufferView) {
     if (this.currentFrame) {
-      this.currentFrame.readResultToBuffer(buffer);
+      if (this.resultOutputDimension) {
+            getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
+              this.gl.viewport(0, 0, this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight);
+
+              let r = new CopyRenderResultRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+              .execute({
+                memory: {},
+                globals: {},
+                textures: { targetTexture: this.currentFrame.texture },
+                drawingTarget: allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight),
+              });
+
+              if (this.drawer.getNumberOfDrawCalls(r.texture) % 2 === 1) {
+                r = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+                  .execute({
+                    memory: {},
+                    globals: {},
+                    textures: { targetTexture: r.texture },
+                    drawingTarget: allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight),
+                  });
+              }
+
+              this.gl.viewport(0, 0, this.screenWidth, this.screenHeight);
+
+              r.readResultToBuffer(buffer);
+            });
+      } else {
+        this.currentFrame.readResultToBuffer(buffer);
+      }
     }
   }
 

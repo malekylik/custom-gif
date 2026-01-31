@@ -1,6 +1,6 @@
 import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
 import { html, toChild, toEvent } from "../../parsing";
-import { Component, toComponent } from "../utils";
+import { Component, reScale, toComponent } from "../utils";
 import { createGLDrawer } from "../../../rendering/gl/gl_api/gl-drawer";
 import { BasicRenderer } from "src/rendering/gl/renderer";
 import { RendererGifDescriptor } from "src/rendering/renderer";
@@ -14,6 +14,7 @@ export type TimelineDataProps = {
   descriptor: RendererGifDescriptor;
   currentFrameNumber: WriteSignal<number>;
   isPlay: ReadSignal<boolean>;
+  timelineHeight: number;
   render: (frame: number) => void;
 };
 
@@ -21,8 +22,8 @@ let id = 0;
 
 export function TimelineData(props: TimelineDataProps): Component {
   return root((dispose) => {
-    const { renderer, descriptor } = props
-    const height = 80;
+    const { renderer, descriptor, timelineHeight } = props
+    const height = timelineHeight;
     let glSystemId = `Timeline_${id++}`;
     let currentTexturesRange: { start: number; length: number; lastFrameNumber: number; } = { start: 0, length: -1, lastFrameNumber: -1 };
     let frameTextures: GLTexture[] = [];
@@ -101,9 +102,11 @@ export function TimelineData(props: TimelineDataProps): Component {
 
         const gifWidth = renderer.getGif(descriptor).gif.screenDescriptor.screenWidth;
         const gifHeight = renderer.getGif(descriptor).gif.screenDescriptor.screenHeight;
-        const gifSize = gifWidth * gifHeight;
 
-        const adjGifWidth = gifWidth * (height / gifHeight);
+        const adjGifWidth = reScale(gifWidth, gifHeight, height) | 0;
+
+        const gifSize = adjGifWidth * height;
+
         const maxFrameInTimeline = Math.ceil(width / adjGifWidth);
         const possibleMaxFrameCount = 4;
 
@@ -133,14 +136,15 @@ export function TimelineData(props: TimelineDataProps): Component {
             }
             frameTextures = [];
 
+            // TODO: read and cache everything
             for (let i = 0; i < frameCount; i++) {
-              let buff = new Uint8Array(gifSize * 4);
+              let buff = new Uint8Array((gifSize * 4) | 0);
               const newFrameNumber = adjustedCurrentFrame + startOffset + i * offset;
               await renderer.setFrame(descriptor, newFrameNumber);
               renderer.readCurrentFrame(descriptor, buff);
-              buff = buff.filter((v, i) => !Number.isInteger((i + 1) / 4)).slice(0, gifSize * gifSize * 3);
+              buff = buff.filter((v, i) => !Number.isInteger((i + 1) / 4)).slice(0, gifSize * 3);
 
-              const frameTexture = new GLTexture(gl, gifWidth, gifHeight, buff);
+              const frameTexture = new GLTexture(gl, adjGifWidth, height, buff);
               frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
               frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
               frameTexture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -239,7 +243,7 @@ export function TimelineData(props: TimelineDataProps): Component {
               }
             })
           });
-    }, 1000);
+    }, 0);
 
     return toComponent(view.element, () => { dispose(); view.dispose(); getGLSystem(glSystemId).shaderManager.dispose(); disposeGLSystem(glSystemId); });
   });
