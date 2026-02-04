@@ -271,7 +271,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
               this.gl.viewport(0, 0, this.screenWidth, this.screenHeight);
 
-              r.readResultToBuffer(buffer);
+              r.readResultToBuffer(buffer, this.gl.RGBA);
             });
       } else {
         this.currentFrame.readResultToBuffer(buffer);

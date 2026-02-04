@@ -4,7 +4,7 @@ import { Component, reScale, toComponent } from "../utils";
 import { createGLDrawer } from "../../../rendering/gl/gl_api/gl-drawer";
 import { BasicRenderer } from "src/rendering/gl/renderer";
 import { RendererGifDescriptor } from "src/rendering/renderer";
-import { GLTexture } from "../../../rendering/gl/gl_api/texture";
+import { GLTexture, TextureFormat, TextureType } from "../../../rendering/gl/gl_api/texture";
 import { disposeGLSystem, getGLSystem, initGLSystem } from "../../../rendering/gl/gl-system";
 import { ShaderPromgramId } from "../../../rendering/api/shader-manager";
 import { createGLScreenDrawingTarget } from "../../../rendering/gl/gl_api/gl-drawing-target";
@@ -142,9 +142,8 @@ export function TimelineData(props: TimelineDataProps): Component {
               const newFrameNumber = adjustedCurrentFrame + startOffset + i * offset;
               await renderer.setFrame(descriptor, newFrameNumber);
               renderer.readCurrentFrame(descriptor, buff);
-              buff = buff.filter((v, i) => !Number.isInteger((i + 1) / 4)).slice(0, gifSize * 3);
 
-              const frameTexture = new GLTexture(gl, adjGifWidth, height, buff);
+              const frameTexture = new GLTexture(gl, adjGifWidth, height, buff, { imageFormat: { internalFormat: TextureFormat.RGBA, format: TextureFormat.RGBA, type: TextureType.UNSIGNED_BYTE } });
               frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
               frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
               frameTexture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);

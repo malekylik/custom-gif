@@ -5,6 +5,7 @@ export enum TextureFiltering {
 
 export enum TextureFormat {
   RGB,
+  RGBA,
   R8,
   RED,
 }
@@ -33,6 +34,7 @@ function convertToGLTextureFormat(gl: WebGL2RenderingContext, format: TextureFor
     case TextureFormat.R8: return gl.R8;
     case TextureFormat.RED: return gl.RED;
     case TextureFormat.RGB: return gl.RGB;
+    case TextureFormat.RGBA: return gl.RGBA;
   }
 
   return 0;
