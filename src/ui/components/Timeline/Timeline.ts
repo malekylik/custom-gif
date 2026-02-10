@@ -96,10 +96,6 @@ export function TimelineData(props: TimelineDataProps): Component {
 
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-        // Otherwise will get - WebGL: INVALID_OPERATION: texImage2D: ArrayBufferView not big enough for request
-        // Since RGB is not align by 4
-        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-
         const gifWidth = renderer.getGif(descriptor).gif.screenDescriptor.screenWidth;
         const gifHeight = renderer.getGif(descriptor).gif.screenDescriptor.screenHeight;
 
