@@ -1,13 +1,15 @@
 import { ResourceManager } from '../../api/resource-manager';
 import { createGLBufferDrawingTarget, GLBufferDrawingTarget } from './gl-drawing-target';
+import { TextureConfig } from './texture';
 
 export interface GLFrameDrawingLastinAllocator {
-    allocate(width: number, height: number): GLBufferDrawingTarget;
+    // TODO: think if we want to pass config as so
+    allocate(width: number, height: number, config?: TextureConfig): GLBufferDrawingTarget;
     dispose(buffer: GLBufferDrawingTarget): void;
 }
 
 export interface GLFrameDrawingTargetTemporaryAllocator {
-    allocate(width: number, height: number): GLBufferDrawingTarget;
+    allocate(width: number, height: number, config?: TextureConfig): GLBufferDrawingTarget;
 }
 export interface GLResourceManager extends ResourceManager {
     allocateFrameDrawingTarget(callback: (allocator: GLFrameDrawingTargetTemporaryAllocator) => void): void;
@@ -21,8 +23,8 @@ export function createGLResourceManager(gl: WebGL2RenderingContext, id: string):
     let allocationCount = 0;
 
     const lastingAllocator: GLFrameDrawingLastinAllocator = {
-        allocate(width, height) {
-            const drawingTarget = createGLBufferDrawingTarget(gl, width, height);
+        allocate(width, height, config) {
+            const drawingTarget = createGLBufferDrawingTarget(gl, width, height, config);
 
             globalDrawingTargets.push(drawingTarget);
 
@@ -66,12 +68,12 @@ export function createGLResourceManager(gl: WebGL2RenderingContext, id: string):
             const allocator: GLFrameDrawingTargetTemporaryAllocator & { depth: number } = {
                 depth: allocationDepth,
 
-                allocate(width, height) {
+                allocate(width, height, config) {
                     if (this.depth !== allocationDepth) {
                         console.warn(`${id}: allocator should be called inside own callback`);
                     }
 
-                    const drawingTarget = createGLBufferDrawingTarget(gl, width, height);
+                    const drawingTarget = createGLBufferDrawingTarget(gl, width, height, config);
 
                     frameDrawingTargets[allocationDepth].push(drawingTarget);
 

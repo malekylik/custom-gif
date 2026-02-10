@@ -63,7 +63,7 @@ const DefaultImageFormat = {
   type: TextureType.UNSIGNED_BYTE,
 }
 
-interface TextureConfig {
+export interface TextureConfig {
   filtering?: { min: TextureFiltering, mag: TextureFiltering },
   imageFormat?: { internalFormat: TextureFormat; format: TextureFormat; type: TextureType; }
 }
@@ -82,6 +82,9 @@ export interface IGLTexture {
   activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext, textureUnit?: number): void;
   
   getGLTexture(): WebGLTexture;
+
+  setTextureWrap(gl: WebGLRenderingContext | WebGL2RenderingContext, axis: WebGLRenderingContextBase["TEXTURE_WRAP_S"] | WebGLRenderingContextBase["TEXTURE_WRAP_T"], mode: WebGLRenderingContextBase['REPEAT'] | WebGLRenderingContextBase['CLAMP_TO_EDGE'] | WebGLRenderingContextBase['MIRRORED_REPEAT']): void;
+  setTextureFilter(gl: WebGLRenderingContext | WebGL2RenderingContext, filter: WebGLRenderingContextBase["TEXTURE_MIN_FILTER"] | WebGLRenderingContextBase["TEXTURE_MAG_FILTER"], mode: WebGLRenderingContextBase['NEAREST'] | WebGLRenderingContextBase['LINEAR']): void
 
   dispose(gl: WebGLRenderingContext | WebGL2RenderingContext): void;
 }
@@ -120,12 +123,14 @@ export class GLTexture implements IGLTexture {
   }
 
   setTextureWrap(gl: WebGLRenderingContext | WebGL2RenderingContext, axis: WebGLRenderingContextBase["TEXTURE_WRAP_S"] | WebGLRenderingContextBase["TEXTURE_WRAP_T"], mode: WebGLRenderingContextBase['REPEAT'] | WebGLRenderingContextBase['CLAMP_TO_EDGE'] | WebGLRenderingContextBase['MIRRORED_REPEAT']): void {
+    // TODO: change config as well
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texParameteri(gl.TEXTURE_2D, axis, mode);
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
   setTextureFilter(gl: WebGLRenderingContext | WebGL2RenderingContext, filter: WebGLRenderingContextBase["TEXTURE_MIN_FILTER"] | WebGLRenderingContextBase["TEXTURE_MAG_FILTER"], mode: WebGLRenderingContextBase['NEAREST'] | WebGLRenderingContextBase['LINEAR']): void {
+    // TODO: change config as well
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texParameteri(gl.TEXTURE_2D, filter, mode);
     gl.bindTexture(gl.TEXTURE_2D, null);
@@ -197,6 +202,14 @@ export class NoopGLTexture implements IGLTexture {
 
   getHeight(): number {
     return -1;
+  }
+
+  setTextureWrap(): void {
+    // noop
+  }
+
+  setTextureFilter(): void {
+    // noop
   }
 
   dispose() {

@@ -75,7 +75,6 @@ export function App(props: {}): AppComponent {
                 const timelineHeight = 80;
                 const adjTimelineFrameWidth = reScale(gif.gif.screenDescriptor.screenWidth, gif.gif.screenDescriptor.screenHeight, timelineHeight) | 0;
 
-                // TODO: Allow for canvas size
                 // TODO: Allow OffscreenCanvas to be passed
                 const descriptor1 = await renderer1.addGifToRender(gif, new OffscreenCanvas(1, 1) as any, { uncompress: lzw_uncompress_timeline, algorithm: 'GL', screenDescriptor: { screenWidth: adjTimelineFrameWidth, screenHeight: timelineHeight } });
 

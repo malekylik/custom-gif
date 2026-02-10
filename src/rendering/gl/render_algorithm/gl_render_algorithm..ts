@@ -4,7 +4,7 @@ import { ScreenDescriptor } from 'src/parsing/gif/screen_descriptor';
 import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../consts';
 import { GLVBO } from '../gl_api/vbo';
 import { RenderAlgorithm } from './render_algorithm';
-import { GLTexture, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
+import { GLTexture, TextureFiltering, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
 import { FactoryOut, FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 import { FlipRenderResultsRenderPass } from '../render-pass/flip-render-pass';
 import { DrawingToScreenRenderPass } from '../render-pass/drawing-to-screen-pass';
@@ -125,7 +125,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       if (this.currentFrameBuffer) {
         getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.currentFrameBuffer);
       }
-      this.currentFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight);
+      this.currentFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight, { filtering: { min: TextureFiltering.LINEAR, mag: TextureFiltering.LINEAR } });
 
       this.currentFrame = new GifRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
         .execute({
@@ -170,7 +170,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
             memory: {},
             globals: {},
             textures: { targetTexture: this.currentFrame.texture },
-            drawingTarget:  allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight),
+            drawingTarget:  allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight, { filtering: { min: TextureFiltering.LINEAR, mag: TextureFiltering.LINEAR } }),
           });
       }
 
@@ -247,11 +247,12 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   getCanvasPixels(buffer: ArrayBufferView) {
     if (this.currentFrame) {
+      // TODO: remove this.resultOutputDimension, try to use generator and just map texture to whatever you want before read
       if (this.resultOutputDimension) {
             getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
               this.gl.viewport(0, 0, this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight);
 
-              let r = new CopyRenderResultRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+              let result = new CopyRenderResultRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
               .execute({
                 memory: {},
                 globals: {},
@@ -259,19 +260,19 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
                 drawingTarget: allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight),
               });
 
-              if (this.drawer.getNumberOfDrawCalls(r.texture) % 2 === 1) {
-                r = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+              if (this.drawer.getNumberOfDrawCalls(result.texture) % 2 === 1) {
+                result = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
                   .execute({
                     memory: {},
                     globals: {},
-                    textures: { targetTexture: r.texture },
+                    textures: { targetTexture: result.texture },
                     drawingTarget: allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight),
                   });
               }
 
               this.gl.viewport(0, 0, this.screenWidth, this.screenHeight);
 
-              r.readResultToBuffer(buffer, this.gl.RGBA);
+              result.readResultToBuffer(buffer, this.gl.RGBA);
             });
       } else {
         this.currentFrame.readResultToBuffer(buffer);
