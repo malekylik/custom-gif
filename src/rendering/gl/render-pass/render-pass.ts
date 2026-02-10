@@ -3,13 +3,14 @@ import { RenderResult } from '../../api/render-result';
 import { GLTexture, IGLTexture } from '../gl_api/texture';
 import { BufferDrawingTarget } from 'src/rendering/api/drawing-target';
 import { RGBA } from '../effects/utils/rgba';
+import { Mat3 } from '../effects/utils/mat3';
 
 export interface GPUMemory {
 
 }
 
 export type GPUGlobals = {
-    [globalName: string]: number | [number, number, number, number] | RGBA;
+    [globalName: string]: number | [number, number, number, number] | Mat3 | RGBA;
 }
 
 export interface GPUInputTexture {

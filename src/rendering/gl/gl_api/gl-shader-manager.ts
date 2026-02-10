@@ -3,15 +3,19 @@ import { GLProgram } from './program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from './shader';
 
 import MainVertText from '../shader_assets/main.vert';
+import MainTimlineVertText from '../shader_assets/mainTimeline.vert';
 import MadnessVertText from '../shader_assets/madness.vert';
 
 import TextureFragText from '../shader_assets/texture.frag';
+import TimelineFragText from '../shader_assets/mainTimeline.frag';
+import TimelineCurrentFrameFragText from '../shader_assets/mainTimelineCurrentFrame.frag';
 import BlackAndWhiteFragText from '../shader_assets/blanckWhiteTexture.frag';
 import MixTextureFragText from '../shader_assets/mixTextures.frag';
 import TextureAlpha from '../shader_assets/textureAlpha.frag';
 import TextureWithPalleteFragText from '../shader_assets/textureWithPallete.frag';
 import MadnessEffectText from '../shader_assets/madness.frag';
 import DarkingEffectText from '../shader_assets/darking.frag';
+import ConvolutionMatrixText from '../shader_assets/convolutionMatrix.frag';
 
 export interface GLShaderManager extends ShaderManager {
     dispose(): void;
@@ -94,6 +98,18 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
 
         if (programId === ShaderPromgramId.Darking) {
             return { vertText: MainVertText, fragText: DarkingEffectText };
+        }
+
+        if (programId === ShaderPromgramId.ConvolutionMatrix) {
+            return { vertText: MainVertText, fragText: ConvolutionMatrixText };
+        }
+
+        if (programId === ShaderPromgramId.GifTimeline) {
+            return { vertText: MainTimlineVertText, fragText: TimelineFragText };
+        }
+
+        if (programId === ShaderPromgramId.GifTimelineCurrentFrame) {
+            return { vertText: MainTimlineVertText, fragText: TimelineCurrentFrameFragText };
         }
 
         return { vertText: '', fragText: '' };

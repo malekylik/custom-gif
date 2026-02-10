@@ -1,10 +1,11 @@
 import { BufferDrawingTarget } from '../../api/drawing-target';
-import { GLTexture, IGLTexture, NoopGLTexture } from './texture';
+import { GLTexture, IGLTexture, NoopGLTexture, TextureConfig } from './texture';
 
 export interface GLBufferDrawingTarget extends BufferDrawingTarget {
-    dispose(): void
+    dispose(): void;
 }
 
+// TODO: add width and height as well, and update screen each time with viewport
 export function createGLScreenDrawingTarget(gl: WebGL2RenderingContext): GLBufferDrawingTarget {
     const _drawingContext: WebGL2RenderingContext = gl;
     const noopTexture = new NoopGLTexture();
@@ -25,12 +26,12 @@ export function createGLScreenDrawingTarget(gl: WebGL2RenderingContext): GLBuffe
     return drawingTarget;
 }
 
-export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: number, height: number): GLBufferDrawingTarget {
+export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: number, height: number, config?: TextureConfig): GLBufferDrawingTarget {
     const _drawingContext: WebGL2RenderingContext = gl;
     const _width: number = width;
     const _height: number = height;
 
-    const { frameBuffer, texture: _texture, rbo } = init();
+    const { frameBuffer, texture: _texture } = init();
 
     const drawingTarget: GLBufferDrawingTarget = {
         bind() {
@@ -45,7 +46,7 @@ export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: n
             _drawingContext.bindFramebuffer(gl.FRAMEBUFFER, null);
             _drawingContext.deleteFramebuffer(frameBuffer);
 
-            _drawingContext.deleteRenderbuffer(rbo);
+            // _drawingContext.deleteRenderbuffer(rbo);
 
             _drawingContext.deleteTexture(_texture.getGLTexture());
         },
@@ -53,22 +54,24 @@ export function createGLBufferDrawingTarget(gl: WebGL2RenderingContext, width: n
 
     return drawingTarget;
 
-    function init(): { frameBuffer: WebGLFramebuffer; texture: IGLTexture; rbo: WebGLRenderbuffer } {
+    function init(): { frameBuffer: WebGLFramebuffer; texture: IGLTexture; } {
         const frameBuffer = _drawingContext.createFramebuffer();
         _drawingContext.bindFramebuffer(_drawingContext.FRAMEBUFFER, frameBuffer);
 
-        const rbo = _drawingContext.createRenderbuffer();
-        _drawingContext.bindRenderbuffer(_drawingContext.RENDERBUFFER, rbo);
-        _drawingContext.renderbufferStorage(_drawingContext.RENDERBUFFER, _drawingContext.DEPTH24_STENCIL8, _width, _height);
-        _drawingContext.bindRenderbuffer(_drawingContext.RENDERBUFFER, null);
+        // DO we need to read from framebuffer
+        // const rbo = _drawingContext.createRenderbuffer();
+        // _drawingContext.bindRenderbuffer(_drawingContext.RENDERBUFFER, rbo);
+        // _drawingContext.renderbufferStorage(_drawingContext.RENDERBUFFER, _drawingContext.DEPTH24_STENCIL8, _width, _height);
+        // _drawingContext.bindRenderbuffer(_drawingContext.RENDERBUFFER, null);
     
-        _drawingContext.framebufferRenderbuffer(_drawingContext.FRAMEBUFFER, _drawingContext.DEPTH_STENCIL_ATTACHMENT, _drawingContext.RENDERBUFFER, rbo);
+        // _drawingContext.framebufferRenderbuffer(_drawingContext.FRAMEBUFFER, _drawingContext.DEPTH_STENCIL_ATTACHMENT, _drawingContext.RENDERBUFFER, rbo);
 
-        const texture = new GLTexture(gl, _width, _height, null);
+        const texture = new GLTexture(gl, _width, _height, null, config);
+
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.getGLTexture(), 0);
 
         _drawingContext.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-        return ({ frameBuffer, texture, rbo });
+        return ({ frameBuffer, texture });
     }
 }

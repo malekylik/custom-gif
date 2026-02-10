@@ -5,6 +5,7 @@ export enum TextureFiltering {
 
 export enum TextureFormat {
   RGB,
+  RGBA,
   R8,
   RED,
 }
@@ -33,6 +34,7 @@ function convertToGLTextureFormat(gl: WebGL2RenderingContext, format: TextureFor
     case TextureFormat.R8: return gl.R8;
     case TextureFormat.RED: return gl.RED;
     case TextureFormat.RGB: return gl.RGB;
+    case TextureFormat.RGBA: return gl.RGBA;
   }
 
   return 0;
@@ -61,7 +63,7 @@ const DefaultImageFormat = {
   type: TextureType.UNSIGNED_BYTE,
 }
 
-interface TextureConfig {
+export interface TextureConfig {
   filtering?: { min: TextureFiltering, mag: TextureFiltering },
   imageFormat?: { internalFormat: TextureFormat; format: TextureFormat; type: TextureType; }
 }
@@ -80,6 +82,9 @@ export interface IGLTexture {
   activeTexture(gl: WebGLRenderingContext | WebGL2RenderingContext, textureUnit?: number): void;
   
   getGLTexture(): WebGLTexture;
+
+  setTextureWrap(gl: WebGLRenderingContext | WebGL2RenderingContext, axis: WebGLRenderingContextBase["TEXTURE_WRAP_S"] | WebGLRenderingContextBase["TEXTURE_WRAP_T"], mode: WebGLRenderingContextBase['REPEAT'] | WebGLRenderingContextBase['CLAMP_TO_EDGE'] | WebGLRenderingContextBase['MIRRORED_REPEAT']): void;
+  setTextureFilter(gl: WebGLRenderingContext | WebGL2RenderingContext, filter: WebGLRenderingContextBase["TEXTURE_MIN_FILTER"] | WebGLRenderingContextBase["TEXTURE_MAG_FILTER"], mode: WebGLRenderingContextBase['NEAREST'] | WebGLRenderingContextBase['LINEAR']): void
 
   dispose(gl: WebGLRenderingContext | WebGL2RenderingContext): void;
 }
@@ -115,6 +120,20 @@ export class GLTexture implements IGLTexture {
 
   bind(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
+  }
+
+  setTextureWrap(gl: WebGLRenderingContext | WebGL2RenderingContext, axis: WebGLRenderingContextBase["TEXTURE_WRAP_S"] | WebGLRenderingContextBase["TEXTURE_WRAP_T"], mode: WebGLRenderingContextBase['REPEAT'] | WebGLRenderingContextBase['CLAMP_TO_EDGE'] | WebGLRenderingContextBase['MIRRORED_REPEAT']): void {
+    // TODO: change config as well
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.texParameteri(gl.TEXTURE_2D, axis, mode);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
+  setTextureFilter(gl: WebGLRenderingContext | WebGL2RenderingContext, filter: WebGLRenderingContextBase["TEXTURE_MIN_FILTER"] | WebGLRenderingContextBase["TEXTURE_MAG_FILTER"], mode: WebGLRenderingContextBase['NEAREST'] | WebGLRenderingContextBase['LINEAR']): void {
+    // TODO: change config as well
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.texParameteri(gl.TEXTURE_2D, filter, mode);
+    gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
   getTextureUnit(): number {
@@ -183,6 +202,14 @@ export class NoopGLTexture implements IGLTexture {
 
   getHeight(): number {
     return -1;
+  }
+
+  setTextureWrap(): void {
+    // noop
+  }
+
+  setTextureFilter(): void {
+    // noop
   }
 
   dispose() {

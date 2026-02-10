@@ -10,6 +10,7 @@ export function initGLSystem(gl: WebGL2RenderingContext, systemName: string): vo
     );
 }
 
+// TODO: should dispose all system automatically
 export function disposeGLSystem(systemName: string): void {
     glResources.delete(systemName);
 }

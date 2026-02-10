@@ -2,6 +2,7 @@ import { ReadSignal, root, signal } from "@maverick-js/signals";
 import { DarkingEffectId } from "../../../rendering/gl/effects/darking-effect";
 import { MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
 import { BlackAndWhiteEffectId } from "../../../rendering/gl/effects/black-and-white-effect";
+import { EdgeDetectionEffectId } from "../../../rendering/gl/effects/edge-detection-effect";
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, toComponent } from "../utils";
 import { getEffectName } from "../GifEffectData/utils";
@@ -21,6 +22,7 @@ export function AllEffectList(props: AllEffectListProps): Component {
     BlackAndWhiteEffectId,
     MadnessEffectId,
     DarkingEffectId,
+    EdgeDetectionEffectId,
   ]);
 
   return root((dispose) => {

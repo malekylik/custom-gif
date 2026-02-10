@@ -1,3 +1,4 @@
+import { Vec1 } from "../effects/utils/vec1";
 import { IGLTexture } from "./texture";
 
 export function createGLProgram(gl: WebGLRenderingContext | WebGL2RenderingContext, vertShader: WebGLShader, fragShader: WebGLShader): WebGLProgram {
@@ -77,7 +78,18 @@ export class GLProgram {
     }
   }
 
-  setUniform3fv(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, x: number, y: number, z: number): void {
+    setUniform1fv(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, value: Vec1): void {
+    let cache = this.getCache(gl, location + '[0]');
+    let cachedValue = cache.value as unknown as Vec1;
+
+    if (!cachedValue || (value !== cachedValue)) {
+      cache.value = value;
+
+      gl.uniform1fv(cache.location, value.getBuffer());
+    }
+  }
+
+  setUniform3f(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, x: number, y: number, z: number): void {
     let cache = this.getCache(gl, location);
     let value = cache.value as unknown as Float32Array;
 
@@ -86,6 +98,22 @@ export class GLProgram {
       value[0] = x;
       value[1] = y;
       value[2] = z;
+      cache.value = value;
+
+      gl.uniform3f(cache.location, x, y, z);
+    }
+  }
+
+  setUniform3fv(gl: WebGLRenderingContext | WebGL2RenderingContext, location: string, x: number, y: number, z: number): void {
+    let cache = this.getCache(gl, location + '[0]');
+    let value = cache.value as unknown as Float32Array;
+
+    if (!value || (value[0] !== x || value[1] !== y, value[2] !== z)) {
+      value = new Float32Array(3);
+      value[0] = x;
+      value[1] = y;
+      value[2] = z;
+      cache.value = value;
 
       gl.uniform3fv(cache.location, value);
     }

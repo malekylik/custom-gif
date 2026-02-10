@@ -4,7 +4,7 @@ import { ScreenDescriptor } from 'src/parsing/gif/screen_descriptor';
 import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../consts';
 import { GLVBO } from '../gl_api/vbo';
 import { RenderAlgorithm } from './render_algorithm';
-import { GLTexture, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
+import { GLTexture, TextureFiltering, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
 import { FactoryOut, FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 import { FlipRenderResultsRenderPass } from '../render-pass/flip-render-pass';
 import { DrawingToScreenRenderPass } from '../render-pass/drawing-to-screen-pass';
@@ -47,7 +47,9 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   private id: string;
 
-  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  private resultOutputDimension: { screenWidth: number; screenHeight: number; };
+
+  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult, resultOutputDimension?: { screenWidth: number; screenHeight: number; }) {
     const gl = canvas.getContext('webgl2');
     this.id = String(++id);
 
@@ -62,6 +64,8 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     this.screenWidth = screenWidth;
     this.screenHeight = screenHeight;
+
+    this.resultOutputDimension = resultOutputDimension;
 
     this.uncompressedData = uncompressed.out;
     this.lzw_uncompress = uncompressed.lzw_uncompress;
@@ -121,7 +125,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       if (this.currentFrameBuffer) {
         getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.currentFrameBuffer);
       }
-      this.currentFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight);
+      this.currentFrameBuffer = getGLSystem(this.id).resouceManager.getLastingAllocator().allocate(this.screenWidth, this.screenHeight, { filtering: { min: TextureFiltering.LINEAR, mag: TextureFiltering.LINEAR } });
 
       this.currentFrame = new GifRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
         .execute({
@@ -159,6 +163,16 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   drawToScreen(effects: GLEffect[], currentFrame: number): void {
     getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
       let newResult = this.postProcessing(this.currentFrame, allocator, effects, currentFrame);
+
+      if (this.resultOutputDimension) {
+        newResult = new CopyRenderResultRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+          .execute({
+            memory: {},
+            globals: {},
+            textures: { targetTexture: this.currentFrame.texture },
+            drawingTarget:  allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight, { filtering: { min: TextureFiltering.LINEAR, mag: TextureFiltering.LINEAR } }),
+          });
+      }
 
       if (this.drawer.getNumberOfDrawCalls(newResult.texture) % 2 === 1) {
         newResult = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
@@ -233,7 +247,36 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   getCanvasPixels(buffer: ArrayBufferView) {
     if (this.currentFrame) {
-      this.currentFrame.readResultToBuffer(buffer);
+      // TODO: remove this.resultOutputDimension, try to use generator and just map texture to whatever you want before read
+      if (this.resultOutputDimension) {
+            getGLSystem(this.id).resouceManager.allocateFrameDrawingTarget((allocator) => {
+              this.gl.viewport(0, 0, this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight);
+
+              let result = new CopyRenderResultRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+              .execute({
+                memory: {},
+                globals: {},
+                textures: { targetTexture: this.currentFrame.texture },
+                drawingTarget: allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight),
+              });
+
+              if (this.drawer.getNumberOfDrawCalls(result.texture) % 2 === 1) {
+                result = new FlipRenderResultsRenderPass(this.drawer, getGLSystem(this.id).shaderManager)
+                  .execute({
+                    memory: {},
+                    globals: {},
+                    textures: { targetTexture: result.texture },
+                    drawingTarget: allocator.allocate(this.resultOutputDimension.screenWidth, this.resultOutputDimension.screenHeight),
+                  });
+              }
+
+              this.gl.viewport(0, 0, this.screenWidth, this.screenHeight);
+
+              result.readResultToBuffer(buffer, this.gl.RGBA);
+            });
+      } else {
+        this.currentFrame.readResultToBuffer(buffer);
+      }
     }
   }
 

@@ -21,7 +21,8 @@ const FPS = 1 / 25 * 1000;
 
 export interface RendererOptions {
   uncompress: FactoryResult;
-  algorithm: 'GL' | 'Software'
+  algorithm: 'GL' | 'Software';
+  screenDescriptor?: { screenWidth: number; screenHeight: number; }
 }
 
 type FrameSubsription = (r: { frameNumber: number; totalFrameNumber: number; gifDescription: RendererGifDescriptor }) => void;
@@ -46,19 +47,22 @@ export class BasicRenderer implements Renderer {
       gifEntity,
       currentFrame: -1,
       algorithm: options.algorithm === 'GL' ?
-        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress) :
+        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress, options.screenDescriptor) :
         new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress),
       timer: new Timer,
       canvas,
       effects: [],
     };
 
-    const { screenWidth, screenHeight } = gif.gifEntity.gif.screenDescriptor;
+    const { screenWidth, screenHeight } = options.screenDescriptor || gif.gifEntity.gif.screenDescriptor;
 
     gif.canvas.width = screenWidth;
     gif.canvas.height = screenHeight;
-    gif.canvas.style.width = `${screenWidth}px`;
-    gif.canvas.style.height = `${screenHeight}px`;
+    // For offset canvas
+    if (gif.canvas.style) {
+      gif.canvas.style.width = `${screenWidth}px`;
+      gif.canvas.style.height = `${screenHeight}px`;
+    }
 
     this.gifs.push(gif);
 
@@ -209,6 +213,16 @@ export class BasicRenderer implements Renderer {
       gif.timer.clear();
       gif.algorithm.dispose();
     });
+  }
+
+
+  getGif(descriptor: RendererGifDescriptor): GifEntity {
+    return this.gifs[descriptor.id].gifEntity;
+  }
+
+  public readCurrentFrame(descriptor: RendererGifDescriptor, buffer: ArrayBufferView<ArrayBufferLike>): void {
+    const gif = this.gifs[descriptor.id];
+    gif.algorithm.getCanvasPixels(buffer);
   }
 
   private drawToTexture(gif: RendererEntity, frame: number): void {

@@ -1,5 +1,5 @@
 import { html, toChild, toEvent } from "../../parsing";
-import { Component, readFile, toComponent } from "../utils";
+import { Component, readFile, reScale, toComponent } from "../utils";
 import { effect, root, signal } from "@maverick-js/signals";
 import { parseGif } from "../../../parsing/gif";
 import { createGifEntity, GifEntity } from "../../../parsing/new_gif/gif_entity";
@@ -13,6 +13,8 @@ import { BlackAndWhiteEffectId, createBlackAndWhiteEffect } from "../../../rende
 import { Effect } from "../../../rendering/api/effect";
 import { DarkingDirection } from "../../../../src/rendering/gl/render-pass/darking-pass";
 import { getBlackRGBA } from "../../../../src/rendering/gl/effects/utils/rgba";
+import { EdgeDetectionEffectId, createEdgeDetectionEffect } from "../../../rendering/gl/effects/edge-detection-effect";
+import { TimelineData } from "../Timeline/Timeline";
 
 export type AppComponent = Component;
 
@@ -30,6 +32,7 @@ export function App(props: {}): AppComponent {
         if (effectId === MadnessEffectId) return (data) => createMadnessEffect(data);
         else if (effectId === DarkingEffectId) return (data) => createDarkingEffect(data, { direction: DarkingDirection.in, color: getBlackRGBA() });
         else if (effectId === BlackAndWhiteEffectId) return (data) => createBlackAndWhiteEffect(data);
+        else if (effectId === EdgeDetectionEffectId) return (data) => createEdgeDetectionEffect(data);
 
         return null;
     }
@@ -46,9 +49,12 @@ export function App(props: {}): AppComponent {
 
             root(async (dispose) => {
                 let renderer = new BasicRenderer();
+                let renderer1 = new BasicRenderer();
                 const lzw_uncompress = await createLZWFuncFromWasm(gif.gif);
+                const lzw_uncompress_timeline = lzw_uncompress;
                 let close = () => {};
                 let rerender = () => {};
+                let render = (frame: number) => {};
 
                 const isPlay = signal(false);
                 const currentFrameNumber = signal(1);
@@ -60,14 +66,32 @@ export function App(props: {}): AppComponent {
                     renderer.removeEffectFromGif(descriptor, effects()[effectIndex]);
                 };
 
-                const gifVisualizer = GifVisualizer({
+                const gifVisualizer1 = GifVisualizer({
                     isPlay, renderNext, currentFrameNumber, totalFrameNumber, effects: effects,
                     rerender: () => rerender(), onClose: () => close(), removeSelectedEffect: removeSelectedEffect,
                     isEffectSelectedToAdd: () => selectedEffect() !== null, addSelectedEffect: () => { const factor = getEffectFactory(selectedEffect()); renderer.addEffectToGif(descriptor, 0, 1, data => factor(data)); }
                 });
 
+                const timelineHeight = 80;
+                const adjTimelineFrameWidth = reScale(gif.gif.screenDescriptor.screenWidth, gif.gif.screenDescriptor.screenHeight, timelineHeight) | 0;
+
+                // TODO: Allow OffscreenCanvas to be passed
+                const descriptor1 = await renderer1.addGifToRender(gif, new OffscreenCanvas(1, 1) as any, { uncompress: lzw_uncompress_timeline, algorithm: 'GL', screenDescriptor: { screenWidth: adjTimelineFrameWidth, screenHeight: timelineHeight } });
+
+                const gifVisualizer = html`
+                    <div>
+                        <div>
+                            ${toChild(() => gifVisualizer1)}
+                        </div>
+                        <div>
+                            ${toChild(() => TimelineData({ renderer: renderer1, descriptor: descriptor1, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame) }))}
+                        </div>
+                    </div>
+                `
+
                 close = () => {
                     renderer.dispose();
+                    renderer1.dispose();
                     dispose();
                     gifList.set(gifList().filter(c => c !== gifVisualizer));
                     gifs = gifs.filter(_g => _g !== gif);
@@ -75,11 +99,17 @@ export function App(props: {}): AppComponent {
 
                 gifList.set(gifList().concat(gifVisualizer));
 
-                const descriptor = await renderer.addGifToRender(gif, gifVisualizer.getCanvas(), { uncompress: lzw_uncompress, algorithm: 'GL' });
+                const descriptor = await renderer.addGifToRender(gif, gifVisualizer1.getCanvas(), { uncompress: lzw_uncompress, algorithm: 'GL' });
 
                 rerender = () => {
                     if (!isPlay()) {
                         renderer.setFrame(descriptor, renderer.getCurrentFrame(descriptor));
+                    }
+                };
+
+                render = (frame: number) => {
+                    if (!isPlay()) {
+                        renderer.setFrame(descriptor, frame);
                     }
                 };
 
@@ -93,11 +123,11 @@ export function App(props: {}): AppComponent {
 
                 effect(() => {
                     if (isPlay()) {
-                    if (!renderer.autoplayStart(descriptor)) {
-                        console.warn('Error to stop');
-                    }
+                        if (!renderer.autoplayStart(descriptor)) {
+                            console.warn('Error to stop');
+                        }
                     } else {
-                    renderer.autoplayEnd(descriptor);
+                        renderer.autoplayEnd(descriptor);
                     }
                 });
                 isPlay.set(true);

@@ -2,12 +2,14 @@ import { html, toChild, toEvent } from "../../parsing";
 import { GLMadnessEffect, isMadnessEffect, MadnessEffectId } from "../../../rendering/gl/effects/madness-effect";
 import { BlackAndWhiteEffectId, isBlackAndWhiteEffect } from "../../../rendering/gl/effects/black-and-white-effect";
 import { DarkingEffectId, isDarkingEffect, GLDarkingEffect } from "../../../rendering/gl/effects/darking-effect";
+import { EdgeDetectionEffectId, GLEdgeDetectionEffect, isEdgeDetectionEffect } from "../../../rendering/gl/effects/edge-detection-effect";
 import { BlackAndWhiteGifEffectEditor } from "../effects/BlackAndWhiteGifEffectEditor/BlackAndWhiteGifEffectEditor";
 import { MadnessEffectEditor } from "../effects/MadnessEffectEditor/MadnessEffectEditor";
 import { GLEffect } from "src/rendering/gl/gl_api/gl-effect";
 import { DarkingEffectEditor } from "../effects/DarkingEffectEditor/DarkingEffectEditor";
 import { ReadSignal } from "@maverick-js/signals";
 import { Component } from "../utils";
+import { EdgeDetectionGifEffectEditor } from "../effects/EdgeDetectionGifEffectEditor/EdgeDetectionGifEffectEditor";
 
 export function getEffectName(effectId: number): string | null {
   if (effectId === MadnessEffectId) {
@@ -20,6 +22,10 @@ export function getEffectName(effectId: number): string | null {
 
   if (effectId === DarkingEffectId) {
     return 'In And Out Effect';
+  }
+
+  if (effectId === EdgeDetectionEffectId) {
+    return 'Edge Detection Effect';
   }
 
   return null;
@@ -53,6 +59,13 @@ export function getEffectEditorComponent(props: EffectEditorProps, closeEditor: 
     if (isDarkingEffect(props.effect)) {
         return html`<div>
         <div>${toChild(() => DarkingEffectEditor(props as EffectEditorProps<GLDarkingEffect>))}</div>
+        <button onClick="${toEvent(closeEditor)}">close</button>
+        </div>`;
+    }
+
+    if (isEdgeDetectionEffect(props.effect)) {
+        return html`<div>
+        <div>${toChild(() => EdgeDetectionGifEffectEditor(props as EffectEditorProps<GLEdgeDetectionEffect>))}</div>
         <button onClick="${toEvent(closeEditor)}">close</button>
         </div>`;
     }

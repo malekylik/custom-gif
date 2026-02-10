@@ -5,10 +5,12 @@ export function createGLRenderResult(gl: WebGL2RenderingContext, texture: IGLTex
     return {
         texture,
 
-        readResultToBuffer(buffer: ArrayBufferView): void {
+        readResultToBuffer(buffer: Uint8Array, format?: WebGLRenderingContextBase['RGB'] | WebGLRenderingContextBase['RGBA']): void {
+            format ??= gl.RGBA;
+
             const frameBuffer = attachToFrameBuffer(texture);
 
-            gl.readPixels(0, 0, texture.getWidth(), texture.getHeight(), gl.RGBA, gl.UNSIGNED_BYTE, buffer);
+            gl.readPixels(0, 0, texture.getWidth(), texture.getHeight(), format, gl.UNSIGNED_BYTE, buffer);
 
             deleteFrameBuffer(frameBuffer);
         }

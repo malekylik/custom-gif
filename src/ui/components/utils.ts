@@ -26,3 +26,6 @@ export function readFile(file: File): Promise<ArrayBuffer> {
   });
 }
 
+export function reScale(target: number, targetOriginalAnotherDimension: number, targetRescaledAnotherDimension: number): number {
+    return target * (targetRescaledAnotherDimension / targetOriginalAnotherDimension);
+}
