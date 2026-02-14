@@ -655,9 +655,5 @@ run();
 }
 );
 })();
-if (typeof exports === 'object' && typeof module === 'object')
-  module.exports = createLZWModule;
-else if (typeof define === 'function' && define['amd'])
-  define([], function() { return createLZWModule; });
-else if (typeof exports === 'object')
-  exports["createLZWModule"] = createLZWModule;
+
+export default createLZWModule;
