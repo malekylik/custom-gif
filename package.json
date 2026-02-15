@@ -6,8 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "compile": "tsc",
-    "build": "webpack --mode=production --config webpack.config.js",
-    "start": "webpack serve --mode=development",
+    "build": "vite build",
+    "start": "vite --port=8080",
     "server": "http-server",
     "tslint": "tslint -c tslint.json 'src/**/*.ts'"
   },
@@ -22,20 +22,8 @@
   },
   "homepage": "https://github.com/malekylik/custom-gif#readme",
   "devDependencies": {
-    "@babel/core": "^7.12.10",
-    "@babel/plugin-transform-runtime": "^7.12.10",
-    "@babel/preset-env": "^7.12.11",
-    "@babel/preset-typescript": "^7.12.7",
-    "babel-loader": "^8.2.2",
-    "babel-plugin-module-resolver": "^4.1.0",
-    "binary-loader": "0.0.1",
-    "file-loader": "^6.2.0",
-    "html-webpack-plugin": "^4.5.1",
-    "raw-loader": "^4.0.2",
     "typescript": "^5.8.3",
-    "webpack": "^5.17.0",
-    "webpack-cli": "^4.4.0",
-    "webpack-dev-server": "^3.11.2"
+    "vite": "^6.4.1"
   },
   "dependencies": {
     "@maverick-js/signals": "^6.0.0"

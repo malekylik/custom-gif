@@ -1,6 +1,6 @@
 import { effect, onDispose, root } from "@maverick-js/signals";
 import { Component, isComponent, toComponent } from "../components/utils";
-import { Either, isError } from "utils/either";
+import { Either, isError } from "../../utils/either";
 
 let parseId = 0;
 

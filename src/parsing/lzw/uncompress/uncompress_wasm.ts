@@ -1,5 +1,5 @@
 import lzw from './uncompress_wasm_glue';
-import lzwModule from './uncompress_wasm_code.wasm';
+import lzwModule from './uncompress_wasm_code.wasm?url';
 
 import { GIF_MAX_TABLE_SIZE } from '../consts';
 
