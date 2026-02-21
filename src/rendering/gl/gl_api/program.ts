@@ -43,6 +43,11 @@ export class GLProgram {
     return this.program !== null;
   }
 
+  /**
+   * Rest current texture unit, means you cannot use other programs in the middle of setting texture to another program
+   * You have to set all texture in one useProgram pass
+   * TODO: think if we need it
+   */
   useProgram(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
     this.currentTextureUnit = -1;
     gl.useProgram(this.program);

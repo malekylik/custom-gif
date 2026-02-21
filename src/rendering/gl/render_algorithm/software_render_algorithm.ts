@@ -2,6 +2,7 @@ import { ColorMap } from '../../../parsing/gif/color_map';
 import { ImageDescriptor } from '../../../parsing/gif/image_descriptor';
 import { ScreenDescriptor } from '../../../parsing/gif/screen_descriptor';
 import { FactoryOut, FactoryResult } from '../../../parsing/lzw/factory/uncompress_factory';
+import { IGLTexture } from '../gl_api/texture';
 import { GrapgicMemory } from './graphic_memory';
 import { RenderAlgorithm } from './render_algorithm';
 
@@ -55,6 +56,11 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
 
   dispose(): void {
     // TODO: think if we need to add logc
+  }
+
+  getCurrentTexture(): IGLTexture {
+    // TODO: fix
+    throw new Error('Method not implemented.');
   }
 
   private updateFrameData87(image: ImageDescriptor, globalColorMap: ColorMap) {

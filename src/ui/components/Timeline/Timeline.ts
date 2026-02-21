@@ -2,16 +2,20 @@ import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/sign
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, reScale, toComponent } from "../utils";
 import { createGLDrawer } from "../../../rendering/gl/gl_api/gl-drawer";
-import { BasicRenderer } from "src/rendering/gl/renderer";
+import { BasicRenderer } from "../../../rendering/gl/renderer";
 import { RendererGifDescriptor } from "src/rendering/renderer";
-import { GLTexture, TextureFormat, TextureType } from "../../../rendering/gl/gl_api/texture";
 import { disposeGLSystem, getGLSystem, initGLSystem } from "../../../rendering/gl/gl-system";
 import { ShaderPromgramId } from "../../../rendering/api/shader-manager";
-import { createGLScreenDrawingTarget } from "../../../rendering/gl/gl_api/gl-drawing-target";
+import { createGLScreenDrawingTarget, GLBufferDrawingTarget } from "../../../rendering/gl/gl_api/gl-drawing-target";
+import { GifEntity } from "src/parsing/new_gif/gif_entity";
+import { FactoryResult } from "src/parsing/lzw/factory/uncompress_factory";
+import { CopyRenderResultRenderPass } from "../../../rendering/gl/render-pass/copy-render-result-pass";
+import { FlipRenderResultsRenderPass } from "../../../rendering/gl/render-pass/flip-render-pass";
+import { GLTexture, IGLTexture, TextureFormat, TextureType } from "../../../rendering/gl/gl_api/texture";
 
 export type TimelineDataProps = {
-  renderer: BasicRenderer;
-  descriptor: RendererGifDescriptor;
+  gif: GifEntity,
+  uncompress: FactoryResult,
   currentFrameNumber: WriteSignal<number>;
   isPlay: ReadSignal<boolean>;
   timelineHeight: number;
@@ -22,11 +26,14 @@ let id = 0;
 
 export function TimelineData(props: TimelineDataProps): Component {
   return root((dispose) => {
-    const { renderer, descriptor, timelineHeight } = props
+    const { timelineHeight, gif, uncompress } = props;
     const height = timelineHeight;
+    let renderer = new BasicRenderer();
+    let disposeGL = () => {};
+    let getDescriptor = (() => {}) as (() => RendererGifDescriptor);
     let glSystemId = `Timeline_${id++}`;
     let currentTexturesRange: { start: number; length: number; lastFrameNumber: number; } = { start: 0, length: -1, lastFrameNumber: -1 };
-    let frameTextures: GLTexture[] = [];
+    let frameTextures: GLBufferDrawingTarget[] = [];
     let frameCount = signal(0);
     let canvasWidth = signal(0);
     let frameWidth = signal(0);
@@ -42,7 +49,7 @@ export function TimelineData(props: TimelineDataProps): Component {
 
       const clickFrame = ((e.offsetX - offset()) / frameWidth() + frameStart()) | 0;
 
-      if (clickFrame !== props.currentFrameNumber() - 1 && clickFrame < renderer.getGif(descriptor).gif.images.length ) {
+      if (clickFrame !== props.currentFrameNumber() - 1 && clickFrame < renderer.getGif(getDescriptor()).gif.images.length ) {
         props.render(clickFrame);
       }
 
@@ -71,6 +78,10 @@ export function TimelineData(props: TimelineDataProps): Component {
 
     setTimeout(async () => {
         const canvas = view.element.querySelector('canvas');
+        const descriptor = await renderer.addGifToRender(gif, canvas, { uncompress: uncompress, algorithm: 'GL' });
+
+        disposeGL = () => { renderer.dispose(); };
+        getDescriptor = () => descriptor;
         const container = canvas.parentElement;
 
         const width = container.getBoundingClientRect().width;
@@ -84,13 +95,13 @@ export function TimelineData(props: TimelineDataProps): Component {
 
         const gl = canvas.getContext('webgl2');
 
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
         initGLSystem(gl, glSystemId);
 
         const drawer = createGLDrawer(gl);
         drawer.startFrame();
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         gl.viewport(0, 0, width, height);
 
@@ -128,24 +139,37 @@ export function TimelineData(props: TimelineDataProps): Component {
             lastFrameNumber = currentTexturesRange.lastFrameNumber;
           } else {
             for (let i = 0; i < frameTextures.length; i++) {
-              frameTextures[i].dispose(gl);
+              const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
+              allocator.dispose(frameTextures[i]);
             }
             frameTextures = [];
 
-            // TODO: read and cache everything
             for (let i = 0; i < frameCount; i++) {
-              let buff = new Uint8Array((gifSize * 4) | 0);
               const newFrameNumber = adjustedCurrentFrame + startOffset + i * offset;
-              await renderer.setFrame(descriptor, newFrameNumber);
-              renderer.readCurrentFrame(descriptor, buff);
+              await renderer.setFrameSilent(descriptor, newFrameNumber);
 
-              const frameTexture = new GLTexture(gl, adjGifWidth, height, buff, { imageFormat: { internalFormat: TextureFormat.RGBA, format: TextureFormat.RGBA, type: TextureType.UNSIGNED_BYTE } });
-              frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-              frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-              frameTexture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-              frameTexture.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+              const currentFrame = renderer.getCurrentTexture(descriptor);
+              currentFrame.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+              currentFrame.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+              currentFrame.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+              currentFrame.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-              frameTextures.push(frameTexture);
+              const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
+              const drawingTarget = allocator.allocate(adjGifWidth, height);
+
+              frameTextures.push(drawingTarget);
+
+              gl.viewport(0, 0, adjGifWidth, height);
+
+              new CopyRenderResultRenderPass(drawer, getGLSystem(glSystemId).shaderManager)
+                .execute({
+                  memory: {},
+                  globals: {},
+                  textures: {
+                    targetTexture: currentFrame,
+                  },
+                  drawingTarget: drawingTarget,
+                });
 
               lastFrameNumber = newFrameNumber;
             }
@@ -163,22 +187,54 @@ export function TimelineData(props: TimelineDataProps): Component {
 
           const gpuProgram = getGLSystem(glSystemId).shaderManager.getProgram(ShaderPromgramId.GifTimeline);
 
-          gpuProgram.useProgram(gl);
+          getGLSystem(glSystemId).resouceManager.allocateFrameDrawingTarget((allocator) => {
+            const gpuProgramTextures: IGLTexture[] = [];
 
-          for (let i = 0; i < frameTextures.length; i++) {
-            const texture = frameTextures[i];
-            gpuProgram.setTextureUniform(gl, `targetTexture${i + 1}`, texture);
-          }
+            for (let i = 0; i < frameTextures.length; i++) {
+              let texture = frameTextures[i].getBuffer();
 
-          gpuProgram.setUniform1f(gl, 'totalWidth', width);
-          gpuProgram.setUniform1f(gl, 'timelineFrameWidth', adjGifWidth);
-          gpuProgram.setUniform1f(gl, 'offset', offset);
-          gpuProgram.setUniform1f(gl, 'startPadding', startPadding);
-          gpuProgram.setUniform1f(gl, 'startOffset', startOffset);
+              if (drawer.getNumberOfDrawCalls(texture) % 2 === 1) {
+                gl.viewport(0, 0, adjGifWidth, height);
 
-          gl.clear(gl.COLOR_BUFFER_BIT)
+                const result = new FlipRenderResultsRenderPass(drawer, getGLSystem(glSystemId).shaderManager)
+                  .execute({
+                    memory: {},
+                    globals: {},
+                    textures: { targetTexture: texture },
+                    drawingTarget: allocator.allocate(adjGifWidth, height),
+                  });
 
-          drawer.drawTriangles(drawingTarget, 0, 6 * frameCount, 0);
+                gpuProgramTextures.push(result.texture);
+              } else {
+                gpuProgramTextures.push(texture);
+              }
+            }
+
+            gpuProgram.useProgram(gl);
+            for (let i = 0; i < gpuProgramTextures.length; i++) {
+              const texture = gpuProgramTextures[i];
+              gpuProgram.setTextureUniform(gl, `targetTexture${i + 1}`, texture);
+            }
+
+            gpuProgram.setUniform1f(gl, 'totalWidth', width);
+            gpuProgram.setUniform1f(gl, 'timelineFrameWidth', adjGifWidth);
+            gpuProgram.setUniform1f(gl, 'offset', offset);
+            gpuProgram.setUniform1f(gl, 'startPadding', startPadding);
+            gpuProgram.setUniform1f(gl, 'startOffset', startOffset);
+
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+            gl.viewport(0, 0, width, height);
+
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+            // TODO: Add this to drawer
+            drawingTarget.bind();
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            drawer.drawTriangles(drawingTarget, 0, 6 * frameCount, 0);
+          });
 
           const currentSelectedFrame = props.currentFrameNumber() - adjustedCurrentFrame - 1;
           if (!(currentSelectedFrame < 0 || currentSelectedFrame > adjustedCurrentFrame + maxFrameInTimelineWithoutOffset)) {
@@ -240,6 +296,6 @@ export function TimelineData(props: TimelineDataProps): Component {
           });
     }, 0);
 
-    return toComponent(view.element, () => { dispose(); view.dispose(); getGLSystem(glSystemId).shaderManager.dispose(); disposeGLSystem(glSystemId); });
+    return toComponent(view.element, () => { dispose(); view.dispose(); frameTextures.forEach(v => { const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator(); allocator.dispose(v); }); getGLSystem(glSystemId).shaderManager.dispose(); disposeGLSystem(glSystemId); disposeGL(); });
   });
 }

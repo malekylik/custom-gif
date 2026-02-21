@@ -49,7 +49,6 @@ export function App(props: {}): AppComponent {
 
             root(async (dispose) => {
                 let renderer = new BasicRenderer();
-                let renderer1 = new BasicRenderer();
                 const lzw_uncompress = await createLZWFuncFromWasm(gif.gif);
                 const lzw_uncompress_timeline = lzw_uncompress;
                 let close = () => {};
@@ -73,10 +72,6 @@ export function App(props: {}): AppComponent {
                 });
 
                 const timelineHeight = 80;
-                const adjTimelineFrameWidth = reScale(gif.gif.screenDescriptor.screenWidth, gif.gif.screenDescriptor.screenHeight, timelineHeight) | 0;
-
-                // TODO: Allow OffscreenCanvas to be passed
-                const descriptor1 = await renderer1.addGifToRender(gif, new OffscreenCanvas(1, 1) as any, { uncompress: lzw_uncompress_timeline, algorithm: 'GL', screenDescriptor: { screenWidth: adjTimelineFrameWidth, screenHeight: timelineHeight } });
 
                 const gifVisualizer = html`
                     <div>
@@ -84,14 +79,13 @@ export function App(props: {}): AppComponent {
                             ${toChild(() => gifVisualizer1)}
                         </div>
                         <div>
-                            ${toChild(() => TimelineData({ renderer: renderer1, descriptor: descriptor1, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame) }))}
+                            ${toChild(() => TimelineData({ gif: gif, uncompress: lzw_uncompress_timeline, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame) }))}
                         </div>
                     </div>
                 `
 
                 close = () => {
                     renderer.dispose();
-                    renderer1.dispose();
                     dispose();
                     gifList.set(gifList().filter(c => c !== gifVisualizer));
                     gifs = gifs.filter(_g => _g !== gif);
