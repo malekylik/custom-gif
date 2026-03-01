@@ -13,6 +13,7 @@ import { CopyRenderResultRenderPass } from "../../../rendering/gl/render-pass/co
 import { FlipRenderResultsRenderPass } from "../../../rendering/gl/render-pass/flip-render-pass";
 import { IGLTexture } from "../../../rendering/gl/gl_api/texture";
 import { getCurrentVisibleFrame, getNextThumbnailFrames, ScrollRenderData } from "./timeline.utils";
+import { RGBA } from "src/rendering/gl/effects/utils/rgba";
 
 export type TimelineDataProps = {
   gif: GifEntity,
@@ -157,14 +158,14 @@ export function TimelineData(props: TimelineDataProps): Component {
           // therefore scrolling data may change during rerender
           // to avoid this, make a copy
           const currentScrollRenderData: ScrollRenderData = { ...scrollRenderData };
+          const _currentScrollPosition = currentScrollPosition;
+
           // 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14
           // +       +       +          +     
           let lastFrameNumber: number = 0;
           if (currentTexturesRange.start === currentScrollRenderData.currentFrame && currentTexturesRange.length === currentScrollRenderData.thumbnailFrames.at(-1)) {
             lastFrameNumber = currentTexturesRange.lastFrameNumber;
-            console.log('reuse thumbnails');
           } else {
-            console.log('recalculate thumbnails');
             for (let i = 0; i < frameTextures.length; i++) {
               const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
               allocator.dispose(frameTextures[i]);
@@ -207,6 +208,30 @@ export function TimelineData(props: TimelineDataProps): Component {
           }
 
           const drawingTarget = createGLScreenDrawingTarget(drawer.getGL());
+
+          // TODO: Add this to drawer
+          drawingTarget.bind();
+          gl.clear(gl.COLOR_BUFFER_BIT);
+
+          // --- draw timeline width
+
+          gl.viewport(0, 0, width, height);
+
+          const timelineWidthGpuProgram = getGLSystem(glSystemId).shaderManager.getProgram(ShaderPromgramId.GifTimelineWidth);
+
+          timelineWidthGpuProgram.useProgram(gl);
+
+          timelineWidthGpuProgram.setUniform3f(gl, 'color', 35 / 255, 35 / 255, 35 / 255);
+
+          timelineWidthGpuProgram.setUniform1f(gl, 'totalWidth', width);
+          timelineWidthGpuProgram.setUniform1f(gl, 'timelineFrameWidth', Math.min(width, allGifFramesWidth - _currentScrollPosition));
+          timelineWidthGpuProgram.setUniform1f(gl, 'offset', 0);
+          timelineWidthGpuProgram.setUniform1f(gl, 'startPadding', 0);
+          timelineWidthGpuProgram.setUniform1f(gl, 'frameStartOffset', 0);
+
+          drawer.drawTriangles(drawingTarget, 0, 6 * 1, 0);
+
+          // ---
 
           const gpuProgram = getGLSystem(glSystemId).shaderManager.getProgram(ShaderPromgramId.GifTimeline);
 
@@ -252,10 +277,6 @@ export function TimelineData(props: TimelineDataProps): Component {
 
             gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-            // TODO: Add this to drawer
-            drawingTarget.bind();
-            gl.clear(gl.COLOR_BUFFER_BIT);
-
             drawer.drawTriangles(drawingTarget, 0, 6 * currentScrollRenderData.thumbnailFrames.length, 0);
           });
 
@@ -272,6 +293,7 @@ export function TimelineData(props: TimelineDataProps): Component {
             gpuProgramCurrentFrame.setUniform1f(gl, 'timelineFrameWidth', adjGifWidth);
             gpuProgramCurrentFrame.setUniform1f(gl, 'startPadding', currentScrollRenderData.normilizedStartPadding);
             gpuProgramCurrentFrame.setUniform1f(gl, 'frameStartOffset', currentSelectedFrame);
+            gpuProgramCurrentFrame.setUniform1f(gl, 'ratio', height / adjGifWidth);
 
             drawer.drawTriangles(drawingTarget, 0, 6 * 1, 0);
           }

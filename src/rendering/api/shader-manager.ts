@@ -15,6 +15,7 @@ export enum ShaderPromgramId {
 
     GifTimeline = 12,
     GifTimelineCurrentFrame = 13,
+    GifTimelineWidth = 14,
 
     BlackAndWhite = 100,
     Mandess = 101,
