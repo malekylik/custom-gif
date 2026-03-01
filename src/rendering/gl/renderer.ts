@@ -22,7 +22,6 @@ const FPS = 1 / 25 * 1000;
 export interface RendererOptions {
   uncompress: FactoryResult;
   algorithm: 'GL' | 'Software';
-  screenDescriptor?: { screenWidth: number; screenHeight: number; }
 }
 
 type FrameSubsription = (r: { frameNumber: number; totalFrameNumber: number; gifDescription: RendererGifDescriptor }) => void;
@@ -47,14 +46,14 @@ export class BasicRenderer implements Renderer {
       gifEntity,
       currentFrame: -1,
       algorithm: options.algorithm === 'GL' ?
-        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress, options.screenDescriptor) :
+        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress) :
         new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress),
       timer: new Timer,
       canvas,
       effects: [],
     };
 
-    const { screenWidth, screenHeight } = options.screenDescriptor || gif.gifEntity.gif.screenDescriptor;
+    const { screenWidth, screenHeight } = gif.gifEntity.gif.screenDescriptor;
 
     gif.canvas.width = screenWidth;
     gif.canvas.height = screenHeight;
@@ -134,6 +133,35 @@ export class BasicRenderer implements Renderer {
 
             gif.currentFrame = frame;
             this._drawFrame(gif, gif.currentFrame);
+
+            resolve();
+
+            this.notifyFrameSubscribers(descriptor);
+          });
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  setFrameSilent(descriptor: RendererGifDescriptor, frame: number): Promise<void> {
+    const gif = this.gifs[descriptor.id];
+
+    return new Promise((resolve) => {
+      if (frame > -1 && frame < gif.gifEntity.gif.images.length) {
+          gif.timer.clear();
+
+          gif.timer.once(() => {
+            const from = Math.max(0, frame < gif.currentFrame ? 0 : gif.currentFrame);
+            const to = frame
+
+            for (let i = from; i < to; i++) {
+              this.drawToTexture(gif, i);
+              this.performeDisposalMethod(gif, i);
+            }
+
+            gif.currentFrame = frame;
+            this._drawFrameSilent(gif, gif.currentFrame);
 
             resolve();
 
@@ -225,6 +253,11 @@ export class BasicRenderer implements Renderer {
     gif.algorithm.getCanvasPixels(buffer);
   }
 
+  public getCurrentTexture(descriptor: RendererGifDescriptor) {
+    const gif = this.gifs[descriptor.id];
+    return gif.algorithm.getCurrentTexture();
+  }
+
   private drawToTexture(gif: RendererEntity, frame: number): void {
     const image = gif.gifEntity.gif.images[frame];
 
@@ -272,6 +305,12 @@ export class BasicRenderer implements Renderer {
     this.drawToTexture(gif, frame);
 
     this.drawToScreen(gif);
+
+    this.performeDisposalMethod(gif, frame);
+  }
+
+    private _drawFrameSilent(gif: RendererEntity, frame: number): void {
+    this.drawToTexture(gif, frame);
 
     this.performeDisposalMethod(gif, frame);
   }

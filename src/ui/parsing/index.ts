@@ -32,7 +32,8 @@ const onInputEventName: 'onInput' = 'onInput';
 const onKeyDownEventName: 'onKeyDown' = 'onKeyDown';
 const onFocusOutEventName: 'onFocusOut' = 'onFocusOut';
 const onChangeEventName: 'onChange' = 'onChange';
-let eventNames = new Set<string>([onClickEventName, onInputEventName, onKeyDownEventName, onFocusOutEventName, onChangeEventName]);
+const onScrollEventName: 'onScroll' = 'onScroll';
+let eventNames = new Set<string>([onClickEventName, onInputEventName, onKeyDownEventName, onFocusOutEventName, onChangeEventName, onScrollEventName]);
 
 let simpleAttribNames = new Set<string>(['disabled']);
 let defaultValueAttribNames = new Set<string>(['value']);
@@ -785,6 +786,14 @@ export function html(templateParts: TemplateStringsArray, ...values: unknown[]):
             element.addEventListener('change', callback);
             onDispose(() =>
               element.removeEventListener('change', callback));
+          }
+
+          if (event.event[0] === onScrollEventName) {
+            const callback = (e: Event) => { event.event[1](e); };
+
+            element.addEventListener('scroll', callback);
+            onDispose(() =>
+              element.removeEventListener('scroll', callback));
           }
         } else {
           console.warn('Error during parsing template: cannot find element with id ' + event.selector);

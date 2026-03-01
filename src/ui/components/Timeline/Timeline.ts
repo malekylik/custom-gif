@@ -2,16 +2,22 @@ import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/sign
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, reScale, toComponent } from "../utils";
 import { createGLDrawer } from "../../../rendering/gl/gl_api/gl-drawer";
-import { BasicRenderer } from "src/rendering/gl/renderer";
+import { BasicRenderer } from "../../../rendering/gl/renderer";
 import { RendererGifDescriptor } from "src/rendering/renderer";
-import { GLTexture, TextureFormat, TextureType } from "../../../rendering/gl/gl_api/texture";
 import { disposeGLSystem, getGLSystem, initGLSystem } from "../../../rendering/gl/gl-system";
 import { ShaderPromgramId } from "../../../rendering/api/shader-manager";
-import { createGLScreenDrawingTarget } from "../../../rendering/gl/gl_api/gl-drawing-target";
+import { createGLScreenDrawingTarget, GLBufferDrawingTarget } from "../../../rendering/gl/gl_api/gl-drawing-target";
+import { GifEntity } from "src/parsing/new_gif/gif_entity";
+import { FactoryResult } from "src/parsing/lzw/factory/uncompress_factory";
+import { CopyRenderResultRenderPass } from "../../../rendering/gl/render-pass/copy-render-result-pass";
+import { FlipRenderResultsRenderPass } from "../../../rendering/gl/render-pass/flip-render-pass";
+import { IGLTexture } from "../../../rendering/gl/gl_api/texture";
+import { getCurrentVisibleFrame, getNextThumbnailFrames, ScrollRenderData } from "./timeline.utils";
+import { RGBA } from "src/rendering/gl/effects/utils/rgba";
 
 export type TimelineDataProps = {
-  renderer: BasicRenderer;
-  descriptor: RendererGifDescriptor;
+  gif: GifEntity,
+  uncompress: FactoryResult,
   currentFrameNumber: WriteSignal<number>;
   isPlay: ReadSignal<boolean>;
   timelineHeight: number;
@@ -22,58 +28,105 @@ let id = 0;
 
 export function TimelineData(props: TimelineDataProps): Component {
   return root((dispose) => {
-    const { renderer, descriptor, timelineHeight } = props
+    const { timelineHeight, gif, uncompress } = props;
     const height = timelineHeight;
+
+    const gifWidth = gif.gif.screenDescriptor.screenWidth;
+    const gifHeight = gif.gif.screenDescriptor.screenHeight;
+
+    const adjGifWidth = reScale(gifWidth, gifHeight, height) | 0;
+    const allGifFramesWidth = adjGifWidth * gif.gif.images.length;
+    const totalTimelineWidth = allGifFramesWidth + adjGifWidth * 2;
+
+    const possibleMaxFrameCount = 4;
+    let width = 0;
+    let offset = 0;
+    let maxFrameInTimeline = 0;
+
+    let currentScrollPosition = 0;
+    let scrollRenderData: ScrollRenderData = {
+      currentFrame: 0,
+      thumbnailFrames: [],
+      frameStartOffset: 0,
+      normilizedStartPadding: 0,
+    };
+
+    let requestAnimationFrameId = -1;
+
+    let renderer = new BasicRenderer();
+    let disposeGL = () => {};
+    let getDescriptor = (() => {}) as (() => RendererGifDescriptor);
+  
     let glSystemId = `Timeline_${id++}`;
     let currentTexturesRange: { start: number; length: number; lastFrameNumber: number; } = { start: 0, length: -1, lastFrameNumber: -1 };
-    let frameTextures: GLTexture[] = [];
+    let frameTextures: GLBufferDrawingTarget[] = [];
     let frameCount = signal(0);
     let canvasWidth = signal(0);
     let frameWidth = signal(0);
-    let offset = signal(0);
+    let frameNumbersOffset = signal(0);
     let frameStart = signal(0);
-    let redrawDisabled = signal(true);
     let redraw: () => Promise<void> = () => { return Promise.resolve(); };
-    let drawNext: () => Promise<void> = () => { return Promise.resolve(); };
     let setCurrentFrame = (e: MouseEvent) => {
       if (props.isPlay()) {
         return;
       }
 
-      const clickFrame = ((e.offsetX - offset()) / frameWidth() + frameStart()) | 0;
+      const clickFrame = ((e.offsetX - frameNumbersOffset()) / frameWidth() + frameStart()) | 0;
 
-      if (clickFrame !== props.currentFrameNumber() - 1 && clickFrame < renderer.getGif(descriptor).gif.images.length ) {
+      if (clickFrame !== props.currentFrameNumber() - 1 && clickFrame < renderer.getGif(getDescriptor()).gif.images.length ) {
         props.render(clickFrame);
       }
-
     };
+
+    let recalculateScrollState = (scrollLeft: number): void => {
+      currentScrollPosition = scrollLeft;
+
+      scrollRenderData.currentFrame = getCurrentVisibleFrame(currentScrollPosition, adjGifWidth);
+      // TODO: potentionally should be possibleMaxFrameCount + 1, because when we scroll, in some situation the use should be able to see part of first thumbnail and part of last thumbnail
+      // need to update shader for that
+      scrollRenderData.thumbnailFrames = getNextThumbnailFrames(scrollRenderData.currentFrame, offset, possibleMaxFrameCount).filter(v => v < gif.gif.images.length);
+      scrollRenderData.normilizedStartPadding = scrollRenderData.currentFrame * adjGifWidth - currentScrollPosition;
+      scrollRenderData.frameStartOffset = 0;
+
+      if (scrollRenderData.thumbnailFrames.length > 0) {
+        scrollRenderData.frameStartOffset = scrollRenderData.thumbnailFrames[0] - scrollRenderData.currentFrame;
+      }
+    }
+
+    let scroll = (e: Event) => {
+      recalculateScrollState((e.target as any).scrollLeft);
+    }
 
     const view = html`
       <div>
-        <ul style="position: relative; padding: 0; height: 20px; list-style: none;">
+        <ul style="position: relative; padding: 0; height: 20px; list-style: none; overflow: hidden">
             ${toChild(() =>
               Array.from({ length: frameCount() })
-                .map((_, i) => html`<li style="${() => "position: absolute; left: " + (frameWidth() * i + offset()) + "px"}">${frameStart() + i + 1}</li>`))
+                .map((_, i) => html`<li style="${() => "position: absolute; left: " + (frameWidth() * i + frameNumbersOffset()) + "px"}">${frameStart() + i + 1}</li>`))
             }
           </ul>
         <div style="${() => `display: flex; width: 100%; height: ${height}px;` + (props.isPlay() ? ' cursor: defualt': ' cursor: pointer')}">
             <canvas onClick="${toEvent(setCurrentFrame)}"></canvas>
         </div>
-        <button disabled="${() => redrawDisabled()}" onClick="${toEvent(() => {
-          redrawDisabled.set(true);
-          drawNext()
-          .then(() => {
-            redrawDisabled.set(false);
-          });
-          })}">next</button>
+        <div style="overflow: scroll; margin-top: -1px" onScroll="${toEvent(scroll)}">
+            <div style="${() => `width: ${totalTimelineWidth}` + 'px; height: 1px'}"></div>
+        </div>
       </div>
     `;
 
     setTimeout(async () => {
         const canvas = view.element.querySelector('canvas');
+        const descriptor = await renderer.addGifToRender(gif, canvas, { uncompress: uncompress, algorithm: 'GL' });
+
+        disposeGL = () => { renderer.dispose(); };
+        getDescriptor = () => descriptor;
         const container = canvas.parentElement;
 
-        const width = container.getBoundingClientRect().width;
+        width = container.getBoundingClientRect().width;
+        maxFrameInTimeline = Math.ceil(width / adjGifWidth);
+        offset = Math.max(1.0, Math.ceil((maxFrameInTimeline - possibleMaxFrameCount) / Math.max(1.0, possibleMaxFrameCount - 1)));
+
+        recalculateScrollState(0);
 
         canvasWidth.set(width);
 
@@ -84,104 +137,153 @@ export function TimelineData(props: TimelineDataProps): Component {
 
         const gl = canvas.getContext('webgl2');
 
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
         initGLSystem(gl, glSystemId);
 
         const drawer = createGLDrawer(gl);
         drawer.startFrame();
 
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
         gl.viewport(0, 0, width, height);
 
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-        const gifWidth = renderer.getGif(descriptor).gif.screenDescriptor.screenWidth;
-        const gifHeight = renderer.getGif(descriptor).gif.screenDescriptor.screenHeight;
-
-        const adjGifWidth = reScale(gifWidth, gifHeight, height) | 0;
-
-        const gifSize = adjGifWidth * height;
-
-        const maxFrameInTimeline = Math.ceil(width / adjGifWidth);
-        const possibleMaxFrameCount = 4;
-
         frameWidth.set(adjGifWidth);
 
-        const _offset = offset;
         const _frameCount = frameCount;
 
-        let prevDrawResult: { first: number; length: number; nextOffset: number; nextPadding: number } = { first: 0, length: 0, nextOffset: 0, nextPadding: 0 };
-        let lastDrawResult: { first: number; length: number; nextOffset: number; nextPadding: number } = prevDrawResult;
-
-        const _redraw = async (currentFrame: number, startPadding: number, startOffset: number) => {
-          const offset = Math.max(1.0, Math.ceil((maxFrameInTimeline - possibleMaxFrameCount) / Math.max(1.0, possibleMaxFrameCount - 1)));
-          const adjustedCurrentFrame = currentFrame
-          const maxFrameInTimelineWithoutOffset = Math.min(Math.ceil((width - startPadding) / adjGifWidth), renderer.getGif(descriptor).gif.images.length - adjustedCurrentFrame);
-
-          const frameCount = Math.ceil((maxFrameInTimelineWithoutOffset - startOffset) / offset);
+        const _redraw = async () => {
+          // rerender should be async and doens't prevent scrolling
+          // therefore scrolling data may change during rerender
+          // to avoid this, make a copy
+          const currentScrollRenderData: ScrollRenderData = { ...scrollRenderData };
+          const _currentScrollPosition = currentScrollPosition;
 
           // 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14
           // +       +       +          +     
           let lastFrameNumber: number = 0;
-          if (currentTexturesRange.start === adjustedCurrentFrame && currentTexturesRange.length === maxFrameInTimelineWithoutOffset) {
+          if (currentTexturesRange.start === currentScrollRenderData.currentFrame && currentTexturesRange.length === currentScrollRenderData.thumbnailFrames.at(-1)) {
             lastFrameNumber = currentTexturesRange.lastFrameNumber;
           } else {
             for (let i = 0; i < frameTextures.length; i++) {
-              frameTextures[i].dispose(gl);
+              const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
+              allocator.dispose(frameTextures[i]);
             }
             frameTextures = [];
 
-            // TODO: read and cache everything
-            for (let i = 0; i < frameCount; i++) {
-              let buff = new Uint8Array((gifSize * 4) | 0);
-              const newFrameNumber = adjustedCurrentFrame + startOffset + i * offset;
-              await renderer.setFrame(descriptor, newFrameNumber);
-              renderer.readCurrentFrame(descriptor, buff);
+            for (let i = 0; i < currentScrollRenderData.thumbnailFrames.length; i++) {
+              const newFrameNumber = currentScrollRenderData.thumbnailFrames[i];
+              await renderer.setFrameSilent(descriptor, newFrameNumber);
 
-              const frameTexture = new GLTexture(gl, adjGifWidth, height, buff, { imageFormat: { internalFormat: TextureFormat.RGBA, format: TextureFormat.RGBA, type: TextureType.UNSIGNED_BYTE } });
-              frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-              frameTexture.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-              frameTexture.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-              frameTexture.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+              const currentFrame = renderer.getCurrentTexture(descriptor);
+              currentFrame.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+              currentFrame.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+              currentFrame.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+              currentFrame.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-              frameTextures.push(frameTexture);
+              const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
+              const drawingTarget = allocator.allocate(adjGifWidth, height);
+
+              frameTextures.push(drawingTarget);
+
+              gl.viewport(0, 0, adjGifWidth, height);
+
+              new CopyRenderResultRenderPass(drawer, getGLSystem(glSystemId).shaderManager)
+                .execute({
+                  memory: {},
+                  globals: {},
+                  textures: {
+                    targetTexture: currentFrame,
+                  },
+                  drawingTarget: drawingTarget,
+                });
 
               lastFrameNumber = newFrameNumber;
             }
 
-            currentTexturesRange.start = adjustedCurrentFrame;
-            currentTexturesRange.length = maxFrameInTimelineWithoutOffset;
+            currentTexturesRange.start = currentScrollRenderData.currentFrame;
+            currentTexturesRange.length = currentScrollRenderData.thumbnailFrames.at(-1);
             currentTexturesRange.lastFrameNumber = lastFrameNumber;
           }
 
-          // in pixels
-          const nextPadding = Math.min(Math.max(0, -(width - (maxFrameInTimelineWithoutOffset * adjGifWidth + startPadding))), adjGifWidth);
-          const nextOffset = Math.max(0, (offset + lastFrameNumber) - (adjustedCurrentFrame + maxFrameInTimelineWithoutOffset));
-
           const drawingTarget = createGLScreenDrawingTarget(drawer.getGL());
+
+          // TODO: Add this to drawer
+          drawingTarget.bind();
+          gl.clear(gl.COLOR_BUFFER_BIT);
+
+          // --- draw timeline width
+
+          gl.viewport(0, 0, width, height);
+
+          const timelineWidthGpuProgram = getGLSystem(glSystemId).shaderManager.getProgram(ShaderPromgramId.GifTimelineWidth);
+
+          timelineWidthGpuProgram.useProgram(gl);
+
+          timelineWidthGpuProgram.setUniform3f(gl, 'color', 35 / 255, 35 / 255, 35 / 255);
+
+          timelineWidthGpuProgram.setUniform1f(gl, 'totalWidth', width);
+          timelineWidthGpuProgram.setUniform1f(gl, 'timelineFrameWidth', Math.min(width, allGifFramesWidth - _currentScrollPosition));
+          timelineWidthGpuProgram.setUniform1f(gl, 'offset', 0);
+          timelineWidthGpuProgram.setUniform1f(gl, 'startPadding', 0);
+          timelineWidthGpuProgram.setUniform1f(gl, 'frameStartOffset', 0);
+
+          drawer.drawTriangles(drawingTarget, 0, 6 * 1, 0);
+
+          // ---
 
           const gpuProgram = getGLSystem(glSystemId).shaderManager.getProgram(ShaderPromgramId.GifTimeline);
 
-          gpuProgram.useProgram(gl);
+          getGLSystem(glSystemId).resouceManager.allocateFrameDrawingTarget((allocator) => {
+            const gpuProgramTextures: IGLTexture[] = [];
 
-          for (let i = 0; i < frameTextures.length; i++) {
-            const texture = frameTextures[i];
-            gpuProgram.setTextureUniform(gl, `targetTexture${i + 1}`, texture);
-          }
+            for (let i = 0; i < frameTextures.length; i++) {
+              let texture = frameTextures[i].getBuffer();
 
-          gpuProgram.setUniform1f(gl, 'totalWidth', width);
-          gpuProgram.setUniform1f(gl, 'timelineFrameWidth', adjGifWidth);
-          gpuProgram.setUniform1f(gl, 'offset', offset);
-          gpuProgram.setUniform1f(gl, 'startPadding', startPadding);
-          gpuProgram.setUniform1f(gl, 'startOffset', startOffset);
+              if (drawer.getNumberOfDrawCalls(texture) % 2 === 1) {
+                gl.viewport(0, 0, adjGifWidth, height);
 
-          gl.clear(gl.COLOR_BUFFER_BIT)
+                const result = new FlipRenderResultsRenderPass(drawer, getGLSystem(glSystemId).shaderManager)
+                  .execute({
+                    memory: {},
+                    globals: {},
+                    textures: { targetTexture: texture },
+                    drawingTarget: allocator.allocate(adjGifWidth, height),
+                  });
 
-          drawer.drawTriangles(drawingTarget, 0, 6 * frameCount, 0);
+                gpuProgramTextures.push(result.texture);
+              } else {
+                gpuProgramTextures.push(texture);
+              }
+            }
 
-          const currentSelectedFrame = props.currentFrameNumber() - adjustedCurrentFrame - 1;
-          if (!(currentSelectedFrame < 0 || currentSelectedFrame > adjustedCurrentFrame + maxFrameInTimelineWithoutOffset)) {
+            gpuProgram.useProgram(gl);
+            for (let i = 0; i < gpuProgramTextures.length; i++) {
+              const texture = gpuProgramTextures[i];
+              gpuProgram.setTextureUniform(gl, `targetTexture${i + 1}`, texture);
+            }
+
+            gpuProgram.setUniform1f(gl, 'totalWidth', width);
+            gpuProgram.setUniform1f(gl, 'timelineFrameWidth', adjGifWidth);
+            gpuProgram.setUniform1f(gl, 'offset', offset);
+            gpuProgram.setUniform1f(gl, 'startPadding', currentScrollRenderData.normilizedStartPadding);
+            gpuProgram.setUniform1f(gl, 'frameStartOffset', currentScrollRenderData.frameStartOffset);
+
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+            gl.viewport(0, 0, width, height);
+
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+            drawer.drawTriangles(drawingTarget, 0, 6 * currentScrollRenderData.thumbnailFrames.length, 0);
+          });
+
+          const maxFrameInTimelineWithoutOffset = Math.min(gif.gif.images.length - currentScrollRenderData.currentFrame, maxFrameInTimeline + 1);
+
+          const currentSelectedFrame = props.currentFrameNumber() - currentScrollRenderData.currentFrame - 1;
+          if (!(currentSelectedFrame < 0 || currentSelectedFrame > currentScrollRenderData.currentFrame + maxFrameInTimelineWithoutOffset)) {
 
             const gpuProgramCurrentFrame = getGLSystem(glSystemId).shaderManager.getProgram(ShaderPromgramId.GifTimelineCurrentFrame);
 
@@ -189,57 +291,36 @@ export function TimelineData(props: TimelineDataProps): Component {
 
             gpuProgramCurrentFrame.setUniform1f(gl, 'totalWidth', width);
             gpuProgramCurrentFrame.setUniform1f(gl, 'timelineFrameWidth', adjGifWidth);
-            gpuProgramCurrentFrame.setUniform1f(gl, 'startPadding', startPadding);
-            gpuProgramCurrentFrame.setUniform1f(gl, 'startOffset', currentSelectedFrame);
+            gpuProgramCurrentFrame.setUniform1f(gl, 'startPadding', currentScrollRenderData.normilizedStartPadding);
+            gpuProgramCurrentFrame.setUniform1f(gl, 'frameStartOffset', currentSelectedFrame);
+            gpuProgramCurrentFrame.setUniform1f(gl, 'ratio', height / adjGifWidth);
 
             drawer.drawTriangles(drawingTarget, 0, 6 * 1, 0);
           }
 
-          _offset.set(startPadding);
+          frameNumbersOffset.set(currentScrollRenderData.normilizedStartPadding);
           _frameCount.set(maxFrameInTimelineWithoutOffset);
-          frameStart.set(adjustedCurrentFrame);
-
-          return { first: adjustedCurrentFrame, length: maxFrameInTimelineWithoutOffset, nextOffset: nextOffset, nextPadding };
+          frameStart.set(currentScrollRenderData.currentFrame);
         }
 
-        redrawDisabled.set(true);
-
+        let rendrawResult: Promise<void> | null = null;
         redraw = () => {
-          return _redraw(prevDrawResult.first + prevDrawResult.length, prevDrawResult.nextPadding, prevDrawResult.nextOffset).then(() => {})
-        }
-
-        drawNext = () => {
-          if (lastDrawResult.first + lastDrawResult.length >= renderer.getGif(descriptor).gif.images.length) {
-          prevDrawResult = { first: 0, length: 0, nextOffset: 0, nextPadding: 0 };
-          return _redraw(0, 0, 0)
-          .then((v) => {
-            lastDrawResult = v;
-          });
-          } else {
-          prevDrawResult = lastDrawResult;
-          return _redraw(lastDrawResult.first + lastDrawResult.length, lastDrawResult.nextPadding, lastDrawResult.nextOffset)
-          .then((v) => {
-            lastDrawResult = v;
-          });
+          if (!rendrawResult) {
+            rendrawResult = _redraw().finally(() => { rendrawResult = null; });
+            return rendrawResult;
           }
+
+          return rendrawResult;
         }
 
-        drawNext()
-          .then(() => {
-            redrawDisabled.set(false);
 
-            effect(() => {
-              if (!props.isPlay()) {
-                props.currentFrameNumber();
-                redrawDisabled.set(true);
-                redraw().then(() => {
-                  redrawDisabled.set(false);
-                });
-              }
-            })
-          });
+        const loop = () => {
+          requestAnimationFrameId = requestAnimationFrame(loop);
+          redraw();
+        }
+        requestAnimationFrameId = requestAnimationFrame(loop);
     }, 0);
 
-    return toComponent(view.element, () => { dispose(); view.dispose(); getGLSystem(glSystemId).shaderManager.dispose(); disposeGLSystem(glSystemId); });
+    return toComponent(view.element, () => { cancelAnimationFrame(requestAnimationFrameId); dispose(); view.dispose(); frameTextures.forEach(v => { const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator(); allocator.dispose(v); }); getGLSystem(glSystemId).shaderManager.dispose(); disposeGLSystem(glSystemId); disposeGL(); });
   });
 }

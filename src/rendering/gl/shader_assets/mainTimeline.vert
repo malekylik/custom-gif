@@ -7,7 +7,7 @@ uniform float totalWidth;
 uniform float timelineFrameWidth;
 uniform float offset;
 uniform float startPadding;
-uniform float startOffset;
+uniform float frameStartOffset;
 
 out vec2 texCoord;
 out float colorEnable;
@@ -36,7 +36,7 @@ void main()
   float texX = mod(squarVertextId, 2.0);
   float frameCount = 4.0;
   float spaceBetweenSquars = offset;
-  float x = (startOffset * squarSize) + normilizedStartPadding + texX * squarSize + (squarSize * spaceBetweenSquars) * squarId;
+  float x = (frameStartOffset * squarSize) + normilizedStartPadding + texX * squarSize + (squarSize * spaceBetweenSquars) * squarId;
 
   gl_Position = vec4(mix(-1.0, 1.0, x), mix(-1.0, 1.0, y), 0.0, 1.0);
 

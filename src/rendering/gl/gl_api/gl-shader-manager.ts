@@ -8,7 +8,8 @@ import MadnessVertText from '../shader_assets/madness.vert?raw';
 
 import TextureFragText from '../shader_assets/texture.frag?raw';
 import TimelineFragText from '../shader_assets/mainTimeline.frag?raw';
-import TimelineCurrentFrameFragText from '../shader_assets/mainTimelineCurrentFrame.frag?raw';
+import TimelineCurrentFrameFragText from '../shader_assets/timelineCurrentFrame.frag?raw';
+import TimelineWidthFragText from '../shader_assets/timelineWidth.frag?raw';
 import BlackAndWhiteFragText from '../shader_assets/blanckWhiteTexture.frag?raw';
 import MixTextureFragText from '../shader_assets/mixTextures.frag?raw';
 import TextureAlpha from '../shader_assets/textureAlpha.frag?raw';
@@ -110,6 +111,10 @@ export function createGLShaderManager(gl: WebGL2RenderingContext, id: string): G
 
         if (programId === ShaderPromgramId.GifTimelineCurrentFrame) {
             return { vertText: MainTimlineVertText, fragText: TimelineCurrentFrameFragText };
+        }
+
+        if (programId === ShaderPromgramId.GifTimelineWidth) {
+            return { vertText: MainTimlineVertText, fragText: TimelineWidthFragText };
         }
 
         return { vertText: '', fragText: '' };
