@@ -1,13 +1,13 @@
 import { ColorMap } from 'src/parsing/gif/color_map';
-import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../consts/consts';
 import { GLProgram } from '../gl/gl_api/program';
 import { createFragmentGLShader, createVertexGLShader, deleteShader } from '../gl/gl_api/shader';
 import { GLTexture, TextureUnit } from '../gl/gl_api/texture';
 import { GLVBO } from '../gl/gl_api/vbo';
 import { GrapgicMemory } from '../gl/render_algorithm/graphic_memory';
 
-import MainVertText from '../shader_assets/main.vert';
-import TextureFragText from '../shader_assets/texture.frag';
+import MainVertText from '../shader_assets/main.vert?raw';
+import TextureFragText from '../shader_assets/texture.frag?raw';
+import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../gl/consts';
 
 export class ColorMapVisualizer {
   private gl: WebGL2RenderingContext;

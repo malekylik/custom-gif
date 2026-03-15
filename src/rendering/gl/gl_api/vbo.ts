@@ -10,7 +10,7 @@ export function convertToGLAttribType(gl: WebGLRenderingContext | WebGL2Renderin
   return 0;
 }
 
-export function convertToSize(gl: WebGLRenderingContext | WebGL2RenderingContext, type: AttribType): number {
+export function convertToSize(gl: WebGLRenderingContext | WebGL2RenderingContext, type: AttribType | WebGLRenderingContext['FLOAT']): number {
   switch (type) {
     case gl.FLOAT:
     case AttribType.FLOAT: return Float32Array.BYTES_PER_ELEMENT;
