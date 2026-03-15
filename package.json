@@ -9,7 +9,7 @@
     "build": "vite build",
     "start": "vite --port=8080",
     "server": "http-server",
-    "tslint": "tslint -c tslint.json 'src/**/*.ts'"
+    "tslint": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
