@@ -10,5 +10,6 @@ export function createLZWFuncFromJS(gif: GIF): Promise<FactoryResult> {
     lzw_uncompress(image.compressedData, out);
   }
 
+  // TODO: fix
   return Promise.resolve({ lzw_uncompress: _lzw_uncompress, out });
 }

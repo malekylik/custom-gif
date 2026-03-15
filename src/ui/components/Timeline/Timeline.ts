@@ -1,4 +1,4 @@
-import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
+import { ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, reScale, toComponent } from "../utils";
 import { createGLDrawer } from "../../../rendering/gl/gl_api/gl-drawer";
@@ -7,17 +7,14 @@ import { RendererGifDescriptor } from "src/rendering/renderer";
 import { disposeGLSystem, getGLSystem, initGLSystem } from "../../../rendering/gl/gl-system";
 import { ShaderPromgramId } from "../../../rendering/api/shader-manager";
 import { createGLScreenDrawingTarget, GLBufferDrawingTarget } from "../../../rendering/gl/gl_api/gl-drawing-target";
-import { GifEntity } from "src/parsing/new_gif/gif_entity";
-import { FactoryResult } from "src/parsing/lzw/factory/uncompress_factory";
+import { GifEntity } from "../../../parsing/new_gif/gif_entity";
 import { CopyRenderResultRenderPass } from "../../../rendering/gl/render-pass/copy-render-result-pass";
 import { FlipRenderResultsRenderPass } from "../../../rendering/gl/render-pass/flip-render-pass";
 import { IGLTexture } from "../../../rendering/gl/gl_api/texture";
 import { getCurrentVisibleFrame, getNextThumbnailFrames, ScrollRenderData } from "./timeline.utils";
-import { RGBA } from "src/rendering/gl/effects/utils/rgba";
 
 export type TimelineDataProps = {
   gif: GifEntity,
-  uncompress: FactoryResult,
   currentFrameNumber: WriteSignal<number>;
   isPlay: ReadSignal<boolean>;
   timelineHeight: number;
@@ -28,7 +25,7 @@ let id = 0;
 
 export function TimelineData(props: TimelineDataProps): Component {
   return root((dispose) => {
-    const { timelineHeight, gif, uncompress } = props;
+    const { timelineHeight, gif } = props;
     const height = timelineHeight;
 
     const gifWidth = gif.gif.screenDescriptor.screenWidth;
@@ -116,7 +113,7 @@ export function TimelineData(props: TimelineDataProps): Component {
 
     setTimeout(async () => {
         const canvas = view.element.querySelector('canvas');
-        const descriptor = await renderer.addGifToRender(gif, canvas, { uncompress: uncompress, algorithm: 'GL' });
+        const descriptor = await renderer.addGifToRender(gif, canvas, { algorithm: 'GL' });
 
         disposeGL = () => { renderer.dispose(); };
         getDescriptor = () => descriptor;

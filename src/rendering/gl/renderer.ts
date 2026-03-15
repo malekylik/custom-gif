@@ -20,7 +20,6 @@ type RendererEntity = {
 const FPS = 1 / 25 * 1000;
 
 export interface RendererOptions {
-  uncompress: FactoryResult;
   algorithm: 'GL' | 'Software';
 }
 
@@ -46,8 +45,8 @@ export class BasicRenderer implements Renderer {
       gifEntity,
       currentFrame: -1,
       algorithm: options.algorithm === 'GL' ?
-        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress) :
-        new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress),
+        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, gifEntity.gif) :
+        new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, gifEntity.gif),
       timer: new Timer,
       canvas,
       effects: [],
@@ -122,17 +121,17 @@ export class BasicRenderer implements Renderer {
       if (frame > -1 && frame < gif.gifEntity.gif.images.length) {
           gif.timer.clear();
 
-          gif.timer.once(() => {
+          gif.timer.once(async () => {
             const from = Math.max(0, frame < gif.currentFrame ? 0 : gif.currentFrame);
             const to = frame
 
             for (let i = from; i < to; i++) {
-              this.drawToTexture(gif, i);
+              await this.drawToTexture(gif, i);
               this.performeDisposalMethod(gif, i);
             }
 
             gif.currentFrame = frame;
-            this._drawFrame(gif, gif.currentFrame);
+            await this._drawFrame(gif, gif.currentFrame);
 
             resolve();
 
@@ -151,17 +150,17 @@ export class BasicRenderer implements Renderer {
       if (frame > -1 && frame < gif.gifEntity.gif.images.length) {
           gif.timer.clear();
 
-          gif.timer.once(() => {
+          gif.timer.once(async () => {
             const from = Math.max(0, frame < gif.currentFrame ? 0 : gif.currentFrame);
             const to = frame
 
             for (let i = from; i < to; i++) {
-              this.drawToTexture(gif, i);
+              await this.drawToTexture(gif, i);
               this.performeDisposalMethod(gif, i);
             }
 
             gif.currentFrame = frame;
-            this._drawFrameSilent(gif, gif.currentFrame);
+            await this._drawFrameSilent(gif, gif.currentFrame);
 
             resolve();
 
@@ -177,13 +176,13 @@ export class BasicRenderer implements Renderer {
     const gif = this.gifs[descriptor.id];
 
     if (gif.gifEntity.gif.images.length > 1) {
-      const callback = () => {
+      const callback = async () => {
         const nextFrame = (gif.currentFrame + 1) % gif.gifEntity.gif.images.length;
 
         gif.timer.once(callback, gif.gifEntity.gif.images[nextFrame].graphicControl?.delayTime || FPS) as unknown as number;
 
         gif.currentFrame = nextFrame;
-        this._drawFrame(gif, gif.currentFrame);
+        await this._drawFrame(gif, gif.currentFrame);
 
         this.notifyFrameSubscribers(descriptor);
       };
@@ -258,11 +257,11 @@ export class BasicRenderer implements Renderer {
     return gif.algorithm.getCurrentTexture();
   }
 
-  private drawToTexture(gif: RendererEntity, frame: number): void {
+  private async drawToTexture(gif: RendererEntity, frame: number): Promise<void> {
     const image = gif.gifEntity.gif.images[frame];
 
     // render current
-    gif.algorithm.drawToTexture(image, gif.gifEntity.gif.colorMap);
+    await gif.algorithm.drawToTexture(image, gif.gifEntity.gif.colorMap);
 
     // TODO: add support of DisposalMethod.clear
     if (image.graphicControl?.disposalMethod !== DisposalMethod.prev) {
@@ -301,16 +300,16 @@ export class BasicRenderer implements Renderer {
     gif.algorithm.drawToScreen(effects, gif.currentFrame);
   }
 
-  private _drawFrame(gif: RendererEntity, frame: number): void {
-    this.drawToTexture(gif, frame);
+  private async _drawFrame(gif: RendererEntity, frame: number): Promise<void> {
+    await this.drawToTexture(gif, frame);
 
     this.drawToScreen(gif);
 
     this.performeDisposalMethod(gif, frame);
   }
 
-    private _drawFrameSilent(gif: RendererEntity, frame: number): void {
-    this.drawToTexture(gif, frame);
+    private async _drawFrameSilent(gif: RendererEntity, frame: number): Promise<void> {
+    await this.drawToTexture(gif, frame);
 
     this.performeDisposalMethod(gif, frame);
   }

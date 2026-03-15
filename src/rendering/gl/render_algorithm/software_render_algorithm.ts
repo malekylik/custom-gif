@@ -1,34 +1,36 @@
+import { BufferId, LZWParallelFacade } from '../../../parallel_computation/main/lzw_facade';
 import { ColorMap } from '../../../parsing/gif/color_map';
 import { ImageDescriptor } from '../../../parsing/gif/image_descriptor';
 import { ScreenDescriptor } from '../../../parsing/gif/screen_descriptor';
-import { FactoryOut, FactoryResult } from '../../../parsing/lzw/factory/uncompress_factory';
 import { IGLTexture } from '../gl_api/texture';
 import { GrapgicMemory } from './graphic_memory';
 import { RenderAlgorithm } from './render_algorithm';
+import { GIF } from '../../../parsing/gif/parser';
 
 export class BaseRenderAlgorithm implements RenderAlgorithm {
-  private uncompressedData: Uint8Array;
-  private lzw_uncompress: FactoryOut;
   private graphicMemory: GrapgicMemory;
   private prevGraphicMemory: GrapgicMemory;
   private ctx: CanvasRenderingContext2D;
+  private uncompressedDataId: BufferId;
+  private gif: GIF;
 
-  constructor (canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor (canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, gif: GIF) {
     this.ctx = canvas.getContext('2d');
 
-    this.uncompressedData = uncompressed.out;
-    this.lzw_uncompress = uncompressed.lzw_uncompress;
+    this.gif = gif;
+    this.uncompressedDataId = LZWParallelFacade.allocateBuffer(gif);
+
     this.graphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
     this.prevGraphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
   }
 
-  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): void {
+  async drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): Promise<void> {
     const graphicControl = image.graphicControl;
 
     if (graphicControl?.isTransparent) {
-      this.updateFrameData89(image, globalColorMap);
+      await this.updateFrameData89(image, globalColorMap);
     } else {
-      this.updateFrameData87(image, globalColorMap);
+      await this.updateFrameData87(image, globalColorMap);
     }
   }
 
@@ -55,7 +57,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
   }
 
   dispose(): void {
-    // TODO: think if we need to add logc
+    LZWParallelFacade.freeBuffer(this.uncompressedDataId);
   }
 
   getCurrentTexture(): IGLTexture {
@@ -63,7 +65,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     throw new Error('Method not implemented.');
   }
 
-  private updateFrameData87(image: ImageDescriptor, globalColorMap: ColorMap) {
+  private async updateFrameData87(image: ImageDescriptor, globalColorMap: ColorMap): Promise<void> {
     const graphicMemory = this.graphicMemory;
     const colorMap = image.M ? image.colorMap : globalColorMap;
     const imageLeft = image.imageLeft;
@@ -74,7 +76,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     let y = 0;
     let offset = 0;
 
-    this.lzw_uncompress(image);
+    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image, this.uncompressedDataId);
 
     for (let i = 0; i < localImageHeight; i++) {
       for (let j = 0; j < localImageWidth; j++) {
@@ -82,15 +84,15 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
         x = j + imageLeft;
         y = i + imageTop;
 
-        graphicMemory.setRedInPixel(x, y, colorMap.getRed(this.uncompressedData[offset]));
-        graphicMemory.setGreenInPixel(x, y, colorMap.getGreen(this.uncompressedData[offset]));
-        graphicMemory.setBlueInPixel(x, y, colorMap.getBlue(this.uncompressedData[offset]));
+        graphicMemory.setRedInPixel(x, y, colorMap.getRed(uncompressedData[offset]));
+        graphicMemory.setGreenInPixel(x, y, colorMap.getGreen(uncompressedData[offset]));
+        graphicMemory.setBlueInPixel(x, y, colorMap.getBlue(uncompressedData[offset]));
         graphicMemory.setAlphaInPixel(x, y, 255);
       }
     }
   }
 
-  private updateFrameData89(image: ImageDescriptor, globalColorMap: ColorMap) {
+  private async updateFrameData89(image: ImageDescriptor, globalColorMap: ColorMap): Promise<void> {
     const graphicMemory = this.graphicMemory;
     const colorMap = image.M ? image.colorMap : globalColorMap;
     const graphicControl = image.graphicControl;
@@ -102,19 +104,19 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     let y = 0;
     let offset = 0;
 
-    this.lzw_uncompress(image);
+    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image, this.uncompressedDataId);
 
     for (let i = 0; i < localImageHeight; i++) {
       for (let j = 0; j < localImageWidth; j++) {
         offset = i * localImageWidth + j;
 
-        if (!(this.uncompressedData[offset] === graphicControl.transparentColorIndex)) {
+        if (!(uncompressedData[offset] === graphicControl.transparentColorIndex)) {
           x = j + imageLeft;
           y = i + imageTop;
 
-          graphicMemory.setRedInPixel(x, y, colorMap.getRed(this.uncompressedData[offset]));
-          graphicMemory.setGreenInPixel(x, y, colorMap.getGreen(this.uncompressedData[offset]));
-          graphicMemory.setBlueInPixel(x, y, colorMap.getBlue(this.uncompressedData[offset]));
+          graphicMemory.setRedInPixel(x, y, colorMap.getRed(uncompressedData[offset]));
+          graphicMemory.setGreenInPixel(x, y, colorMap.getGreen(uncompressedData[offset]));
+          graphicMemory.setBlueInPixel(x, y, colorMap.getBlue(uncompressedData[offset]));
           graphicMemory.setAlphaInPixel(x, y, 255);
         }
       }
