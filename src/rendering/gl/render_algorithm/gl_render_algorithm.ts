@@ -51,6 +51,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   private thread: LZWThread;
 
   constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, gif: GIF, thread: LZWThread) {
+    // TODO: may fail with WARNING: Too many active WebGL contexts. Oldest context will be lost.
     const gl = canvas.getContext('webgl2');
     this.id = String(++id);
     this.gif = gif;
