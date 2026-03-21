@@ -15,7 +15,7 @@ import { DarkingDirection } from "../../../../src/rendering/gl/render-pass/darki
 import { getBlackRGBA } from "../../../../src/rendering/gl/effects/utils/rgba";
 import { EdgeDetectionEffectId, createEdgeDetectionEffect } from "../../../rendering/gl/effects/edge-detection-effect";
 import { TimelineData } from "../Timeline/Timeline";
-import { LZWParallelFacade } from "../../../parallel_computation/main/lzw_facade";
+import { LZWParallelFacade, LZWThread } from "../../../parallel_computation/main/lzw_facade";
 
 export type AppComponent = Component;
 
@@ -94,7 +94,7 @@ export function App(props: {}): AppComponent {
 
                 gifList.set(gifList().concat(gifVisualizer));
 
-                const descriptor = await renderer.addGifToRender(gif, gifVisualizer1.getCanvas(), { algorithm: 'Software' });
+                const descriptor = await renderer.addGifToRender(gif, gifVisualizer1.getCanvas(), { algorithm: 'GL', thread: LZWThread.main });
 
                 rerender = () => {
                     if (!isPlay()) {

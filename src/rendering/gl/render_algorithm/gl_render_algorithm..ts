@@ -17,7 +17,7 @@ import { BufferDrawingTarget } from '../../api/drawing-target';
 import { GLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
 import { GLFrameDrawingTargetTemporaryAllocator } from '../gl_api/gl-resource-manager';
 import { GLEffect } from '../gl_api/gl-effect';
-import { BufferId, LZWParallelFacade } from '../../../parallel_computation/main/lzw_facade';
+import { LZWParallelFacade, LZWThread } from '../../../parallel_computation/main/lzw_facade';
 import { GIF } from '../../../parsing/gif/parser';
 
 let id = -1;
@@ -36,7 +36,6 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   private vboToTexture: GLVBO;
 
-  private uncompressedDataId: BufferId;
   private gl: WebGL2RenderingContext;
   private drawer: GLDrawer;
 
@@ -47,12 +46,16 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   private id: string;
 
-  gif: GIF;
+  private gif: GIF;
 
-  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, gif: GIF) {
+  private thread: LZWThread;
+
+  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, gif: GIF, thread: LZWThread) {
     const gl = canvas.getContext('webgl2');
     this.id = String(++id);
     this.gif = gif;
+
+    this.thread = thread;
 
     initGLSystem(gl, String(this.id));
 
@@ -65,8 +68,6 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     this.screenWidth = screenWidth;
     this.screenHeight = screenHeight;
-
-    this.uncompressedDataId = LZWParallelFacade.allocateBuffer(gif);
 
     gl.enable(gl.BLEND);
     gl.blendEquation(gl.FUNC_ADD);
@@ -105,7 +106,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   async drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): Promise<void> {
     const gl = this.gl;
 
-    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image, this.uncompressedDataId);
+    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image, this.thread);
 
     this.gifFrameTexture.bind(gl);
     this.gifFrameTexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, uncompressedData);
@@ -275,8 +276,6 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
   }
 
   dispose(): void {
-    LZWParallelFacade.freeBuffer(this.uncompressedDataId);
-
     // TODO: seems like not everything is disposed. Investigate later
     this.vboToTexture.dispose(this.drawer.getGL());
 

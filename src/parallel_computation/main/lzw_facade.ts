@@ -5,37 +5,30 @@ import LZWParallel from '../worker/lzw_parallel.ts?url';
 import { createLZWWorkerFacade } from './lzw_worker_facade';
 
 let lzwWorker = new Worker(LZWParallel, { type: 'module' });
+let lzwWorkerTimeline = new Worker(LZWParallel, { type: 'module' });
 
 let workerFacade = createLZWWorkerFacade<OutMessages, InMessages>(lzwWorker);
+let workerTimelineFacade = createLZWWorkerFacade<OutMessages, InMessages>(lzwWorkerTimeline);
 
 let gifToId = new Map<GIF, number>();
-let gifToOut = new Map<BufferId, Uint8Array<ArrayBuffer>>();
-let bufferIdToGif = new Map<BufferId, GIF>();
+let gifToIdTimline = new Map<GIF, number>();
+
+let currentBufferSize: number = 0;
+
+let lzwBuffer: Uint8Array = new Uint8Array(currentBufferSize);
+let timelineBuffer: Uint8Array = new Uint8Array(currentBufferSize);
+
 
 export type BufferId = number & { readonly __tag: unique symbol };
-let bufferId = 0;
+
+export enum LZWThread {
+    main = 0,
+    timeline = 1,
+}
 
 function lzwParallelFacade() {
 
     return ({
-        allocateBuffer(gif: GIF): BufferId {
-            if (!gifToId.has(gif)) {
-                throw new Error('Cannot allocate buffer for uninit gif');
-            }
-
-            let id: BufferId = bufferId++ as BufferId;
-
-            gifToOut.set(id, new Uint8Array(gif.screenDescriptor.screenWidth * gif.screenDescriptor.screenHeight));
-            bufferIdToGif.set(id, gif);
-
-            return id;
-        },
-
-        freeBuffer(bufferId: BufferId): void {
-            gifToOut.delete(bufferId);
-            bufferIdToGif.delete(bufferId);
-        },
-
         async init(gif: GIF) {
             if (gifToId.has(gif)) {
                 return;
@@ -47,37 +40,69 @@ function lzwParallelFacade() {
                 buffer[i] = gif.buffer[i];
             }
 
-            const r: LZWInitOutMessage = await workerFacade.send({ type: 'init', props: { gif: buffer.buffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [buffer.buffer]);
+            const lzwBuffer = new Uint8Array(gif.buffer.length);
 
-            gifToId.set(gif, r.props.id);
+            for (let i = 0; i < gif.buffer.length; i++) {
+                lzwBuffer[i] = gif.buffer[i];
+            }
+
+            const r = await Promise.all([
+                workerFacade.send({ type: 'init', props: { gif: buffer.buffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [buffer.buffer]),
+                workerTimelineFacade.send({ type: 'init', props: { gif: lzwBuffer.buffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [lzwBuffer.buffer]),
+            ]) as LZWInitOutMessage[];
+
+            gifToId.set(gif, r[0].props.id);
+            gifToIdTimline.set(gif, r[1].props.id);
+
+            let maxPossibleGifFrameSize = gif.screenDescriptor.screenWidth * gif.screenDescriptor.screenHeight;
+            if (currentBufferSize < maxPossibleGifFrameSize) {
+                currentBufferSize = maxPossibleGifFrameSize;
+            }
         },
 
-        // TODO: add clear buffers as well
         async freeGif(gif: GIF): Promise<void> {
             let id = gifToId.get(gif);
-            await workerFacade.send({ type: 'free', props: { id } });
+            await Promise.all([
+                workerFacade.send({ type: 'free', props: { id } }),
+                workerTimelineFacade.send({ type: 'free', props: { id } }),
+            ]);
 
             gifToId.delete(gif);
+            gifToIdTimline.delete(gif);
         },
 
-        async uncompress(gif: GIF, image: ImageDescriptor, bufferId: BufferId): Promise<Uint8Array> {
-            let id = gifToId.get(gif);
-
-            let buffer = gifToOut.get(bufferId);
-            let _gif = bufferIdToGif.get(bufferId);
-
-            if (buffer === undefined) {
-                return Promise.reject(new Error('Cannot found buffer by buffer id'));
+        async uncompress(gif: GIF, image: ImageDescriptor, thread: LZWThread): Promise<Uint8Array> {
+            let id = LZWThread.main === thread ? gifToId.get(gif) : gifToIdTimline.get(gif);
+            let buffer = LZWThread.main === thread ? lzwBuffer : timelineBuffer;
+            
+            if (buffer.length < currentBufferSize) {
+                if (LZWThread.main === thread) {
+                    lzwBuffer = new Uint8Array(currentBufferSize);
+                    buffer = lzwBuffer;
+                } else {
+                    timelineBuffer = new Uint8Array(currentBufferSize);
+                    buffer = timelineBuffer;
+                }
             }
 
-            if (_gif !== gif) {
-                return Promise.reject(new Error('Buffer id is not associated with gif'));
-            }
+            const facade = LZWThread.main === thread ? workerFacade : workerTimelineFacade;
 
-            const r: LZWUncompressOutMessage = await workerFacade.send({ type: 'uncompress', props: { id, startPointer: image.startPointer, compressedDataSize: image.compressedData.length, data: buffer.buffer } }, [buffer.buffer]);
+            const r: LZWUncompressOutMessage = await facade.send({ type: 'uncompress', props: { id, startPointer: image.startPointer, compressedDataSize: image.compressedData.length, data: buffer.buffer } }, [buffer.buffer]);
             const result = new Uint8Array(r.props.data);
 
-            gifToOut.set(bufferId, result);
+            if (buffer.length < currentBufferSize) {
+                if (LZWThread.main === thread) {
+                    lzwBuffer = new Uint8Array(currentBufferSize);
+                } else {
+                    timelineBuffer = new Uint8Array(currentBufferSize);
+                }
+            } else {
+                if (LZWThread.main === thread) {
+                    lzwBuffer = result;
+                } else {
+                    timelineBuffer = result;
+                }
+            }
 
             return result;
         }

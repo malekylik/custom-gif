@@ -7,6 +7,7 @@ import { RenderAlgorithm } from './render_algorithm/render_algorithm';
 import { DisposalMethod } from '../../parsing/gif/graphic_control';
 import { GifEntity } from 'src/parsing/new_gif/gif_entity';
 import { Effect } from '../api/effect';
+import { LZWThread } from 'src/parallel_computation/main/lzw_facade';
 
 type RendererEntity = {
   gifEntity: GifEntity;
@@ -21,6 +22,7 @@ const FPS = 1 / 25 * 1000;
 
 export interface RendererOptions {
   algorithm: 'GL' | 'Software';
+  thread: LZWThread,
 }
 
 type FrameSubsription = (r: { frameNumber: number; totalFrameNumber: number; gifDescription: RendererGifDescriptor }) => void;
@@ -45,7 +47,7 @@ export class BasicRenderer implements Renderer {
       gifEntity,
       currentFrame: -1,
       algorithm: options.algorithm === 'GL' ?
-        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, gifEntity.gif) :
+        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, gifEntity.gif, options.thread) :
         new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, gifEntity.gif),
       timer: new Timer,
       canvas,

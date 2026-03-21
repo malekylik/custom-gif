@@ -5,6 +5,10 @@ import { InMessages, OutMessages } from "../protocol";
 
 let workerFacade = createLZWWorkerFacade<InMessages, OutMessages>(self);
 
+const tag = Date.now();
+
+console.log('Thread ', tag);
+
 const map = new Map<number, FactoryResult>();
 let id = 0;
 

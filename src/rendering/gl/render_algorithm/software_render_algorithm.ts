@@ -1,4 +1,4 @@
-import { BufferId, LZWParallelFacade } from '../../../parallel_computation/main/lzw_facade';
+import { LZWParallelFacade } from '../../../parallel_computation/main/lzw_facade';
 import { ColorMap } from '../../../parsing/gif/color_map';
 import { ImageDescriptor } from '../../../parsing/gif/image_descriptor';
 import { ScreenDescriptor } from '../../../parsing/gif/screen_descriptor';
@@ -11,14 +11,12 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
   private graphicMemory: GrapgicMemory;
   private prevGraphicMemory: GrapgicMemory;
   private ctx: CanvasRenderingContext2D;
-  private uncompressedDataId: BufferId;
   private gif: GIF;
 
   constructor (canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, gif: GIF) {
     this.ctx = canvas.getContext('2d');
 
     this.gif = gif;
-    this.uncompressedDataId = LZWParallelFacade.allocateBuffer(gif);
 
     this.graphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
     this.prevGraphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
@@ -57,7 +55,6 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
   }
 
   dispose(): void {
-    LZWParallelFacade.freeBuffer(this.uncompressedDataId);
   }
 
   getCurrentTexture(): IGLTexture {
@@ -76,7 +73,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     let y = 0;
     let offset = 0;
 
-    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image, this.uncompressedDataId);
+    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image);
 
     for (let i = 0; i < localImageHeight; i++) {
       for (let j = 0; j < localImageWidth; j++) {
@@ -104,7 +101,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     let y = 0;
     let offset = 0;
 
-    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image, this.uncompressedDataId);
+    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image);
 
     for (let i = 0; i < localImageHeight; i++) {
       for (let j = 0; j < localImageWidth; j++) {

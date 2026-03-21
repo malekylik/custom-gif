@@ -12,6 +12,7 @@ import { CopyRenderResultRenderPass } from "../../../rendering/gl/render-pass/co
 import { FlipRenderResultsRenderPass } from "../../../rendering/gl/render-pass/flip-render-pass";
 import { IGLTexture } from "../../../rendering/gl/gl_api/texture";
 import { getCurrentVisibleFrame, getNextThumbnailFrames, ScrollRenderData } from "./timeline.utils";
+import { LZWThread } from "../../../parallel_computation/main/lzw_facade";
 
 export type TimelineDataProps = {
   gif: GifEntity,
@@ -113,7 +114,7 @@ export function TimelineData(props: TimelineDataProps): Component {
 
     setTimeout(async () => {
         const canvas = view.element.querySelector('canvas');
-        const descriptor = await renderer.addGifToRender(gif, canvas, { algorithm: 'GL' });
+        const descriptor = await renderer.addGifToRender(gif, canvas, { algorithm: 'GL', thread: LZWThread.timeline });
 
         disposeGL = () => { renderer.dispose(); };
         getDescriptor = () => descriptor;
@@ -302,7 +303,7 @@ export function TimelineData(props: TimelineDataProps): Component {
 
         let rendrawResult: Promise<void> | null = null;
         redraw = () => {
-          if (!rendrawResult) {
+          if (rendrawResult === null) {
             rendrawResult = _redraw().finally(() => { rendrawResult = null; });
             return rendrawResult;
           }
