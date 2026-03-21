@@ -56,7 +56,7 @@ export function TimelineData(props: TimelineDataProps): Component {
     let getDescriptor = (() => {}) as (() => RendererGifDescriptor);
   
     let glSystemId = `Timeline_${id++}`;
-    let currentTexturesRange: { start: number; length: number; lastFrameNumber: number; } = { start: 0, length: -1, lastFrameNumber: -1 };
+    let prevThubnailFrames: number[] = [];
     let frameTextures: GLBufferDrawingTarget[] = [];
     let frameCount = signal(0);
     let canvasWidth = signal(0);
@@ -160,49 +160,62 @@ export function TimelineData(props: TimelineDataProps): Component {
 
           // 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14
           // +       +       +          +     
-          let lastFrameNumber: number = 0;
-          if (currentTexturesRange.start === currentScrollRenderData.currentFrame && currentTexturesRange.length === currentScrollRenderData.thumbnailFrames.at(-1)) {
-            lastFrameNumber = currentTexturesRange.lastFrameNumber;
+          if (
+            prevThubnailFrames.length === currentScrollRenderData.thumbnailFrames.length &&
+            prevThubnailFrames[0] === currentScrollRenderData.thumbnailFrames[0] &&
+            prevThubnailFrames.at(-1) === currentScrollRenderData.thumbnailFrames.at(-1)) {
+              // DO NOTHING
           } else {
-            for (let i = 0; i < frameTextures.length; i++) {
-              const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
-              allocator.dispose(frameTextures[i]);
+            let reuseFrames = [];
+            for (let i = 0; i < Math.min(prevThubnailFrames.length, frameTextures.length); i++) {
+              if (!currentScrollRenderData.thumbnailFrames.includes(prevThubnailFrames[i])) {
+                const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
+                allocator.dispose(frameTextures[i]);
+              } else {
+                reuseFrames.push({ frameNumber: prevThubnailFrames[i], frame: frameTextures[i] });
+              }
+            }
+
+            for (let i = Math.min(prevThubnailFrames.length, frameTextures.length); i < frameTextures.length; i++) {
+                const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
+                allocator.dispose(frameTextures[i]);
             }
             frameTextures = [];
 
             for (let i = 0; i < currentScrollRenderData.thumbnailFrames.length; i++) {
               const newFrameNumber = currentScrollRenderData.thumbnailFrames[i];
-              await renderer.setFrameSilent(descriptor, newFrameNumber);
+              const reuseIndex = reuseFrames.findIndex(v => v.frameNumber === newFrameNumber);
+              if (reuseIndex !== -1) {
+                frameTextures.push(reuseFrames[reuseIndex].frame);
+              } else {
+                await renderer.setFrameSilent(descriptor, newFrameNumber);
 
-              const currentFrame = renderer.getCurrentTexture(descriptor);
-              currentFrame.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-              currentFrame.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-              currentFrame.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-              currentFrame.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                const currentFrame = renderer.getCurrentTexture(descriptor);
+                currentFrame.setTextureWrap(gl, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                currentFrame.setTextureWrap(gl, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                currentFrame.setTextureFilter(gl, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                currentFrame.setTextureFilter(gl, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-              const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
-              const drawingTarget = allocator.allocate(adjGifWidth, height);
+                const allocator = getGLSystem(glSystemId).resouceManager.getLastingAllocator();
+                const drawingTarget = allocator.allocate(adjGifWidth, height);
 
-              frameTextures.push(drawingTarget);
+                frameTextures.push(drawingTarget);
 
-              gl.viewport(0, 0, adjGifWidth, height);
+                gl.viewport(0, 0, adjGifWidth, height);
 
-              new CopyRenderResultRenderPass(drawer, getGLSystem(glSystemId).shaderManager)
-                .execute({
-                  memory: {},
-                  globals: {},
-                  textures: {
-                    targetTexture: currentFrame,
-                  },
-                  drawingTarget: drawingTarget,
-                });
-
-              lastFrameNumber = newFrameNumber;
+                new CopyRenderResultRenderPass(drawer, getGLSystem(glSystemId).shaderManager)
+                  .execute({
+                    memory: {},
+                    globals: {},
+                    textures: {
+                      targetTexture: currentFrame,
+                    },
+                    drawingTarget: drawingTarget,
+                  });
+                }
             }
 
-            currentTexturesRange.start = currentScrollRenderData.currentFrame;
-            currentTexturesRange.length = currentScrollRenderData.thumbnailFrames.at(-1);
-            currentTexturesRange.lastFrameNumber = lastFrameNumber;
+          prevThubnailFrames = currentScrollRenderData.thumbnailFrames;
           }
 
           const drawingTarget = createGLScreenDrawingTarget(drawer.getGL());
