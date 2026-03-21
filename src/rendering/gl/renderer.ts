@@ -1,8 +1,7 @@
-import { FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 import { Timer } from '../timer';
 import { Renderer, RendererGifDescriptor } from '../renderer';
 import { BaseRenderAlgorithm } from './render_algorithm/software_render_algorithm';
-import { GLRenderAlgorithm } from './render_algorithm/gl_render_algorithm.';
+import { GLRenderAlgorithm } from './render_algorithm/gl_render_algorithm';
 import { RenderAlgorithm } from './render_algorithm/render_algorithm';
 import { DisposalMethod } from '../../parsing/gif/graphic_control';
 import { GifEntity } from 'src/parsing/new_gif/gif_entity';
