@@ -7,6 +7,7 @@ import { DisposalMethod } from '../../parsing/gif/graphic_control';
 import { GifEntity } from 'src/parsing/new_gif/gif_entity';
 import { Effect } from '../api/effect';
 import { LZWThread } from 'src/parallel_computation/main/lzw_facade';
+import { GIF } from 'src/parsing/gif/parser';
 
 type RendererEntity = {
   gifEntity: GifEntity;
@@ -123,8 +124,12 @@ export class BasicRenderer implements Renderer {
           gif.timer.clear();
 
           gif.timer.once(async () => {
-            const from = Math.max(0, frame < gif.currentFrame ? 0 : gif.currentFrame);
-            const to = frame
+            let from = Math.max(0, gif.currentFrame);
+            let to = frame
+
+            if (frame < gif.currentFrame) {
+              from = findClosestBaseGifFrame(gif.gifEntity.gif, frame);
+            }
 
             for (let i = from; i < to; i++) {
               await this.drawToTexture(gif, i);
@@ -152,8 +157,12 @@ export class BasicRenderer implements Renderer {
           gif.timer.clear();
 
           gif.timer.once(async () => {
-            const from = Math.max(0, frame < gif.currentFrame ? 0 : gif.currentFrame);
-            const to = frame
+            let from = Math.max(0, gif.currentFrame);
+            let to = frame
+
+            if (frame < gif.currentFrame) {
+              from = findClosestBaseGifFrame(gif.gifEntity.gif, frame);
+            }
 
             for (let i = from; i < to; i++) {
               await this.drawToTexture(gif, i);
@@ -322,4 +331,16 @@ export class BasicRenderer implements Renderer {
       gif.algorithm.restorePrevDisposal();
     }
   }
+}
+
+function findClosestBaseGifFrame(gif: GIF, from: number): number {
+  for (let i = from; i > 0; i--) {
+    if (
+      gif.images[i].graphicControl.disposalMethod === DisposalMethod.noAction
+    ) {
+      return i;
+    }
+  }
+
+  return 0;
 }
