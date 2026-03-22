@@ -17,8 +17,6 @@ import { BufferDrawingTarget } from '../../api/drawing-target';
 import { GLBufferDrawingTarget } from '../gl_api/gl-drawing-target';
 import { GLFrameDrawingTargetTemporaryAllocator } from '../gl_api/gl-resource-manager';
 import { GLEffect } from '../gl_api/gl-effect';
-import { LZWParallelFacade, LZWThread } from '../../../parallel_computation/main/lzw_facade';
-import { GIF } from '../../../parsing/gif/parser';
 
 let id = -1;
 
@@ -46,17 +44,10 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   private id: string;
 
-  private gif: GIF;
-
-  private thread: LZWThread;
-
-  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, gif: GIF, thread: LZWThread) {
+  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap) {
     // TODO: may fail with WARNING: Too many active WebGL contexts. Oldest context will be lost.
     const gl = canvas.getContext('webgl2');
     this.id = String(++id);
-    this.gif = gif;
-
-    this.thread = thread;
 
     initGLSystem(gl, String(this.id));
 
@@ -104,10 +95,8 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.gl = gl;
   }
 
-  async drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): Promise<void> {
+  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap, uncompressedData: Uint8Array<ArrayBufferLike>): void {
     const gl = this.gl;
-
-    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image, this.thread);
 
     this.gifFrameTexture.bind(gl);
     this.gifFrameTexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, uncompressedData);

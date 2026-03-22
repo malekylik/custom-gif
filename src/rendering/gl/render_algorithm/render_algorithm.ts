@@ -4,7 +4,7 @@ import { Effect } from 'src/rendering/api/effect';
 import { IGLTexture } from '../gl_api/texture';
 
 export interface RenderAlgorithm {
-  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): Promise<void>;
+  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap, uncompressedData: Uint8Array<ArrayBufferLike>): void;
   drawToScreen(effects: Effect[], currentFrame: number): void;
   restorePrevDisposal(): void;
   saveDisposalPrev(): void;

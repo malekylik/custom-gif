@@ -6,7 +6,7 @@ import { RenderAlgorithm } from './render_algorithm/render_algorithm';
 import { DisposalMethod } from '../../parsing/gif/graphic_control';
 import { GifEntity } from 'src/parsing/new_gif/gif_entity';
 import { Effect } from '../api/effect';
-import { LZWThread } from 'src/parallel_computation/main/lzw_facade';
+import { LZWParallelFacade, LZWThread } from '../../parallel_computation/main/lzw_facade';
 import { GIF } from 'src/parsing/gif/parser';
 
 type RendererEntity = {
@@ -47,8 +47,8 @@ export class BasicRenderer implements Renderer {
       gifEntity,
       currentFrame: -1,
       algorithm: options.algorithm === 'GL' ?
-        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, gifEntity.gif, options.thread) :
-        new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, gifEntity.gif),
+        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap) :
+        new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap),
       timer: new Timer,
       canvas,
       effects: [],
@@ -132,12 +132,16 @@ export class BasicRenderer implements Renderer {
             }
 
             for (let i = from; i < to; i++) {
-              await this.drawToTexture(gif, i);
+              const image = gif.gifEntity.gif.images[i];
+              const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
+              this.drawToTexture(gif, i, uncompressedData);
               this.performeDisposalMethod(gif, i);
             }
 
             gif.currentFrame = frame;
-            await this._drawFrame(gif, gif.currentFrame);
+            const image = gif.gifEntity.gif.images[frame];
+            const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
+            this._drawFrame(gif, gif.currentFrame, uncompressedData);
 
             resolve();
 
@@ -165,12 +169,16 @@ export class BasicRenderer implements Renderer {
             }
 
             for (let i = from; i < to; i++) {
-              await this.drawToTexture(gif, i);
+              const image = gif.gifEntity.gif.images[i];
+              const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.timeline);
+              this.drawToTexture(gif, i, uncompressedData);
               this.performeDisposalMethod(gif, i);
             }
 
             gif.currentFrame = frame;
-            await this._drawFrameSilent(gif, gif.currentFrame);
+            const image = gif.gifEntity.gif.images[frame];
+            const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.timeline);
+            this._drawFrameSilent(gif, gif.currentFrame, uncompressedData);
 
             resolve();
 
@@ -192,7 +200,9 @@ export class BasicRenderer implements Renderer {
         gif.timer.once(callback, gif.gifEntity.gif.images[nextFrame].graphicControl?.delayTime || FPS) as unknown as number;
 
         gif.currentFrame = nextFrame;
-        await this._drawFrame(gif, gif.currentFrame);
+        const image = gif.gifEntity.gif.images[nextFrame];
+        const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
+        this._drawFrame(gif, gif.currentFrame, uncompressedData);
 
         this.notifyFrameSubscribers(descriptor);
       };
@@ -267,11 +277,11 @@ export class BasicRenderer implements Renderer {
     return gif.algorithm.getCurrentTexture();
   }
 
-  private async drawToTexture(gif: RendererEntity, frame: number): Promise<void> {
+  private drawToTexture(gif: RendererEntity, frame: number, uncompressedData: Uint8Array): void {
     const image = gif.gifEntity.gif.images[frame];
 
     // render current
-    await gif.algorithm.drawToTexture(image, gif.gifEntity.gif.colorMap);
+    gif.algorithm.drawToTexture(image, gif.gifEntity.gif.colorMap, uncompressedData);
 
     // TODO: add support of DisposalMethod.clear
     if (image.graphicControl?.disposalMethod !== DisposalMethod.prev) {
@@ -310,16 +320,16 @@ export class BasicRenderer implements Renderer {
     gif.algorithm.drawToScreen(effects, gif.currentFrame);
   }
 
-  private async _drawFrame(gif: RendererEntity, frame: number): Promise<void> {
-    await this.drawToTexture(gif, frame);
+  private _drawFrame(gif: RendererEntity, frame: number, uncompressedData: Uint8Array): void {
+    this.drawToTexture(gif, frame, uncompressedData);
 
     this.drawToScreen(gif);
 
     this.performeDisposalMethod(gif, frame);
   }
 
-    private async _drawFrameSilent(gif: RendererEntity, frame: number): Promise<void> {
-    await this.drawToTexture(gif, frame);
+    private _drawFrameSilent(gif: RendererEntity, frame: number, uncompressedData: Uint8Array): void {
+    this.drawToTexture(gif, frame, uncompressedData);
 
     this.performeDisposalMethod(gif, frame);
   }

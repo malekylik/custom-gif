@@ -11,6 +11,7 @@ export function getCurrentVisibleFrame(position: number, frameWidth: number): nu
   return (position / frameWidth) | 0;
 }
 
+// TODO: chekc for ezgif.com-webp-to-gif-converter seems like calculate incorectlly
 export function getNextThumbnailFrames(currentFrame: number, offset: number, numberOfNextFrames: number): number[] {
   let firstThubnailFrames = Math.floor(currentFrame / offset) * offset;
 

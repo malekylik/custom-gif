@@ -1,34 +1,29 @@
-import { LZWParallelFacade } from '../../../parallel_computation/main/lzw_facade';
 import { ColorMap } from '../../../parsing/gif/color_map';
 import { ImageDescriptor } from '../../../parsing/gif/image_descriptor';
 import { ScreenDescriptor } from '../../../parsing/gif/screen_descriptor';
 import { IGLTexture } from '../gl_api/texture';
 import { GrapgicMemory } from './graphic_memory';
 import { RenderAlgorithm } from './render_algorithm';
-import { GIF } from '../../../parsing/gif/parser';
 
 export class BaseRenderAlgorithm implements RenderAlgorithm {
   private graphicMemory: GrapgicMemory;
   private prevGraphicMemory: GrapgicMemory;
   private ctx: CanvasRenderingContext2D;
-  private gif: GIF;
 
-  constructor (canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, gif: GIF) {
+  constructor (canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap) {
     this.ctx = canvas.getContext('2d');
-
-    this.gif = gif;
 
     this.graphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
     this.prevGraphicMemory = new GrapgicMemory(screenDescriptor.screenWidth, screenDescriptor.screenHeight);
   }
 
-  async drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): Promise<void> {
+  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap, uncompressedData: Uint8Array): void {
     const graphicControl = image.graphicControl;
 
     if (graphicControl?.isTransparent) {
-      await this.updateFrameData89(image, globalColorMap);
+      this.updateFrameData89(image, globalColorMap, uncompressedData);
     } else {
-      await this.updateFrameData87(image, globalColorMap);
+      this.updateFrameData87(image, globalColorMap, uncompressedData);
     }
   }
 
@@ -62,7 +57,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     throw new Error('Method not implemented.');
   }
 
-  private async updateFrameData87(image: ImageDescriptor, globalColorMap: ColorMap): Promise<void> {
+  private updateFrameData87(image: ImageDescriptor, globalColorMap: ColorMap, uncompressedData: Uint8Array): void {
     const graphicMemory = this.graphicMemory;
     const colorMap = image.M ? image.colorMap : globalColorMap;
     const imageLeft = image.imageLeft;
@@ -72,8 +67,6 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     let x = 0;
     let y = 0;
     let offset = 0;
-
-    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image);
 
     for (let i = 0; i < localImageHeight; i++) {
       for (let j = 0; j < localImageWidth; j++) {
@@ -89,7 +82,7 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     }
   }
 
-  private async updateFrameData89(image: ImageDescriptor, globalColorMap: ColorMap): Promise<void> {
+  private updateFrameData89(image: ImageDescriptor, globalColorMap: ColorMap, uncompressedData: Uint8Array): void {
     const graphicMemory = this.graphicMemory;
     const colorMap = image.M ? image.colorMap : globalColorMap;
     const graphicControl = image.graphicControl;
@@ -100,8 +93,6 @@ export class BaseRenderAlgorithm implements RenderAlgorithm {
     let x = 0;
     let y = 0;
     let offset = 0;
-
-    const uncompressedData = await LZWParallelFacade.uncompress(this.gif, image);
 
     for (let i = 0; i < localImageHeight; i++) {
       for (let j = 0; j < localImageWidth; j++) {
