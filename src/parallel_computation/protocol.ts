@@ -13,7 +13,7 @@ export type LZWInitInMessage = {
 export type LZWInitOutMessage = {
     id: number;
     type: 'init';
-    props: { id: number; };
+    props: { id: number; gif: ArrayBuffer; };
 };
 
 export type LZWFreeInMessage = {

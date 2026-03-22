@@ -22,10 +22,11 @@ function copyBuffer(buf: Uint8Array, to: Uint8Array<ArrayBuffer>): Uint8Array<Ar
 
 workerFacade.on(async (e) => {
     if (e.type === 'init') {
-        const lzw_uncompress = await createLZWFuncFromWasm({ buffer: new Uint8Array(e.props.gif), screenDescriptor: { screenWidth: e.props.screenWidth, screenHeight: e.props.screenHeight } });
+        const gifBuffer = new Uint8Array(e.props.gif);
+        const lzw_uncompress = await createLZWFuncFromWasm({ buffer: copyBuffer(gifBuffer, new Uint8Array(gifBuffer.length)), screenDescriptor: { screenWidth: e.props.screenWidth, screenHeight: e.props.screenHeight } });
         const currentId = id++;
         map.set(currentId, lzw_uncompress);
-        workerFacade.reply({ type: 'init', props: { id: currentId } }, e);
+        workerFacade.reply({ type: 'init', props: { id: currentId, gif: e.props.gif } }, e);
     }
 
     if (e.type === 'free') {

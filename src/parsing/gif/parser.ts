@@ -34,7 +34,7 @@ export function parseGif(buffer: ArrayBuffer): GIF | undefined {
       imagesDescriptorStart += (colorMap.entriesCount * ColorMapBlock.entriesCount);
     }
 
-    let { images, blockEnd } = parseImageList(buffer, imagesDescriptorStart)
+    let { images, blockEnd } = parseImageList(buffer, imagesDescriptorStart);
 
     while (blockEnd < HEAP8.length && HEAP8[blockEnd] !== GIFSpecialSymbol.gifTermination) blockEnd++;
 
@@ -54,4 +54,23 @@ export function parseGif(buffer: ArrayBuffer): GIF | undefined {
       buffer: HEAP8,
     }
   }
+}
+
+export function restoreGif(gif: GIF, buffer: ArrayBuffer): void {
+  const HEAP8 = new Uint8Array(buffer);
+
+  let colorMap = null;
+  let imagesDescriptorStart = ColorMapBlock.start;
+
+  if (gif.screenDescriptor.M) {
+    colorMap = parseGlobalColorMap(buffer, gif.screenDescriptor.pixel);
+    imagesDescriptorStart += (colorMap.entriesCount * ColorMapBlock.entriesCount);
+  }
+
+
+  let { images } = parseImageList(buffer, imagesDescriptorStart);
+
+  gif.colorMap = colorMap;
+  gif.images = images;
+  gif.buffer = HEAP8;
 }

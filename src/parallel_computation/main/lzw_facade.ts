@@ -1,5 +1,5 @@
 import { ImageDescriptor } from 'src/parsing/gif/image_descriptor';
-import { GIF } from '../../parsing/gif/parser';
+import { GIF, parseGif, restoreGif } from '../../parsing/gif/parser';
 import { InMessages, LZWInitOutMessage, LZWUncompressOutMessage, OutMessages } from '../protocol';
 import LZWParallel from '../worker/lzw_parallel.ts?url';
 import { createLZWWorkerFacade } from './lzw_worker_facade';
@@ -18,9 +18,6 @@ let currentBufferSize: number = 0;
 let lzwBuffer: Uint8Array = new Uint8Array(currentBufferSize);
 let timelineBuffer: Uint8Array = new Uint8Array(currentBufferSize);
 
-
-export type BufferId = number & { readonly __tag: unique symbol };
-
 export enum LZWThread {
     main = 0,
     timeline = 1,
@@ -29,30 +26,21 @@ export enum LZWThread {
 function lzwParallelFacade() {
 
     return ({
-        async init(gif: GIF) {
+        async init(gif: GIF): Promise<void> {
             if (gifToId.has(gif)) {
                 return;
             }
+            let gifBuffer = gif.buffer.buffer as ArrayBuffer;
 
-            const buffer = new Uint8Array(gif.buffer.length);
+            let r1: LZWInitOutMessage = await workerFacade.send({ type: 'init', props: { gif: gifBuffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [gifBuffer]);
+            gifBuffer = r1.props.gif;
+            let r2: LZWInitOutMessage = await workerTimelineFacade.send({ type: 'init', props: { gif: gifBuffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [gifBuffer]);
+            gifBuffer = r2.props.gif;
 
-            for (let i = 0; i < gif.buffer.length; i++) {
-                buffer[i] = gif.buffer[i];
-            }
+            restoreGif(gif, gifBuffer);
 
-            const lzwBuffer = new Uint8Array(gif.buffer.length);
-
-            for (let i = 0; i < gif.buffer.length; i++) {
-                lzwBuffer[i] = gif.buffer[i];
-            }
-
-            const r = await Promise.all([
-                workerFacade.send({ type: 'init', props: { gif: buffer.buffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [buffer.buffer]),
-                workerTimelineFacade.send({ type: 'init', props: { gif: lzwBuffer.buffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [lzwBuffer.buffer]),
-            ]) as LZWInitOutMessage[];
-
-            gifToId.set(gif, r[0].props.id);
-            gifToIdTimline.set(gif, r[1].props.id);
+            gifToId.set(gif, r1.props.id);
+            gifToIdTimline.set(gif, r2.props.id);
 
             let maxPossibleGifFrameSize = gif.screenDescriptor.screenWidth * gif.screenDescriptor.screenHeight;
             if (currentBufferSize < maxPossibleGifFrameSize) {
@@ -71,6 +59,7 @@ function lzwParallelFacade() {
             gifToIdTimline.delete(gif);
         },
 
+        // Add multiple thread for lzw
         async uncompress(gif: GIF, image: ImageDescriptor, thread: LZWThread): Promise<Uint8Array> {
             let id = LZWThread.main === thread ? gifToId.get(gif) : gifToIdTimline.get(gif);
             let buffer = LZWThread.main === thread ? lzwBuffer : timelineBuffer;
