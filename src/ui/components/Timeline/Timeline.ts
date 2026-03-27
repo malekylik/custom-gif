@@ -270,6 +270,7 @@ export function TimelineData(props: TimelineDataProps): Component {
             }
 
             gpuProgram.useProgram(gl);
+            // TODO: try to use TEXTURE_2D_ARRAY
             for (let i = 0; i < gpuProgramTextures.length; i++) {
               const texture = gpuProgramTextures[i];
               gpuProgram.setTextureUniform(gl, `targetTexture${i + 1}`, texture);

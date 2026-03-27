@@ -1,29 +1,51 @@
 import { ImageDescriptor } from 'src/parsing/gif/image_descriptor';
-import { GIF, parseGif, restoreGif } from '../../parsing/gif/parser';
+import { GIF, restoreGif } from '../../parsing/gif/parser';
 import { InMessages, LZWInitOutMessage, LZWUncompressOutMessage, OutMessages } from '../protocol';
 import LZWParallel from '../worker/lzw_parallel.ts?url';
 import { createLZWWorkerFacade } from './lzw_worker_facade';
 
-let lzwWorker = new Worker(LZWParallel, { type: 'module' });
-let lzwWorkerTimeline = new Worker(LZWParallel, { type: 'module' });
+const MAX_BACKGROUND_WORKERS = 3;
 
-let workerFacade = createLZWWorkerFacade<OutMessages, InMessages>(lzwWorker);
-let workerTimelineFacade = createLZWWorkerFacade<OutMessages, InMessages>(lzwWorkerTimeline);
+type WorkerType = {
+    worker: ReturnType<typeof createLZWWorkerFacade>;
+    occupied: boolean;
+    buffer: Uint8Array;
+    priority: LZWThread;
+    gifToId: Map<GIF, number>;
+};
+
+let workers: WorkerType[] = [];
 
 let gifToId = new Map<GIF, number>();
-let gifToIdTimline = new Map<GIF, number>();
 
 let currentBufferSize: number = 0;
 
-let lzwBuffer: Uint8Array = new Uint8Array(currentBufferSize);
-let timelineBuffer: Uint8Array = new Uint8Array(currentBufferSize);
-
 export enum LZWThread {
-    main = 0,
-    timeline = 1,
+    timeline = 0,
+    main = 1,
 }
 
 function lzwParallelFacade() {
+    workers.push({
+        worker: createLZWWorkerFacade<OutMessages, InMessages>(new Worker(LZWParallel, { type: 'module' })),
+        occupied: false,
+        buffer: new Uint8Array(currentBufferSize),
+        priority: LZWThread.main,
+        gifToId: new Map(),
+    });
+
+    for (let i = 0; i < MAX_BACKGROUND_WORKERS; i++) {
+        workers.push({
+            worker: createLZWWorkerFacade<OutMessages, InMessages>(new Worker(LZWParallel, { type: 'module' })),
+            occupied: false,
+            buffer: new Uint8Array(currentBufferSize),
+            priority: LZWThread.timeline,
+
+            gifToId: new Map(),
+        });
+    }
+
+    let jobs: ((w: WorkerType) => void)[] = [];
 
     return ({
         async init(gif: GIF): Promise<void> {
@@ -32,15 +54,17 @@ function lzwParallelFacade() {
             }
             let gifBuffer = gif.buffer.buffer as ArrayBuffer;
 
-            let r1: LZWInitOutMessage = await workerFacade.send({ type: 'init', props: { gif: gifBuffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [gifBuffer]);
-            gifBuffer = r1.props.gif;
-            let r2: LZWInitOutMessage = await workerTimelineFacade.send({ type: 'init', props: { gif: gifBuffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [gifBuffer]);
-            gifBuffer = r2.props.gif;
+            for (let w of workers) {
+                w.occupied = true;
+                let r: LZWInitOutMessage = await w.worker.send({ type: 'init', props: { gif: gifBuffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [gifBuffer]);
+                w.occupied = false;
+
+                w.gifToId.set(gif, r.props.id);
+
+                gifBuffer = r.props.gif;
+            }
 
             restoreGif(gif, gifBuffer);
-
-            gifToId.set(gif, r1.props.id);
-            gifToIdTimline.set(gif, r2.props.id);
 
             let maxPossibleGifFrameSize = gif.screenDescriptor.screenWidth * gif.screenDescriptor.screenHeight;
             if (currentBufferSize < maxPossibleGifFrameSize) {
@@ -49,53 +73,83 @@ function lzwParallelFacade() {
         },
 
         async freeGif(gif: GIF): Promise<void> {
-            let id = gifToId.get(gif);
-            await Promise.all([
-                workerFacade.send({ type: 'free', props: { id } }),
-                workerTimelineFacade.send({ type: 'free', props: { id } }),
-            ]);
+            // let id = gifToId.get(gif);
+            // await Promise.all([
+            //     workerFacade.send({ type: 'free', props: { id } }),
+            //     workerTimelineFacade.send({ type: 'free', props: { id } }),
+            // ]);
 
-            gifToId.delete(gif);
-            gifToIdTimline.delete(gif);
+            // gifToId.delete(gif);
+            // gifToIdTimline.delete(gif);
         },
 
         // Add multiple thread for lzw
-        async uncompress(gif: GIF, image: ImageDescriptor, thread: LZWThread): Promise<Uint8Array> {
-            let id = LZWThread.main === thread ? gifToId.get(gif) : gifToIdTimline.get(gif);
-            let buffer = LZWThread.main === thread ? lzwBuffer : timelineBuffer;
-            
-            if (buffer.length < currentBufferSize) {
-                if (LZWThread.main === thread) {
-                    lzwBuffer = new Uint8Array(currentBufferSize);
-                    buffer = lzwBuffer;
-                } else {
-                    timelineBuffer = new Uint8Array(currentBufferSize);
-                    buffer = timelineBuffer;
-                }
+        async uncompress(gif: GIF, image: ImageDescriptor, thread: LZWThread): Promise<{ readBuffer: () => Uint8Array; [Symbol.dispose]: () => void; }> {
+            const worker = await getNextWorker(thread);
+
+            let id = worker.gifToId.get(gif);
+
+            if (worker.buffer.length < currentBufferSize) {
+                worker.buffer = new Uint8Array(currentBufferSize);
             }
 
-            const facade = LZWThread.main === thread ? workerFacade : workerTimelineFacade;
-
-            const r: LZWUncompressOutMessage = await facade.send({ type: 'uncompress', props: { id, startPointer: image.startPointer, compressedDataSize: image.compressedData.length, data: buffer.buffer } }, [buffer.buffer]);
+            const workerBufferLength = worker.buffer.length;
+            const r: LZWUncompressOutMessage = await worker.worker.send({ type: 'uncompress', props: { id, startPointer: image.startPointer, compressedDataSize: image.compressedData.length, data: worker.buffer.buffer } }, [worker.buffer.buffer]);
             const result = new Uint8Array(r.props.data);
 
-            if (buffer.length < currentBufferSize) {
-                if (LZWThread.main === thread) {
-                    lzwBuffer = new Uint8Array(currentBufferSize);
-                } else {
-                    timelineBuffer = new Uint8Array(currentBufferSize);
-                }
+            if (workerBufferLength < currentBufferSize) {
+                worker.buffer = new Uint8Array(currentBufferSize);
             } else {
-                if (LZWThread.main === thread) {
-                    lzwBuffer = result;
-                } else {
-                    timelineBuffer = result;
-                }
+                worker.buffer = result;
             }
 
-            return result;
+            return ({
+                readBuffer(): Uint8Array {
+                    freeWorker();
+
+                    return worker.buffer;
+                },
+
+                [Symbol.dispose]() {
+                    freeWorker()
+                }
+            });
+
+            function freeWorker() {
+                worker.occupied = false;
+
+                if (jobs.length > 0) {
+                    const job = jobs[0];
+                    jobs = jobs.slice(1);
+                    job(worker);
+                }
+            }
+        },
+
+        getNumberOfFreeWorkers(priority: LZWThread): number {
+            return workers.filter(w => isFreeWorker(w, priority)).length;
         }
     });
+
+    async function getNextWorker(priority: LZWThread): Promise<WorkerType> {
+        const freeWorkers = workers.filter(w => isFreeWorker(w, priority));
+
+        if (freeWorkers.length > 0) {
+            freeWorkers[0].occupied = true;
+            return freeWorkers[0];
+        }
+
+        let release = (w: WorkerType) => {};
+        let job = new Promise<WorkerType>((r) => { release = r; });
+
+        jobs.push(release);
+
+        return job;
+    }
+
+    function isFreeWorker(worker: WorkerType, priority: LZWThread): boolean {
+        return !worker.occupied && worker.priority <= priority;
+    }
 }
 
 export const LZWParallelFacade = lzwParallelFacade();

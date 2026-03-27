@@ -132,16 +132,31 @@ export class BasicRenderer implements Renderer {
             }
 
             for (let i = from; i < to; i++) {
-              const image = gif.gifEntity.gif.images[i];
-              const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
-              this.drawToTexture(gif, i, uncompressedData);
-              this.performeDisposalMethod(gif, i);
+              let uncompressedDatas = [];
+              let j = 0;
+              while (i + j < to && (LZWParallelFacade.getNumberOfFreeWorkers(LZWThread.main) > 0)) {
+                const image = gif.gifEntity.gif.images[i + j];
+                uncompressedDatas.push(LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main));
+                j++;
+              }
+              if (uncompressedDatas.length > 0) {
+                (await Promise.all(uncompressedDatas)).forEach((uncompressedData, j) => {
+                  this.drawToTexture(gif, i + j, uncompressedData.readBuffer());
+                  this.performeDisposalMethod(gif, i + j);
+                });
+                i += j - 1;
+              } else {
+                const image = gif.gifEntity.gif.images[i];
+                const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
+                this.drawToTexture(gif, i, uncompressedData.readBuffer());
+                this.performeDisposalMethod(gif, i);
+              }
             }
 
             gif.currentFrame = frame;
             const image = gif.gifEntity.gif.images[frame];
             const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
-            this._drawFrame(gif, gif.currentFrame, uncompressedData);
+            this._drawFrame(gif, gif.currentFrame, uncompressedData.readBuffer());
 
             resolve();
 
@@ -169,16 +184,31 @@ export class BasicRenderer implements Renderer {
             }
 
             for (let i = from; i < to; i++) {
-              const image = gif.gifEntity.gif.images[i];
-              const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.timeline);
-              this.drawToTexture(gif, i, uncompressedData);
-              this.performeDisposalMethod(gif, i);
+              let uncompressedDatas = [];
+              let j = 0;
+              while (i + j < to && LZWParallelFacade.getNumberOfFreeWorkers(LZWThread.timeline) > 0) {
+                const image = gif.gifEntity.gif.images[i + j];
+                uncompressedDatas.push(LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.timeline));
+                j++;
+              }
+              if (uncompressedDatas.length > 0) {
+                (await Promise.all(uncompressedDatas)).forEach((uncompressedData, j) => {
+                  this.drawToTexture(gif, i + j, uncompressedData.readBuffer());
+                  this.performeDisposalMethod(gif, i + j);
+                });
+                i += j - 1;
+              } else {
+                const image = gif.gifEntity.gif.images[i];
+                const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.timeline);
+                this.drawToTexture(gif, i, uncompressedData.readBuffer());
+                this.performeDisposalMethod(gif, i);
+              }
             }
 
             gif.currentFrame = frame;
             const image = gif.gifEntity.gif.images[frame];
             const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.timeline);
-            this._drawFrameSilent(gif, gif.currentFrame, uncompressedData);
+            this._drawFrameSilent(gif, gif.currentFrame, uncompressedData.readBuffer());
 
             resolve();
 
@@ -202,7 +232,7 @@ export class BasicRenderer implements Renderer {
         gif.currentFrame = nextFrame;
         const image = gif.gifEntity.gif.images[nextFrame];
         const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
-        this._drawFrame(gif, gif.currentFrame, uncompressedData);
+        this._drawFrame(gif, gif.currentFrame, uncompressedData.readBuffer());
 
         this.notifyFrameSubscribers(descriptor);
       };
