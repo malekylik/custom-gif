@@ -5,7 +5,6 @@ import { QUAD_WITH_TEXTURE_COORD_DATA, VBO_LAYOUT } from '../consts';
 import { GLVBO } from '../gl_api/vbo';
 import { RenderAlgorithm } from './render_algorithm';
 import { GLTexture, IGLTexture, TextureFiltering, TextureFormat, TextureType, TextureUnit } from '../gl_api/texture';
-import { FactoryOut, FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 import { FlipRenderResultsRenderPass } from '../render-pass/flip-render-pass';
 import { DrawingToScreenRenderPass } from '../render-pass/drawing-to-screen-pass';
 import { GifAlphaRenderPass } from '../render-pass/gif-alpha-pass';
@@ -35,8 +34,6 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   private vboToTexture: GLVBO;
 
-  private uncompressedData: Uint8Array;
-  private lzw_uncompress: FactoryOut;
   private gl: WebGL2RenderingContext;
   private drawer: GLDrawer;
 
@@ -47,7 +44,8 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
   private id: string;
 
-  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap, uncompressed: FactoryResult) {
+  constructor(canvas: HTMLCanvasElement, screenDescriptor: ScreenDescriptor, images: Array<ImageDescriptor>, globalColorMap: ColorMap) {
+    // TODO: may fail with WARNING: Too many active WebGL contexts. Oldest context will be lost.
     const gl = canvas.getContext('webgl2');
     this.id = String(++id);
 
@@ -62,9 +60,6 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
 
     this.screenWidth = screenWidth;
     this.screenHeight = screenHeight;
-
-    this.uncompressedData = uncompressed.out;
-    this.lzw_uncompress = uncompressed.lzw_uncompress;
 
     gl.enable(gl.BLEND);
     gl.blendEquation(gl.FUNC_ADD);
@@ -100,13 +95,11 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
     this.gl = gl;
   }
 
-  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap): void {
+  drawToTexture(image: ImageDescriptor, globalColorMap: ColorMap, uncompressedData: Uint8Array<ArrayBufferLike>): void {
     const gl = this.gl;
 
-    this.lzw_uncompress(image);
-
     this.gifFrameTexture.bind(gl);
-    this.gifFrameTexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
+    this.gifFrameTexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, uncompressedData);
 
     this.gl.viewport(0, 0, this.screenWidth, this.screenHeight);
     this.gl.enable(this.gl.BLEND);
@@ -121,7 +114,7 @@ export class GLRenderAlgorithm implements RenderAlgorithm {
       this.colorTableTexture.putData(gl, 0, 0, colorMap.entriesCount, 1, colorMap.getRawData());
   
       this.gifFrameTexture.bind(gl);
-      this.gifFrameTexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, this.uncompressedData);
+      this.gifFrameTexture.setData(gl, image.imageLeft, image.imageTop, image.imageWidth, image.imageHeight, uncompressedData);
   
       if (this.currentFrameBuffer) {
         getGLSystem(this.id).resouceManager.getLastingAllocator().dispose(this.currentFrameBuffer);

@@ -1,9 +1,8 @@
-import { ImageDescriptor } from '../../gif/image_descriptor';
 import { GIF } from '../../gif/parser';
 import { createModule, LZWUncompressModule } from '../uncompress/uncompress_wasm';
 import { FactoryResult } from './uncompress_factory';
 
-export function createLZWFuncFromWasm(gif: GIF): Promise<FactoryResult> {
+export function createLZWFuncFromWasm(gif: Pick<GIF, 'buffer'> & { screenDescriptor: Pick<GIF['screenDescriptor'], 'screenWidth' | 'screenHeight'> }): Promise<FactoryResult> {
   let module: LZWUncompressModule = null;
   let startPointer = 0;
 
@@ -12,8 +11,8 @@ export function createLZWFuncFromWasm(gif: GIF): Promise<FactoryResult> {
       module = m;
       startPointer = m.gifStartPointer;
 
-      function _lzw_uncompress(image: ImageDescriptor) {
-        m.lzw_uncompress(startPointer + image.startPointer, image.compressedData.length, m.outStartPointer, m.outBuffer.length);
+      function _lzw_uncompress(image: { startPointer: number; compressedDataSize: number }) {
+        m.lzw_uncompress(startPointer + image.startPointer, image.compressedDataSize, m.outStartPointer, m.outBuffer.length);
       }
 
       return ({ lzw_uncompress: _lzw_uncompress, out: m.outBuffer });

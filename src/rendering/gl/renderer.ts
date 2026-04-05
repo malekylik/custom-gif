@@ -1,12 +1,13 @@
-import { FactoryResult } from 'src/parsing/lzw/factory/uncompress_factory';
 import { Timer } from '../timer';
 import { Renderer, RendererGifDescriptor } from '../renderer';
 import { BaseRenderAlgorithm } from './render_algorithm/software_render_algorithm';
-import { GLRenderAlgorithm } from './render_algorithm/gl_render_algorithm.';
+import { GLRenderAlgorithm } from './render_algorithm/gl_render_algorithm';
 import { RenderAlgorithm } from './render_algorithm/render_algorithm';
 import { DisposalMethod } from '../../parsing/gif/graphic_control';
 import { GifEntity } from 'src/parsing/new_gif/gif_entity';
 import { Effect } from '../api/effect';
+import { LZWParallelFacade, LZWThread } from '../../parallel_computation/main/lzw_facade';
+import { GIF } from 'src/parsing/gif/parser';
 
 type RendererEntity = {
   gifEntity: GifEntity;
@@ -20,8 +21,8 @@ type RendererEntity = {
 const FPS = 1 / 25 * 1000;
 
 export interface RendererOptions {
-  uncompress: FactoryResult;
   algorithm: 'GL' | 'Software';
+  thread: LZWThread,
 }
 
 type FrameSubsription = (r: { frameNumber: number; totalFrameNumber: number; gifDescription: RendererGifDescriptor }) => void;
@@ -46,8 +47,8 @@ export class BasicRenderer implements Renderer {
       gifEntity,
       currentFrame: -1,
       algorithm: options.algorithm === 'GL' ?
-        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress) :
-        new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap, options.uncompress),
+        new GLRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap) :
+        new BaseRenderAlgorithm(canvas, gifEntity.gif.screenDescriptor, gifEntity.gif.images, gifEntity.gif.colorMap),
       timer: new Timer,
       canvas,
       effects: [],
@@ -122,17 +123,40 @@ export class BasicRenderer implements Renderer {
       if (frame > -1 && frame < gif.gifEntity.gif.images.length) {
           gif.timer.clear();
 
-          gif.timer.once(() => {
-            const from = Math.max(0, frame < gif.currentFrame ? 0 : gif.currentFrame);
-            const to = frame
+          gif.timer.once(async () => {
+            let from = Math.max(0, gif.currentFrame);
+            let to = frame
+
+            if (frame < gif.currentFrame) {
+              from = findClosestBaseGifFrame(gif.gifEntity.gif, frame);
+            }
 
             for (let i = from; i < to; i++) {
-              this.drawToTexture(gif, i);
-              this.performeDisposalMethod(gif, i);
+              let uncompressedDatas = [];
+              let j = 0;
+              while (i + j < to && (LZWParallelFacade.getNumberOfFreeWorkers(LZWThread.main) > 0)) {
+                const image = gif.gifEntity.gif.images[i + j];
+                uncompressedDatas.push(LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main));
+                j++;
+              }
+              if (uncompressedDatas.length > 0) {
+                (await Promise.all(uncompressedDatas)).forEach((uncompressedData, j) => {
+                  this.drawToTexture(gif, i + j, uncompressedData.readBuffer());
+                  this.performeDisposalMethod(gif, i + j);
+                });
+                i += j - 1;
+              } else {
+                const image = gif.gifEntity.gif.images[i];
+                const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
+                this.drawToTexture(gif, i, uncompressedData.readBuffer());
+                this.performeDisposalMethod(gif, i);
+              }
             }
 
             gif.currentFrame = frame;
-            this._drawFrame(gif, gif.currentFrame);
+            const image = gif.gifEntity.gif.images[frame];
+            const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
+            this._drawFrame(gif, gif.currentFrame, uncompressedData.readBuffer());
 
             resolve();
 
@@ -151,17 +175,40 @@ export class BasicRenderer implements Renderer {
       if (frame > -1 && frame < gif.gifEntity.gif.images.length) {
           gif.timer.clear();
 
-          gif.timer.once(() => {
-            const from = Math.max(0, frame < gif.currentFrame ? 0 : gif.currentFrame);
-            const to = frame
+          gif.timer.once(async () => {
+            let from = Math.max(0, gif.currentFrame);
+            let to = frame
+
+            if (frame < gif.currentFrame) {
+              from = findClosestBaseGifFrame(gif.gifEntity.gif, frame);
+            }
 
             for (let i = from; i < to; i++) {
-              this.drawToTexture(gif, i);
-              this.performeDisposalMethod(gif, i);
+              let uncompressedDatas = [];
+              let j = 0;
+              while (i + j < to && LZWParallelFacade.getNumberOfFreeWorkers(LZWThread.timeline) > 0) {
+                const image = gif.gifEntity.gif.images[i + j];
+                uncompressedDatas.push(LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.timeline));
+                j++;
+              }
+              if (uncompressedDatas.length > 0) {
+                (await Promise.all(uncompressedDatas)).forEach((uncompressedData, j) => {
+                  this.drawToTexture(gif, i + j, uncompressedData.readBuffer());
+                  this.performeDisposalMethod(gif, i + j);
+                });
+                i += j - 1;
+              } else {
+                const image = gif.gifEntity.gif.images[i];
+                const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.timeline);
+                this.drawToTexture(gif, i, uncompressedData.readBuffer());
+                this.performeDisposalMethod(gif, i);
+              }
             }
 
             gif.currentFrame = frame;
-            this._drawFrameSilent(gif, gif.currentFrame);
+            const image = gif.gifEntity.gif.images[frame];
+            const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.timeline);
+            this._drawFrameSilent(gif, gif.currentFrame, uncompressedData.readBuffer());
 
             resolve();
 
@@ -177,13 +224,15 @@ export class BasicRenderer implements Renderer {
     const gif = this.gifs[descriptor.id];
 
     if (gif.gifEntity.gif.images.length > 1) {
-      const callback = () => {
+      const callback = async () => {
         const nextFrame = (gif.currentFrame + 1) % gif.gifEntity.gif.images.length;
 
         gif.timer.once(callback, gif.gifEntity.gif.images[nextFrame].graphicControl?.delayTime || FPS) as unknown as number;
 
         gif.currentFrame = nextFrame;
-        this._drawFrame(gif, gif.currentFrame);
+        const image = gif.gifEntity.gif.images[nextFrame];
+        const uncompressedData = await LZWParallelFacade.uncompress(gif.gifEntity.gif, image, LZWThread.main);
+        this._drawFrame(gif, gif.currentFrame, uncompressedData.readBuffer());
 
         this.notifyFrameSubscribers(descriptor);
       };
@@ -258,11 +307,11 @@ export class BasicRenderer implements Renderer {
     return gif.algorithm.getCurrentTexture();
   }
 
-  private drawToTexture(gif: RendererEntity, frame: number): void {
+  private drawToTexture(gif: RendererEntity, frame: number, uncompressedData: Uint8Array): void {
     const image = gif.gifEntity.gif.images[frame];
 
     // render current
-    gif.algorithm.drawToTexture(image, gif.gifEntity.gif.colorMap);
+    gif.algorithm.drawToTexture(image, gif.gifEntity.gif.colorMap, uncompressedData);
 
     // TODO: add support of DisposalMethod.clear
     if (image.graphicControl?.disposalMethod !== DisposalMethod.prev) {
@@ -301,16 +350,16 @@ export class BasicRenderer implements Renderer {
     gif.algorithm.drawToScreen(effects, gif.currentFrame);
   }
 
-  private _drawFrame(gif: RendererEntity, frame: number): void {
-    this.drawToTexture(gif, frame);
+  private _drawFrame(gif: RendererEntity, frame: number, uncompressedData: Uint8Array): void {
+    this.drawToTexture(gif, frame, uncompressedData);
 
     this.drawToScreen(gif);
 
     this.performeDisposalMethod(gif, frame);
   }
 
-    private _drawFrameSilent(gif: RendererEntity, frame: number): void {
-    this.drawToTexture(gif, frame);
+    private _drawFrameSilent(gif: RendererEntity, frame: number, uncompressedData: Uint8Array): void {
+    this.drawToTexture(gif, frame, uncompressedData);
 
     this.performeDisposalMethod(gif, frame);
   }
@@ -322,4 +371,16 @@ export class BasicRenderer implements Renderer {
       gif.algorithm.restorePrevDisposal();
     }
   }
+}
+
+function findClosestBaseGifFrame(gif: GIF, from: number): number {
+  for (let i = from; i > 0; i--) {
+    if (
+      gif.images[i].graphicControl.disposalMethod === DisposalMethod.noAction
+    ) {
+      return i;
+    }
+  }
+
+  return 0;
 }

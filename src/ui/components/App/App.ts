@@ -15,6 +15,7 @@ import { DarkingDirection } from "../../../../src/rendering/gl/render-pass/darki
 import { getBlackRGBA } from "../../../../src/rendering/gl/effects/utils/rgba";
 import { EdgeDetectionEffectId, createEdgeDetectionEffect } from "../../../rendering/gl/effects/edge-detection-effect";
 import { TimelineData } from "../Timeline/Timeline";
+import { LZWParallelFacade, LZWThread } from "../../../parallel_computation/main/lzw_facade";
 
 export type AppComponent = Component;
 
@@ -49,8 +50,7 @@ export function App(props: {}): AppComponent {
 
             root(async (dispose) => {
                 let renderer = new BasicRenderer();
-                const lzw_uncompress = await createLZWFuncFromWasm(gif.gif);
-                const lzw_uncompress_timeline = lzw_uncompress;
+                await LZWParallelFacade.init(gif.gif);
                 let close = () => {};
                 let rerender = () => {};
                 let render = (frame: number) => {};
@@ -79,7 +79,7 @@ export function App(props: {}): AppComponent {
                             ${toChild(() => gifVisualizer1)}
                         </div>
                         <div>
-                            ${toChild(() => TimelineData({ gif: gif, uncompress: lzw_uncompress_timeline, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame) }))}
+                            ${toChild(() => TimelineData({ gif: gif, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame) }))}
                         </div>
                     </div>
                 `
@@ -89,11 +89,12 @@ export function App(props: {}): AppComponent {
                     dispose();
                     gifList.set(gifList().filter(c => c !== gifVisualizer));
                     gifs = gifs.filter(_g => _g !== gif);
+                    LZWParallelFacade.freeGif(gif.gif);
                 };
 
                 gifList.set(gifList().concat(gifVisualizer));
 
-                const descriptor = await renderer.addGifToRender(gif, gifVisualizer1.getCanvas(), { uncompress: lzw_uncompress, algorithm: 'GL' });
+                const descriptor = await renderer.addGifToRender(gif, gifVisualizer1.getCanvas(), { algorithm: 'GL', thread: LZWThread.main });
 
                 rerender = () => {
                     if (!isPlay()) {
