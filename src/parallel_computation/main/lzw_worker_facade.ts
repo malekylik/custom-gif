@@ -26,7 +26,11 @@ export function createLZWWorkerFacade<inM extends ParallelComputationMessage, ou
                 pendingMessage.delete(sendableMessage.id);
             }
 
-            communicatable.postMessage(sendableMessage, transfarable);
+            if (transfarable) {
+                communicatable.postMessage(sendableMessage, transfarable);
+            } else {
+                communicatable.postMessage(sendableMessage);
+            }
 
             let resolve = (v: U) => {};
             let p = new Promise<U>((r) => {
@@ -40,7 +44,12 @@ export function createLZWWorkerFacade<inM extends ParallelComputationMessage, ou
 
         reply<T extends Omit<outM, 'id'>>(message: T, to: inM, transfarable?: Transferable[]): void {
             const sendableMessage = addIdToMessage(message, to.id);
-            communicatable.postMessage(sendableMessage, transfarable);
+
+            if (transfarable) {
+                communicatable.postMessage(sendableMessage, transfarable);
+            } else {
+                communicatable.postMessage(sendableMessage);
+            }
         },
 
         on(l: (e: inM) => void): void {

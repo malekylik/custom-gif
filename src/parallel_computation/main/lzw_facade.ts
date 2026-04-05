@@ -12,6 +12,7 @@ type WorkerType = {
     buffer: Uint8Array;
     priority: LZWThread;
     gifToId: Map<GIF, number>;
+    jobs: ((w: WorkerType) => void)[];
 };
 
 let workers: WorkerType[] = [];
@@ -32,6 +33,8 @@ function lzwParallelFacade() {
         buffer: new Uint8Array(currentBufferSize),
         priority: LZWThread.main,
         gifToId: new Map(),
+
+        jobs: [],
     });
 
     for (let i = 0; i < MAX_BACKGROUND_WORKERS; i++) {
@@ -42,6 +45,8 @@ function lzwParallelFacade() {
             priority: LZWThread.timeline,
 
             gifToId: new Map(),
+
+            jobs: [],
         });
     }
 
@@ -55,9 +60,13 @@ function lzwParallelFacade() {
             let gifBuffer = gif.buffer.buffer as ArrayBuffer;
 
             for (let w of workers) {
+                if (w.occupied) {
+                    await scheduleJob(w.jobs);
+                }
                 w.occupied = true;
                 let r: LZWInitOutMessage = await w.worker.send({ type: 'init', props: { gif: gifBuffer, screenWidth: gif.screenDescriptor.screenWidth, screenHeight: gif.screenDescriptor.screenHeight } }, [gifBuffer]);
-                w.occupied = false;
+
+                freeWorker(w);
 
                 w.gifToId.set(gif, r.props.id);
 
@@ -73,14 +82,20 @@ function lzwParallelFacade() {
         },
 
         async freeGif(gif: GIF): Promise<void> {
-            // let id = gifToId.get(gif);
-            // await Promise.all([
-            //     workerFacade.send({ type: 'free', props: { id } }),
-            //     workerTimelineFacade.send({ type: 'free', props: { id } }),
-            // ]);
+            return Promise.all(workers.map(async w => {
+                if (w.occupied) {
+                    await scheduleJob(w.jobs);
+                }
 
-            // gifToId.delete(gif);
-            // gifToIdTimline.delete(gif);
+                let id = w.gifToId.get(gif);
+
+                w.occupied = true;
+                await w.worker.send({ type: 'free', props: { id: id } });
+
+                w.gifToId.delete(gif);
+
+                freeWorker(w);
+            })).then();
         },
 
         // Add multiple thread for lzw
@@ -105,25 +120,15 @@ function lzwParallelFacade() {
 
             return ({
                 readBuffer(): Uint8Array {
-                    freeWorker();
+                    freeWorker(worker);
 
                     return worker.buffer;
                 },
 
                 [Symbol.dispose]() {
-                    freeWorker()
+                    freeWorker(worker)
                 }
             });
-
-            function freeWorker() {
-                worker.occupied = false;
-
-                if (jobs.length > 0) {
-                    const job = jobs[0];
-                    jobs = jobs.slice(1);
-                    job(worker);
-                }
-            }
         },
 
         getNumberOfFreeWorkers(priority: LZWThread): number {
@@ -139,6 +144,14 @@ function lzwParallelFacade() {
             return freeWorkers[0];
         }
 
+        return scheduleJob(jobs);
+    }
+
+    function isFreeWorker(worker: WorkerType, priority: LZWThread): boolean {
+        return !worker.occupied && worker.priority <= priority;
+    }
+
+    function scheduleJob(jobs: ((w: WorkerType) => void)[]): Promise<WorkerType> {
         let release = (w: WorkerType) => {};
         let job = new Promise<WorkerType>((r) => { release = r; });
 
@@ -147,8 +160,20 @@ function lzwParallelFacade() {
         return job;
     }
 
-    function isFreeWorker(worker: WorkerType, priority: LZWThread): boolean {
-        return !worker.occupied && worker.priority <= priority;
+    function freeWorker(worker: WorkerType): void {
+        worker.occupied = false;
+
+        if (worker.jobs.length > 0) {
+            const job = worker.jobs[0];
+            worker.jobs = worker.jobs.slice(1);
+            job(worker);
+        }
+
+        if (jobs.length > 0) {
+            const job = jobs[0];
+            jobs = jobs.slice(1);
+            job(worker);
+        }
     }
 }
 
