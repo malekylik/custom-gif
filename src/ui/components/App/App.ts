@@ -58,14 +58,14 @@ export function App(props: {}): AppComponent {
                 const isPlay = signal(false);
                 const currentFrameNumber = signal(1);
                 const totalFrameNumber = signal(gif.gif.images.length);
-                const effects = signal([]);
+                const effects = signal<Effect[]>([]);
                 const renderNext = signal(() => Promise.resolve());
 
                 const removeSelectedEffect = (effectIndex: number) => {
                     renderer.removeEffectFromGif(descriptor, effects()[effectIndex]);
                 };
 
-                const gifVisualizer1 = GifVisualizer({
+                const gifVisualizer = GifVisualizer({
                     isPlay, renderNext, currentFrameNumber, totalFrameNumber, effects: effects,
                     rerender: () => rerender(), onClose: () => close(), removeSelectedEffect: removeSelectedEffect,
                     isEffectSelectedToAdd: () => selectedEffect() !== null, addSelectedEffect: () => { const factor = getEffectFactory(selectedEffect()); renderer.addEffectToGif(descriptor, 0, 1, data => factor(data)); }
@@ -73,13 +73,13 @@ export function App(props: {}): AppComponent {
 
                 const timelineHeight = 80;
 
-                const gifVisualizer = html`
+                const gifVisualizerWrapper = html`
                     <div>
                         <div>
-                            ${toChild(() => gifVisualizer1)}
+                            ${toChild(() => gifVisualizer)}
                         </div>
                         <div>
-                            ${toChild(() => TimelineData({ gif: gif, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame) }))}
+                            ${toChild(() => TimelineData({ gif: gif, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame), effects }))}
                         </div>
                     </div>
                 `
@@ -87,14 +87,14 @@ export function App(props: {}): AppComponent {
                 close = () => {
                     renderer.dispose();
                     dispose();
-                    gifList.set(gifList().filter(c => c !== gifVisualizer));
+                    gifList.set(gifList().filter(c => c !== gifVisualizerWrapper));
                     gifs = gifs.filter(_g => _g !== gif);
                     LZWParallelFacade.freeGif(gif.gif);
                 };
 
-                gifList.set(gifList().concat(gifVisualizer));
+                gifList.set(gifList().concat(gifVisualizerWrapper));
 
-                const descriptor = await renderer.addGifToRender(gif, gifVisualizer1.getCanvas(), { algorithm: 'GL', thread: LZWThread.main });
+                const descriptor = await renderer.addGifToRender(gif, gifVisualizer.getCanvas(), { algorithm: 'GL', thread: LZWThread.main });
 
                 rerender = () => {
                     if (!isPlay()) {

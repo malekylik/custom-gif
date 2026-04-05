@@ -1,4 +1,4 @@
-import { ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
+import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, reScale, toComponent } from "../utils";
 import { createGLDrawer } from "../../../rendering/gl/gl_api/gl-drawer";
@@ -13,6 +13,8 @@ import { FlipRenderResultsRenderPass } from "../../../rendering/gl/render-pass/f
 import { IGLTexture } from "../../../rendering/gl/gl_api/texture";
 import { getCurrentVisibleFrame, getNextThumbnailFrames, ScrollRenderData } from "./timeline.utils";
 import { LZWThread } from "../../../parallel_computation/main/lzw_facade";
+import { Effect as GifEffect } from '../../../rendering/api/effect';
+import { getEffectName } from "../GifEffectData/utils";
 
 export type TimelineDataProps = {
   gif: GifEntity,
@@ -20,6 +22,8 @@ export type TimelineDataProps = {
   isPlay: ReadSignal<boolean>;
   timelineHeight: number;
   render: (frame: number) => void;
+
+  effects: ReadSignal<GifEffect[]>;
 };
 
 let id = 0;
@@ -41,7 +45,7 @@ export function TimelineData(props: TimelineDataProps): Component {
     let offset = 0;
     let maxFrameInTimeline = 0;
 
-    let currentScrollPosition = 0;
+    let currentScrollPosition = signal(0);
     let scrollRenderData: ScrollRenderData = {
       currentFrame: 0,
       thumbnailFrames: [],
@@ -77,13 +81,13 @@ export function TimelineData(props: TimelineDataProps): Component {
     };
 
     let recalculateScrollState = (scrollLeft: number): void => {
-      currentScrollPosition = scrollLeft;
+      currentScrollPosition.set(scrollLeft);
 
-      scrollRenderData.currentFrame = getCurrentVisibleFrame(currentScrollPosition, adjGifWidth);
+      scrollRenderData.currentFrame = getCurrentVisibleFrame(currentScrollPosition(), adjGifWidth);
       // TODO: potentionally should be possibleMaxFrameCount + 1, because when we scroll, in some situation the use should be able to see part of first thumbnail and part of last thumbnail
       // need to update shader for that
       scrollRenderData.thumbnailFrames = getNextThumbnailFrames(scrollRenderData.currentFrame, offset, possibleMaxFrameCount).filter(v => v < gif.gif.images.length);
-      scrollRenderData.normilizedStartPadding = scrollRenderData.currentFrame * adjGifWidth - currentScrollPosition;
+      scrollRenderData.normilizedStartPadding = scrollRenderData.currentFrame * adjGifWidth - currentScrollPosition();
       scrollRenderData.frameStartOffset = 0;
 
       if (scrollRenderData.thumbnailFrames.length > 0) {
@@ -95,8 +99,18 @@ export function TimelineData(props: TimelineDataProps): Component {
       recalculateScrollState((e.target as any).scrollLeft);
     }
 
+    let froms: WriteSignal<number>[] = [];
+    let tos: WriteSignal<number>[] = [];
+
+    // TODO: remove
+    effect(() => {
+    // TODO: think how to dirty function to define
+      froms = props.effects().map((effect: GifEffect) => signal(effect.getFrom(), { dirty(prev, nexy) { return true; } }));
+      tos = props.effects().map((effect: GifEffect) => signal(effect.getTo(), { dirty(prev, nexy) { return true; } }));
+    });
+
     const view = html`
-      <div>
+      <div style="${() => `max-height: ${5 * height + 20}px; overflow-y: scroll;`}">
         <ul style="position: relative; padding: 0; height: 20px; list-style: none; overflow: hidden">
             ${toChild(() =>
               Array.from({ length: frameCount() })
@@ -106,7 +120,24 @@ export function TimelineData(props: TimelineDataProps): Component {
         <div style="${() => `display: flex; width: 100%; height: ${height}px;` + (props.isPlay() ? ' cursor: defualt': ' cursor: pointer')}">
             <canvas onClick="${toEvent(setCurrentFrame)}"></canvas>
         </div>
-        <div style="overflow: scroll; margin-top: -1px" onScroll="${toEvent(scroll)}">
+        <div style="${() => `position: relative; height: ${props.effects().length * height}px`}">
+          ${toChild(() => 
+            props.effects().map((effect, i) => {
+              const styles = () => {
+                return (
+                  `position: absolute; display: flex; width: ${(tos[i]() - froms[i]()) * frameWidth()}px; height: ${height}px; justify-content: center; align-items: center; border: 1px solid black;` +
+                  `left: ${((frameWidth() * froms[i]()) - currentScrollPosition())}px;` +
+                  `margin-top: ${i * height}px;` +
+                  `background-color: ${i % 2 === 0 ? 'black' : 'white'}; color: ${i % 2 === 0 ? 'white' : 'black'};`
+                );
+              }
+
+              return html`<div style="${styles}">
+              ${getEffectName(effect.getId())}
+            </div>`;
+          }))}
+        </div>
+        <div style="overflow: scroll; margin-top: -1px; position: sticky; bottom: 0;" onScroll="${toEvent(scroll)}">
             <div style="${() => `width: ${totalTimelineWidth}` + 'px; height: 1px'}"></div>
         </div>
       </div>
@@ -156,7 +187,7 @@ export function TimelineData(props: TimelineDataProps): Component {
           // therefore scrolling data may change during rerender
           // to avoid this, make a copy
           const currentScrollRenderData: ScrollRenderData = { ...scrollRenderData };
-          const _currentScrollPosition = currentScrollPosition;
+          const _currentScrollPosition = currentScrollPosition();
 
           // 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14
           // +       +       +          +     
