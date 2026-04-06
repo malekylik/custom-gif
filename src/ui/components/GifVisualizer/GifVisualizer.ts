@@ -9,7 +9,7 @@ type GifVisualizerProps = GifMetaDataProps & GifEffectDataProps & {
 };
 
 export type GifVisualizerComponent = Component & {
-    getCanvas: () => HTMLCanvasElement;
+  getCanvas: () => HTMLCanvasElement;
 };
 
 export function GifVisualizer(props: GifVisualizerProps): GifVisualizerComponent {

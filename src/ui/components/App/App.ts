@@ -1,6 +1,6 @@
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, readFile, reScale, toComponent } from "../utils";
-import { effect, root, signal } from "@maverick-js/signals";
+import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
 import { parseGif } from "../../../parsing/gif";
 import { createGifEntity, GifEntity } from "../../../parsing/new_gif/gif_entity";
 import { createLZWFuncFromWasm } from "../../../parsing/lzw/factory/uncompress_factory_wasm";
@@ -58,11 +58,11 @@ export function App(props: {}): AppComponent {
                 const isPlay = signal(false);
                 const currentFrameNumber = signal(1);
                 const totalFrameNumber = signal(gif.gif.images.length);
-                const effects = signal<Effect[]>([]);
+                const effects = signal<({ effect: Effect; to: WriteSignal<number>; from: WriteSignal<number>; })[]>([]);
                 const renderNext = signal(() => Promise.resolve());
 
                 const removeSelectedEffect = (effectIndex: number) => {
-                    renderer.removeEffectFromGif(descriptor, effects()[effectIndex]);
+                    renderer.removeEffectFromGif(descriptor, effects()[effectIndex].effect);
                 };
 
                 const gifVisualizer = GifVisualizer({
@@ -109,7 +109,15 @@ export function App(props: {}): AppComponent {
                 };
 
                 renderer.onEffectAdded(descriptor, (data) => {
-                    effects.set([...data.effects]);
+                    if (data.effects.length > effects().length) {
+                        // TODO: think how to dirty function to define
+                        const from = signal(data.effect.getFrom(), { dirty(prev, nexy) { return true; } });
+                        const to = signal(data.effect.getTo(), { dirty(prev, nexy) { return true; } });
+
+                        effects.set([...effects(), { effect: data.effect, from, to }]);
+                    } else {
+                        effects.set(effects().filter(e => e.effect !== data.effect));
+                    }
                 });
 
                 renderer.onFrameRender(descriptor, (data) => {

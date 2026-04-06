@@ -23,7 +23,7 @@ export type TimelineDataProps = {
   timelineHeight: number;
   render: (frame: number) => void;
 
-  effects: ReadSignal<GifEffect[]>;
+  effects: ReadSignal<({ effect: GifEffect; to: WriteSignal<number>; from: WriteSignal<number>; })[]>;
 };
 
 let id = 0;
@@ -99,18 +99,8 @@ export function TimelineData(props: TimelineDataProps): Component {
       recalculateScrollState((e.target as any).scrollLeft);
     }
 
-    let froms: WriteSignal<number>[] = [];
-    let tos: WriteSignal<number>[] = [];
-
-    // TODO: remove
-    effect(() => {
-    // TODO: think how to dirty function to define
-      froms = props.effects().map((effect: GifEffect) => signal(effect.getFrom(), { dirty(prev, nexy) { return true; } }));
-      tos = props.effects().map((effect: GifEffect) => signal(effect.getTo(), { dirty(prev, nexy) { return true; } }));
-    });
-
     const view = html`
-      <div style="${() => `max-height: ${5 * height + 20}px; overflow-y: scroll;`}">
+      <div style="${() => `max-height: ${5 * height + 20}px; overflow-y: scroll; overflow-x: hidden;`}">
         <ul style="position: relative; padding: 0; height: 20px; list-style: none; overflow: hidden">
             ${toChild(() =>
               Array.from({ length: frameCount() })
@@ -124,16 +114,20 @@ export function TimelineData(props: TimelineDataProps): Component {
           ${toChild(() => 
             props.effects().map((effect, i) => {
               const styles = () => {
+                const from = Math.max(0, effect.from() - frameStart());
+                const count = Math.min((effect.to() - frameStart()) + 1 - from, frameCount() - from);
+                const isVisible = (effect.to() - effect.from() > 0) && !((frameStart() > (effect.from() + effect.to())) || ((frameStart() + frameCount()) < effect.from()));
+
                 return (
-                  `position: absolute; display: flex; width: ${(tos[i]() - froms[i]()) * frameWidth()}px; height: ${height}px; justify-content: center; align-items: center; border: 1px solid black;` +
-                  `left: ${((frameWidth() * froms[i]()) - currentScrollPosition())}px;` +
+                  `position: absolute; display: flex; width: ${isVisible ? Math.max(Math.min(count * frameWidth(), canvasWidth() + frameWidth()), 0) : 0}px; height: ${height}px; justify-content: center; align-items: center; border: 1px solid black; display: ${isVisible ? 'flex' : 'none'};` +
+                  `left: ${from * frameWidth() + frameNumbersOffset()}px;` +
                   `margin-top: ${i * height}px;` +
                   `background-color: ${i % 2 === 0 ? 'black' : 'white'}; color: ${i % 2 === 0 ? 'white' : 'black'};`
                 );
               }
 
               return html`<div style="${styles}">
-              ${getEffectName(effect.getId())}
+              ${getEffectName(effect.effect.getId())}
             </div>`;
           }))}
         </div>
