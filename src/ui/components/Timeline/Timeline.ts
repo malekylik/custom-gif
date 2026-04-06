@@ -28,6 +28,8 @@ export type TimelineDataProps = {
 
 let id = 0;
 
+let timelineLineTitleSize = 80;
+
 export function TimelineData(props: TimelineDataProps): Component {
   return root((dispose) => {
     const { timelineHeight, gif } = props;
@@ -100,39 +102,52 @@ export function TimelineData(props: TimelineDataProps): Component {
     }
 
     const view = html`
-      <div style="${() => `max-height: ${5 * height + 20}px; overflow-y: scroll; overflow-x: hidden;`}">
-        <ul style="position: relative; padding: 0; height: 20px; list-style: none; overflow: hidden">
-            ${toChild(() =>
-              Array.from({ length: frameCount() })
-                .map((_, i) => html`<li style="${() => "position: absolute; left: " + (frameWidth() * i + frameNumbersOffset()) + "px"}">${frameStart() + i + 1}</li>`))
-            }
-          </ul>
-        <div style="${() => `display: flex; width: 100%; height: ${height}px;` + (props.isPlay() ? ' cursor: defualt': ' cursor: pointer')}">
-            <canvas onClick="${toEvent(setCurrentFrame)}"></canvas>
-        </div>
-        <div style="${() => `position: relative; height: ${props.effects().length * height}px`}">
-          ${toChild(() => 
-            props.effects().map((effect, i) => {
-              const styles = () => {
-                const from = Math.max(0, effect.from() - frameStart());
-                const count = Math.min((effect.to() - frameStart()) + 1 - from, frameCount() - from);
-                const isVisible = (effect.to() - effect.from() > 0) && !((frameStart() > (effect.from() + effect.to())) || ((frameStart() + frameCount()) < effect.from()));
+      <div style="display: flex">
+        <div style="${() => `max-height: ${5 * height + 20}px; overflow-y: scroll; overflow-x: hidden;`}">
+          <div style="display: flex; width: 100%; position: sticky; top: 0; z-index: 3; background-color: white;">
+            <div style="${() => `width: ${timelineLineTitleSize}px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding-top: 20px; border-right: 1px solid black; border-bottom: 1px solid black;`}">main frame</div>
+            <div style="width: 100%;">
+              <ul style="position: relative; padding: 0; height: 20px; list-style: none; overflow: hidden">
+                  ${toChild(() =>
+                    Array.from({ length: frameCount() })
+                      .map((_, i) => html`<li style="${() => "position: absolute; left: " + (frameWidth() * i + frameNumbersOffset()) + "px"}">${frameStart() + i + 1}</li>`))
+                  }
+                </ul>
+              <div style="${() => `display: flex; width: 100%; height: ${height}px;` + (props.isPlay() ? ' cursor: default': ' cursor: pointer')}">
+                  <canvas onClick="${toEvent(setCurrentFrame)}"></canvas>
+              </div>
+            </div>
+          </div>
+          <div style="${() => `position: relative; height: ${props.effects().length * height}px`}">
+            ${toChild(() => 
+              props.effects().map((effect, i) => {
+                const styles = () => {
+                  const from = Math.max(0, effect.from() - frameStart());
+                  const count = Math.min((effect.to() - frameStart()) + 1 - from, frameCount() - from);
+                  const isVisible = (effect.to() - effect.from() > 0) && !((frameStart() > (effect.from() + effect.to())) || ((frameStart() + frameCount()) < effect.from()));
 
-                return (
-                  `position: absolute; display: flex; width: ${isVisible ? Math.max(Math.min(count * frameWidth(), canvasWidth() + frameWidth()), 0) : 0}px; height: ${height}px; justify-content: center; align-items: center; border: 1px solid black; display: ${isVisible ? 'flex' : 'none'};` +
-                  `left: ${from * frameWidth() + frameNumbersOffset()}px;` +
-                  `margin-top: ${i * height}px;` +
-                  `background-color: ${i % 2 === 0 ? 'black' : 'white'}; color: ${i % 2 === 0 ? 'white' : 'black'};`
-                );
-              }
+                  return (
+                    `position: absolute; display: flex; width: ${isVisible ? Math.max(Math.min(count * frameWidth(), canvasWidth() + frameWidth()), 0) : 0}px; height: ${height}px; justify-content: center; align-items: center; border: 1px solid black; display: ${isVisible ? 'flex' : 'none'};` +
+                    `left: ${from * frameWidth() + frameNumbersOffset() + timelineLineTitleSize}px;` +
+                    `top: ${i * height}px;` +
+                    `background-color: ${i % 2 === 0 ? 'black' : 'white'}; color: ${i % 2 === 0 ? 'white' : 'black'};`
+                  );
+                }
 
-              return html`<div style="${styles}">
-              ${getEffectName(effect.effect.getId())}
-            </div>`;
-          }))}
-        </div>
-        <div style="overflow: scroll; margin-top: -1px; position: sticky; bottom: 0;" onScroll="${toEvent(scroll)}">
-            <div style="${() => `width: ${totalTimelineWidth}` + 'px; height: 1px'}"></div>
+                return html`
+                <div>
+                  <div style="${() => `width: ${timelineLineTitleSize}px; height: ${height}px; background-color: white; z-index: 2; position: relative; display: flex; align-items: center; justify-content: center; border-right: 1px solid black;`}">
+                    ${String(i + 1) + '.' + getEffectName(effect.effect.getId())}
+                </div>
+                  <div style="${styles}">
+                    ${getEffectName(effect.effect.getId())}
+                  </div>
+                </div>`;
+            }))}
+          </div>
+            <div style="overflow: scroll; margin-top: -1px; position: sticky; bottom: 0; z-index: 3;" onScroll="${toEvent(scroll)}">
+                <div style="${() => `width: ${totalTimelineWidth + timelineLineTitleSize}` + 'px; height: 1px'}"></div>
+            </div>
         </div>
       </div>
     `;
