@@ -24,6 +24,7 @@ export type TimelineDataProps = {
   render: (frame: number) => void;
 
   effects: ReadSignal<({ effect: GifEffect; to: WriteSignal<number>; from: WriteSignal<number>; })[]>;
+  selectedEffect: WriteSignal<number>;
 };
 
 let id = 0;
@@ -130,13 +131,22 @@ export function TimelineData(props: TimelineDataProps): Component {
                     `position: absolute; display: flex; width: ${isVisible ? Math.max(Math.min(count * frameWidth(), canvasWidth() + frameWidth()), 0) : 0}px; height: ${height}px; justify-content: center; align-items: center; border: 1px solid black; display: ${isVisible ? 'flex' : 'none'};` +
                     `left: ${from * frameWidth() + frameNumbersOffset() + timelineLineTitleSize}px;` +
                     `top: ${i * height}px;` +
-                    `background-color: ${i % 2 === 0 ? 'black' : 'white'}; color: ${i % 2 === 0 ? 'white' : 'black'};`
+                    `background-color: ${i % 2 === 0 ? 'black' : 'white'}; color: ${i % 2 === 0 ? 'white' : 'black'};` +
+                    `overflow: hidden;`
+                  );
+                }
+
+                const titleStyles = (effectNumber: number): string => {
+                  return (
+                    `width: ${timelineLineTitleSize}px; height: ${height}px; background-color: white; z-index: 2; position: relative; display: flex; align-items: center; justify-content: center; border-right: 1px solid black;` +
+                    (props.selectedEffect() === effectNumber ? 'background-color: #a9dcf3' : '') +
+                    `cursor: pointer`
                   );
                 }
 
                 return html`
                 <div>
-                  <div style="${() => `width: ${timelineLineTitleSize}px; height: ${height}px; background-color: white; z-index: 2; position: relative; display: flex; align-items: center; justify-content: center; border-right: 1px solid black;`}">
+                  <div style="${() => titleStyles(i)}" onClick="${toEvent(() => props.selectedEffect.set(i))}">
                     ${String(i + 1) + '.' + getEffectName(effect.effect.getId())}
                 </div>
                   <div style="${styles}">

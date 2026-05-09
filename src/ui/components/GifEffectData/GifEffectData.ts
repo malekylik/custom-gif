@@ -11,6 +11,7 @@ export type GifEffectDataProps = {
   isEffectSelectedToAdd: () => boolean;
   addSelectedEffect: () => void;
   removeSelectedEffect: (effectIndex: number) => void;
+  selectedEffect: WriteSignal<number>;
 };
 
 const getEffectDesc = (effectId: EffectId, from: number, to: number, index: number): string => `${index + 1}. ${getEffectName(effectId) || 'Unknown Effect'} - from: ${from + 1}; to: ${to + 1}`;
@@ -18,7 +19,7 @@ const getEffectDesc = (effectId: EffectId, from: number, to: number, index: numb
 export function GifEffectData(props: GifEffectDataProps): Component {
   return root((dispose) => {
     const effectEditorComponent = signal<Component | string | null>(null);
-    const selectedEffect = signal<number>(-1);
+    const selectedEffect = props.selectedEffect;
     let currentEditorName: string | null = null;
 
     const closeEditor = () => {
@@ -32,36 +33,54 @@ export function GifEffectData(props: GifEffectDataProps): Component {
       closeEditor();
     };
 
+    const openEffect = (_effect: { effect: GifEffect; to: WriteSignal<number>; from: WriteSignal<number>; }, i: number): boolean => {
+      const newEditorName = getEffectDesc(_effect.effect.getId(), _effect.from(), _effect.to(), i);
+
+      if (currentEditorName === newEditorName) {
+        return false;
+      }
+
+      currentEditorName = newEditorName;
+
+      const _props: EffectEditorProps = {
+        fromValue: () => _effect.from(),
+        setFromValue(n) {
+          _effect.from.set(n);
+          _effect.effect.setFrom(n);
+          props.rerender();
+        },
+        toValue: () => _effect.to(),
+        setToValue(n) {
+          _effect.to.set(n);
+          _effect.effect.setTo(n);
+          props.rerender();
+        },
+        effect: _effect.effect,
+        currentFrameNumber: props.currentFrameNumber,
+        rerender: () => props.rerender(),
+      };
+
+      effectEditorComponent.set(getEffectEditorComponent(_props, closeEditor));
+
+      return true;
+    }
+
+    effect(() => {
+      const effectIndex = selectedEffect();
+      const _effect = props.effects()[effectIndex];
+
+      if (_effect === undefined) {
+        return;
+      }
+
+      openEffect(_effect, effectIndex);
+    });
+
     const listItem = (effect: { effect: GifEffect; to: WriteSignal<number>; from: WriteSignal<number>; }, i: number): Component => {
       const onClick = () => {
-          const newEditorName = getEffectDesc(effect.effect.getId(), effect.from(), effect.to(), i);
-
-          if (currentEditorName === newEditorName) {
-            return;
-          }
-
-          currentEditorName = newEditorName;
-
-          const _props: EffectEditorProps = {
-            fromValue: () => effect.from(),
-            setFromValue(n) {
-              effect.from.set(n);
-              effect.effect.setFrom(n);
-              props.rerender();
-            },
-            toValue: () => effect.to(),
-            setToValue(n) {
-              effect.to.set(n);
-              effect.effect.setTo(n);
-              props.rerender();
-            },
-            effect: effect.effect,
-            currentFrameNumber: props.currentFrameNumber,
-            rerender: () => props.rerender(),
-          };
-
-          effectEditorComponent.set(getEffectEditorComponent(_props, closeEditor));
+        if (openEffect(effect, i)) {
           selectedEffect.set(i);
+        }
       };
 
       const getColor = () => effect.effect.shouldBeApplied(props.currentFrameNumber() - 1) ? 'color: green' : '';

@@ -32,8 +32,6 @@ workerFacade.on(async (e) => {
     if (e.type === 'free') {
         map.delete(e.props.id);
 
-        console.log('worker map', map);
-
         workerFacade.reply({ type: 'free', props: undefined }, e);
     }
 
