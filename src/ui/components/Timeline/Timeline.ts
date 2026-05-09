@@ -1,4 +1,4 @@
-import { ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
+import { effect, ReadSignal, root, signal, WriteSignal } from "@maverick-js/signals";
 import { html, toChild, toEvent } from "../../parsing";
 import { Component, reScale, toComponent } from "../utils";
 import { createGLDrawer } from "../../../rendering/gl/gl_api/gl-drawer";
@@ -13,6 +13,8 @@ import { FlipRenderResultsRenderPass } from "../../../rendering/gl/render-pass/f
 import { IGLTexture } from "../../../rendering/gl/gl_api/texture";
 import { getCurrentVisibleFrame, getNextThumbnailFrames, ScrollRenderData } from "./timeline.utils";
 import { LZWThread } from "../../../parallel_computation/main/lzw_facade";
+import { Effect as GifEffect } from '../../../rendering/api/effect';
+import { getEffectName } from "../GifEffectData/utils";
 
 export type TimelineDataProps = {
   gif: GifEntity,
@@ -20,9 +22,14 @@ export type TimelineDataProps = {
   isPlay: ReadSignal<boolean>;
   timelineHeight: number;
   render: (frame: number) => void;
+
+  effects: ReadSignal<({ effect: GifEffect; to: WriteSignal<number>; from: WriteSignal<number>; })[]>;
+  selectedEffect: WriteSignal<number>;
 };
 
 let id = 0;
+
+let timelineLineTitleSize = 80;
 
 export function TimelineData(props: TimelineDataProps): Component {
   return root((dispose) => {
@@ -41,7 +48,7 @@ export function TimelineData(props: TimelineDataProps): Component {
     let offset = 0;
     let maxFrameInTimeline = 0;
 
-    let currentScrollPosition = 0;
+    let currentScrollPosition = signal(0);
     let scrollRenderData: ScrollRenderData = {
       currentFrame: 0,
       thumbnailFrames: [],
@@ -77,13 +84,13 @@ export function TimelineData(props: TimelineDataProps): Component {
     };
 
     let recalculateScrollState = (scrollLeft: number): void => {
-      currentScrollPosition = scrollLeft;
+      currentScrollPosition.set(scrollLeft);
 
-      scrollRenderData.currentFrame = getCurrentVisibleFrame(currentScrollPosition, adjGifWidth);
+      scrollRenderData.currentFrame = getCurrentVisibleFrame(currentScrollPosition(), adjGifWidth);
       // TODO: potentionally should be possibleMaxFrameCount + 1, because when we scroll, in some situation the use should be able to see part of first thumbnail and part of last thumbnail
       // need to update shader for that
       scrollRenderData.thumbnailFrames = getNextThumbnailFrames(scrollRenderData.currentFrame, offset, possibleMaxFrameCount).filter(v => v < gif.gif.images.length);
-      scrollRenderData.normilizedStartPadding = scrollRenderData.currentFrame * adjGifWidth - currentScrollPosition;
+      scrollRenderData.normilizedStartPadding = scrollRenderData.currentFrame * adjGifWidth - currentScrollPosition();
       scrollRenderData.frameStartOffset = 0;
 
       if (scrollRenderData.thumbnailFrames.length > 0) {
@@ -96,18 +103,61 @@ export function TimelineData(props: TimelineDataProps): Component {
     }
 
     const view = html`
-      <div>
-        <ul style="position: relative; padding: 0; height: 20px; list-style: none; overflow: hidden">
-            ${toChild(() =>
-              Array.from({ length: frameCount() })
-                .map((_, i) => html`<li style="${() => "position: absolute; left: " + (frameWidth() * i + frameNumbersOffset()) + "px"}">${frameStart() + i + 1}</li>`))
-            }
-          </ul>
-        <div style="${() => `display: flex; width: 100%; height: ${height}px;` + (props.isPlay() ? ' cursor: defualt': ' cursor: pointer')}">
-            <canvas onClick="${toEvent(setCurrentFrame)}"></canvas>
-        </div>
-        <div style="overflow: scroll; margin-top: -1px" onScroll="${toEvent(scroll)}">
-            <div style="${() => `width: ${totalTimelineWidth}` + 'px; height: 1px'}"></div>
+      <div style="display: flex">
+        <div style="${() => `max-height: ${5 * height + 20}px; overflow-y: scroll; overflow-x: hidden;`}">
+          <div style="display: flex; width: 100%; position: sticky; top: 0; z-index: 3; background-color: white;">
+            <div style="${() => `width: ${timelineLineTitleSize}px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding-top: 20px; border-right: 1px solid black; border-bottom: 1px solid black;`}">main frame</div>
+            <div style="width: 100%;">
+              <ul style="position: relative; padding: 0; height: 20px; list-style: none; overflow: hidden">
+                  ${toChild(() =>
+                    Array.from({ length: frameCount() })
+                      .map((_, i) => html`<li style="${() => "position: absolute; left: " + (frameWidth() * i + frameNumbersOffset()) + "px"}">${frameStart() + i + 1}</li>`))
+                  }
+                </ul>
+              <div style="${() => `display: flex; width: 100%; height: ${height}px;` + (props.isPlay() ? ' cursor: default': ' cursor: pointer')}">
+                  <canvas onClick="${toEvent(setCurrentFrame)}"></canvas>
+              </div>
+            </div>
+          </div>
+          <div style="${() => `position: relative; height: ${props.effects().length * height}px`}">
+            ${toChild(() => 
+              props.effects().map((effect, i) => {
+                const styles = () => {
+                  const from = Math.max(0, effect.from() - frameStart());
+                  const count = Math.min((effect.to() - frameStart()) + 1 - from, frameCount() - from);
+                  const isVisible = (effect.to() - effect.from() > 0) && !((frameStart() > (effect.from() + effect.to())) || ((frameStart() + frameCount()) < effect.from()));
+
+                  return (
+                    `position: absolute; display: flex; width: ${isVisible ? Math.max(Math.min(count * frameWidth(), canvasWidth() + frameWidth()), 0) : 0}px; height: ${height}px; justify-content: center; align-items: center; border: 1px solid black; display: ${isVisible ? 'flex' : 'none'};` +
+                    `left: ${from * frameWidth() + frameNumbersOffset() + timelineLineTitleSize}px;` +
+                    `top: ${i * height}px;` +
+                    `background-color: ${i % 2 === 0 ? 'black' : 'white'}; color: ${i % 2 === 0 ? 'white' : 'black'};` +
+                    `overflow: hidden;`
+                  );
+                }
+
+                const titleStyles = (effectNumber: number): string => {
+                  return (
+                    `width: ${timelineLineTitleSize}px; height: ${height}px; background-color: white; z-index: 2; position: relative; display: flex; align-items: center; justify-content: center; border-right: 1px solid black;` +
+                    (props.selectedEffect() === effectNumber ? 'background-color: #a9dcf3' : '') +
+                    `cursor: pointer`
+                  );
+                }
+
+                return html`
+                <div>
+                  <div style="${() => titleStyles(i)}" onClick="${toEvent(() => props.selectedEffect.set(i))}">
+                    ${String(i + 1) + '.' + getEffectName(effect.effect.getId())}
+                </div>
+                  <div style="${styles}">
+                    ${getEffectName(effect.effect.getId())}
+                  </div>
+                </div>`;
+            }))}
+          </div>
+            <div style="overflow: scroll; margin-top: -1px; position: sticky; bottom: 0; z-index: 3;" onScroll="${toEvent(scroll)}">
+                <div style="${() => `width: ${totalTimelineWidth + timelineLineTitleSize}` + 'px; height: 1px'}"></div>
+            </div>
         </div>
       </div>
     `;
@@ -156,7 +206,7 @@ export function TimelineData(props: TimelineDataProps): Component {
           // therefore scrolling data may change during rerender
           // to avoid this, make a copy
           const currentScrollRenderData: ScrollRenderData = { ...scrollRenderData };
-          const _currentScrollPosition = currentScrollPosition;
+          const _currentScrollPosition = currentScrollPosition();
 
           // 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14
           // +       +       +          +     

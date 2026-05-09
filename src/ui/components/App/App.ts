@@ -1,9 +1,8 @@
 import { html, toChild, toEvent } from "../../parsing";
-import { Component, readFile, reScale, toComponent } from "../utils";
-import { effect, root, signal } from "@maverick-js/signals";
+import { Component, readFile, toComponent } from "../utils";
+import { effect, root, signal, WriteSignal } from "@maverick-js/signals";
 import { parseGif } from "../../../parsing/gif";
 import { createGifEntity, GifEntity } from "../../../parsing/new_gif/gif_entity";
-import { createLZWFuncFromWasm } from "../../../parsing/lzw/factory/uncompress_factory_wasm";
 import { BasicRenderer } from "../../../rendering/gl/renderer";
 import { GifVisualizer } from "../GifVisualizer/GifVisualizer";
 import { AllEffectList } from "../AllEffectList/AllEffectList";
@@ -23,19 +22,19 @@ export function App(props: {}): AppComponent {
     let gifs: GifEntity[] = [];
     const gifList = signal<Component[]>([]);
 
-    const selectedEffect = signal(null);
+    const selectedEffect = signal<number | null>(null);
 
     const selectEffect = (effectId: number): void => {
         selectedEffect.set(effectId);
     };
 
-    const getEffectFactory = (effectId: number): (data: { screenWidth: number; screenHeight: number; from: number; to: number; }) => Effect | null => {
+    const getEffectFactory = (effectId: number | null): (data: { screenWidth: number; screenHeight: number; from: number; to: number; }) => Effect | null => {
         if (effectId === MadnessEffectId) return (data) => createMadnessEffect(data);
         else if (effectId === DarkingEffectId) return (data) => createDarkingEffect(data, { direction: DarkingDirection.in, color: getBlackRGBA() });
         else if (effectId === BlackAndWhiteEffectId) return (data) => createBlackAndWhiteEffect(data);
         else if (effectId === EdgeDetectionEffectId) return (data) => createEdgeDetectionEffect(data);
 
-        return null;
+        return () => null;
     }
 
     const fileChange = async (e: Event): Promise<void> => {
@@ -58,28 +57,30 @@ export function App(props: {}): AppComponent {
                 const isPlay = signal(false);
                 const currentFrameNumber = signal(1);
                 const totalFrameNumber = signal(gif.gif.images.length);
-                const effects = signal([]);
+                const effects = signal<({ effect: Effect; to: WriteSignal<number>; from: WriteSignal<number>; })[]>([]);
                 const renderNext = signal(() => Promise.resolve());
 
+                const selectedEffectNumber = signal(-1);
+
                 const removeSelectedEffect = (effectIndex: number) => {
-                    renderer.removeEffectFromGif(descriptor, effects()[effectIndex]);
+                    renderer.removeEffectFromGif(descriptor, effects()[effectIndex].effect);
                 };
 
-                const gifVisualizer1 = GifVisualizer({
-                    isPlay, renderNext, currentFrameNumber, totalFrameNumber, effects: effects,
+                const gifVisualizer = GifVisualizer({
+                    isPlay, renderNext, currentFrameNumber, totalFrameNumber, effects: effects, selectedEffect: selectedEffectNumber,
                     rerender: () => rerender(), onClose: () => close(), removeSelectedEffect: removeSelectedEffect,
                     isEffectSelectedToAdd: () => selectedEffect() !== null, addSelectedEffect: () => { const factor = getEffectFactory(selectedEffect()); renderer.addEffectToGif(descriptor, 0, 1, data => factor(data)); }
                 });
 
                 const timelineHeight = 80;
 
-                const gifVisualizer = html`
+                const gifVisualizerWrapper = html`
                     <div>
                         <div>
-                            ${toChild(() => gifVisualizer1)}
+                            ${toChild(() => gifVisualizer)}
                         </div>
                         <div>
-                            ${toChild(() => TimelineData({ gif: gif, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame) }))}
+                            ${toChild(() => TimelineData({ gif: gif, currentFrameNumber, isPlay, timelineHeight: timelineHeight, render: (frame: number) => render(frame), effects, selectedEffect: selectedEffectNumber }))}
                         </div>
                     </div>
                 `
@@ -87,14 +88,14 @@ export function App(props: {}): AppComponent {
                 close = () => {
                     renderer.dispose();
                     dispose();
-                    gifList.set(gifList().filter(c => c !== gifVisualizer));
+                    gifList.set(gifList().filter(c => c !== gifVisualizerWrapper));
                     gifs = gifs.filter(_g => _g !== gif);
                     LZWParallelFacade.freeGif(gif.gif);
                 };
 
-                gifList.set(gifList().concat(gifVisualizer));
+                gifList.set(gifList().concat(gifVisualizerWrapper));
 
-                const descriptor = await renderer.addGifToRender(gif, gifVisualizer1.getCanvas(), { algorithm: 'GL', thread: LZWThread.main });
+                const descriptor = await renderer.addGifToRender(gif, gifVisualizer.getCanvas(), { algorithm: 'GL', thread: LZWThread.main });
 
                 rerender = () => {
                     if (!isPlay()) {
@@ -109,7 +110,15 @@ export function App(props: {}): AppComponent {
                 };
 
                 renderer.onEffectAdded(descriptor, (data) => {
-                    effects.set([...data.effects]);
+                    if (data.effects.length > effects().length) {
+                        // TODO: think how to dirty function to define
+                        const from = signal(data.effect.getFrom(), { dirty(prev, nexy) { return true; } });
+                        const to = signal(data.effect.getTo(), { dirty(prev, nexy) { return true; } });
+
+                        effects.set([...effects(), { effect: data.effect, from, to }]);
+                    } else {
+                        effects.set(effects().filter(e => e.effect !== data.effect));
+                    }
                 });
 
                 renderer.onFrameRender(descriptor, (data) => {

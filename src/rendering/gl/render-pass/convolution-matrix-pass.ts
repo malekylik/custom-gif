@@ -43,8 +43,6 @@ export class ConvolutionMatrixRenderPass<MemoryInput> implements RenderPass<Memo
     execute(args: RenderPassArgs<MemoryInput, ConvolutionMatrixPassGlobals, ConvolutionMatrixPassTextures>): RenderResult {
         const { textures, drawingTarget } = args;
 
-        console.log(computeKernelWeight(args.globals.kernel), computeKernelWeight(args.globals.kernel));
-
         this.gpuProgram.useProgram(this.drawer.getGL());
         this.gpuProgram.setTextureUniform(this.drawer.getGL(), 'targetTexture', textures.targetTexture);
         this.gpuProgram.setUniform1fv(this.drawer.getGL(), 'kernel', mat3ToVec1(args.globals.kernel));
