@@ -1,7 +1,7 @@
 import { ImageDescriptor } from 'src/parsing/gif/image_descriptor';
 import { GIF, restoreGif } from '../../parsing/gif/parser';
 import { InMessages, LZWInitOutMessage, LZWUncompressOutMessage, OutMessages } from '../protocol';
-import LZWParallel from '../worker/lzw_parallel.ts?url';
+import LZWParallel from '../worker/lzw_parallel.ts?worker&url';
 import { createLZWWorkerFacade } from './lzw_worker_facade';
 
 const MAX_BACKGROUND_WORKERS = 3;

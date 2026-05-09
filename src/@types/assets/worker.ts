@@ -1,0 +1,4 @@
+declare module '*?worker&url' {
+  export const source: string
+  export default source;
+}
